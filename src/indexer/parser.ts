@@ -4,9 +4,12 @@
  */
 
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import Parser from "tree-sitter";
 import type { SymbolKind } from "../graph/types.js";
 import { getLanguageConfig } from "./languages.js";
+
+const require = createRequire(import.meta.url);
 
 // ─── Public types ───────────────────────────────────────────────────
 
