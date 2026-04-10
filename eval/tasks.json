@@ -1,0 +1,57 @@
+{
+  "tasks": [
+    {
+      "id": "discovery-1",
+      "category": "discovery",
+      "prompt": "Find all the validator-related functions and classes in the pydantic codebase. List the key files and what each one does for validation.",
+      "expected_files": [
+        "pydantic/v1/validators.py",
+        "pydantic/_internal/_validate_call.py",
+        "pydantic/_internal/_validators.py"
+      ],
+      "rubric": "Should identify validator files, explain validator registration mechanism, mention both v1 and v2 validators"
+    },
+    {
+      "id": "discovery-2",
+      "category": "discovery",
+      "prompt": "Find where pydantic handles JSON schema generation. What are the key files and classes involved?",
+      "expected_files": [
+        "pydantic/json_schema.py",
+        "pydantic/_internal/_generate_schema.py"
+      ],
+      "rubric": "Should find json_schema.py, GenerateJsonSchema class, and the internal schema generation pipeline"
+    },
+    {
+      "id": "comprehension-1",
+      "category": "comprehension",
+      "prompt": "Explain how pydantic's BaseModel.__init__ works. Trace the initialization flow from when a user creates a model instance to when fields are validated.",
+      "expected_files": [
+        "pydantic/main.py",
+        "pydantic/_internal/_model_construction.py"
+      ],
+      "rubric": "Should trace BaseModel.__init__ through model construction, field validation, and explain the __pydantic_validator__ usage"
+    },
+    {
+      "id": "comprehension-2",
+      "category": "comprehension",
+      "prompt": "How does pydantic handle custom field types and type coercion? Explain the mechanism from type annotation to actual coercion.",
+      "expected_files": [
+        "pydantic/fields.py",
+        "pydantic/_internal/_fields.py",
+        "pydantic/_internal/_generate_schema.py"
+      ],
+      "rubric": "Should explain Field class, FieldInfo, how types are mapped to validators, and the schema generation that drives coercion"
+    },
+    {
+      "id": "impact-1",
+      "category": "impact",
+      "prompt": "If I change the BaseModel class in pydantic/main.py, what other files and features would be affected? List the direct and indirect dependents.",
+      "expected_files": [
+        "pydantic/main.py",
+        "pydantic/dataclasses.py",
+        "pydantic/_internal/_model_construction.py"
+      ],
+      "rubric": "Should identify direct imports of BaseModel, downstream classes that inherit from it, and features that depend on BaseModel behavior (serialization, validation, JSON schema)"
+    }
+  ]
+}

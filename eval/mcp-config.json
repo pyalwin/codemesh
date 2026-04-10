@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "codemesh": {
+      "command": "node",
+      "args": ["/Users/ottimate/Documents/Personal/codemesh/dist/index.js"],
+      "env": {
+        "CODEMESH_PROJECT_ROOT": "/tmp/pydantic"
+      }
+    }
+  }
+}
