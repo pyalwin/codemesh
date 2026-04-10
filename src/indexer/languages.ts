@@ -39,6 +39,21 @@ const LANGUAGE_CONFIGS: LanguageConfig[] = [
     extensions: [".java"],
     grammarPackage: "tree-sitter-java",
   },
+  {
+    name: "swift",
+    extensions: [".swift"],
+    grammarPackage: "tree-sitter-swift",
+  },
+  {
+    name: "c",
+    extensions: [".c", ".h"],
+    grammarPackage: "tree-sitter-c",
+  },
+  {
+    name: "cpp",
+    extensions: [".cpp", ".cc", ".cxx", ".hpp", ".hh"],
+    grammarPackage: "tree-sitter-cpp",
+  },
 ];
 
 /** Map from extension -> config for O(1) lookup */

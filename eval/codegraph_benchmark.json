@@ -1,0 +1,74 @@
+{
+  "description": "Replication of CodeGraph benchmarks from github.com/colbymchenry/codegraph",
+  "model": "opus",
+  "benchmarks": [
+    {
+      "id": "alamofire",
+      "repo": "https://github.com/Alamofire/Alamofire.git",
+      "local_path": "/tmp/alamofire",
+      "language": "Swift",
+      "query": "Trace how a request flows from Session.request() through to the URLSession layer",
+      "codegraph_results": {
+        "files": 102,
+        "nodes": 2624,
+        "with_tool_calls": 3,
+        "with_time_s": 22,
+        "with_tokens": 57300,
+        "without_tool_calls": 32,
+        "without_time_s": 99,
+        "without_tokens": 52400
+      }
+    },
+    {
+      "id": "excalidraw",
+      "repo": "https://github.com/excalidraw/excalidraw.git",
+      "local_path": "/tmp/excalidraw",
+      "language": "TypeScript",
+      "query": "How does collaborative editing and real-time sync work?",
+      "codegraph_results": {
+        "files": 626,
+        "nodes": 9859,
+        "with_tool_calls": 3,
+        "with_time_s": 29,
+        "with_tokens": 57100,
+        "without_tool_calls": 47,
+        "without_time_s": 105,
+        "without_tokens": 77900
+      }
+    },
+    {
+      "id": "vscode",
+      "repo": "https://github.com/microsoft/vscode.git",
+      "local_path": "/tmp/vscode",
+      "language": "TypeScript",
+      "query": "How does the extension host communicate with the main process?",
+      "codegraph_results": {
+        "files": 4002,
+        "nodes": 59377,
+        "with_tool_calls": 3,
+        "with_time_s": 17,
+        "with_tokens": 56600,
+        "without_tool_calls": 52,
+        "without_time_s": 97,
+        "without_tokens": 89400
+      }
+    },
+    {
+      "id": "swift-compiler",
+      "repo": "https://github.com/swiftlang/swift.git",
+      "local_path": "/tmp/swift",
+      "language": "Swift/C++",
+      "query": "How does the Swift compiler handle error diagnostics?",
+      "codegraph_results": {
+        "files": 25874,
+        "nodes": 272898,
+        "with_tool_calls": 6,
+        "with_time_s": 35,
+        "with_tokens": 77400,
+        "without_tool_calls": 37,
+        "without_time_s": 128,
+        "without_tokens": 99100
+      }
+    }
+  ]
+}
