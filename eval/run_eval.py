@@ -70,13 +70,14 @@ def load_tasks(filter_ids: Optional[List[str]] = None) -> List[Dict]:
     return tasks
 
 
-def run_claude(prompt: str, mode: str) -> dict:
+def run_claude(prompt: str, mode: str, model: str = "opus") -> dict:
     """Run claude --print and return parsed JSON result."""
     result: Optional[subprocess.CompletedProcess[str]] = None
     cmd = [
         "claude",
         "--print",
         "--output-format", "json",
+        "--model", model,
         "--max-budget-usd", "1.00",
     ]
 
@@ -156,15 +157,14 @@ def run_claude(prompt: str, mode: str) -> dict:
         }
 
 
-def save_result(mode: str, task_id: str, result: dict, task_meta: dict) -> None:
+def save_result(out_dir_str: str, task_id: str, result: dict, task_meta: dict) -> None:
     """Save a single result as JSON."""
-    out_dir = RESULTS_DIR / mode
+    out_dir = Path(out_dir_str)
     out_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "task_id": task_id,
         "category": task_meta.get("category", ""),
         "prompt": task_meta.get("prompt", ""),
-        "mode": mode,
         **result,
     }
     with open(out_dir / f"{task_id}.json", "w") as f:
@@ -303,9 +303,18 @@ def main() -> None:
     dry_run = "--dry-run" in args
     codemesh_only = "--codemesh-only" in args
     baseline_only = "--baseline-only" in args
-    task_filter = [a for a in args if not a.startswith("--")]
+    parallel = "--parallel" in args or (not codemesh_only and not baseline_only)
+
+    # Extract --model value
+    model = "opus"
+    for i, a in enumerate(args):
+        if a == "--model" and i + 1 < len(args):
+            model = args[i + 1]
+
+    task_filter = [a for a in args if not a.startswith("--") and a not in ("opus", "sonnet", "haiku")]
 
     print(f"{BLUE}{BOLD}=== Codemesh Eval Framework ==={NC}")
+    print(f"  Model: {BOLD}{model}{NC}")
     print()
 
     # Load tasks
@@ -346,63 +355,65 @@ def main() -> None:
     if not validate_prerequisites():
         sys.exit(1)
 
-    # Create output directories
-    (RESULTS_DIR / "baseline").mkdir(parents=True, exist_ok=True)
-    (RESULTS_DIR / "codemesh").mkdir(parents=True, exist_ok=True)
+    # Model-specific results directory
+    model_results_dir = RESULTS_DIR / model
+    (model_results_dir / "baseline").mkdir(parents=True, exist_ok=True)
+    (model_results_dir / "codemesh").mkdir(parents=True, exist_ok=True)
 
     # Collect results for comparison table
-    all_results: dict[str, dict[str, dict]] = {"baseline": {}, "codemesh": {}}
+    all_results: Dict[str, Dict[str, dict]] = {"baseline": {}, "codemesh": {}}
 
-    # Phase 1: Baseline
-    if not codemesh_only:
-      print(f"{BLUE}--- Phase 1: Baseline (no Codemesh) ---{NC}")
-      for task in tasks:
+    def run_and_record(task: dict, mode: str) -> None:
         tid = task["id"]
         cat = task["category"]
         prompt = task["prompt"]
-        print(f"  {YELLOW}[baseline]{NC} Running task {BLUE}{tid}{NC} ({cat})...")
-        result = run_claude(prompt, "baseline")
-        save_result("baseline", tid, result, task)
+        print(f"  {YELLOW}[{mode}]{NC} Running task {BLUE}{tid}{NC} ({cat})...")
+        result = run_claude(prompt, mode, model)
+        save_result(str(model_results_dir / mode), tid, result, task)
         if "error" in result:
-            print(f"  {RED}[FAIL]{NC} {tid}: {result['error'][:100]}")
+            print(f"  {RED}[FAIL]{NC} {mode}/{tid}: {result['error'][:100]}")
         else:
             print(
-                f"  {GREEN}[OK]{NC} {tid} — "
+                f"  {GREEN}[OK]{NC} {mode}/{tid} — "
                 f"turns={result['num_turns']}, "
                 f"cost=${result['cost_usd']:.4f}, "
                 f"time={result['duration_ms']/1000:.1f}s"
             )
-        all_results["baseline"][tid] = {**result, "category": cat}
-    print()
+        all_results[mode][tid] = {**result, "category": cat}
 
-    # Phase 2: Codemesh-augmented
-    if not baseline_only:
-      print(f"{BLUE}--- Phase 2: Codemesh-augmented ---{NC}")
-      for task in tasks:
-        tid = task["id"]
-        cat = task["category"]
-        prompt = task["prompt"]
-        print(f"  {YELLOW}[codemesh]{NC} Running task {BLUE}{tid}{NC} ({cat})...")
-        result = run_claude(prompt, "codemesh")
-        save_result("codemesh", tid, result, task)
-        if "error" in result:
-            print(f"  {RED}[FAIL]{NC} {tid}: {result['error'][:100]}")
-        else:
-            print(
-                f"  {GREEN}[OK]{NC} {tid} — "
-                f"turns={result['num_turns']}, "
-                f"cost=${result['cost_usd']:.4f}, "
-                f"time={result['duration_ms']/1000:.1f}s"
-            )
-        all_results["codemesh"][tid] = {**result, "category": cat}
-    print()
+    if parallel and not codemesh_only and not baseline_only:
+        # Run baseline and codemesh for each task in parallel
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        print(f"{BLUE}--- Running baseline + codemesh in parallel ---{NC}")
+        for task in tasks:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = {
+                    executor.submit(run_and_record, task, "baseline"): "baseline",
+                    executor.submit(run_and_record, task, "codemesh"): "codemesh",
+                }
+                for future in as_completed(futures):
+                    future.result()  # raises if the thread raised
+        print()
+    else:
+        # Sequential mode
+        if not codemesh_only:
+            print(f"{BLUE}--- Phase 1: Baseline (no Codemesh) ---{NC}")
+            for task in tasks:
+                run_and_record(task, "baseline")
+            print()
+
+        if not baseline_only:
+            print(f"{BLUE}--- Phase 2: Codemesh-augmented ---{NC}")
+            for task in tasks:
+                run_and_record(task, "codemesh")
+            print()
 
     # Load existing results for tasks we skipped
     for mode in ("baseline", "codemesh"):
         for task in tasks:
             tid = task["id"]
             if tid not in all_results[mode]:
-                result_file = RESULTS_DIR / mode / f"{tid}.json"
+                result_file = model_results_dir / mode / f"{tid}.json"
                 if result_file.exists():
                     with open(result_file) as f:
                         data = json.load(f)
