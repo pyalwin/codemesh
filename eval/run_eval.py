@@ -20,7 +20,7 @@ import sys
 import time
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict
 
 SCRIPT_DIR = Path(__file__).parent
 TASKS_FILE = SCRIPT_DIR / "tasks.json"
@@ -45,7 +45,7 @@ BOLD = "\033[1m"
 NC = "\033[0m"
 
 
-def load_tasks(filter_ids: list[str] | None = None) -> list[dict]:
+def load_tasks(filter_ids: Optional[List[str]] = None) -> List[Dict]:
     """Load tasks from tasks.json, optionally filtering by ID."""
     with open(TASKS_FILE) as f:
         data = json.load(f)
@@ -55,8 +55,9 @@ def load_tasks(filter_ids: list[str] | None = None) -> list[dict]:
     return tasks
 
 
-def run_claude(prompt: str, mode: str, task_id: str) -> dict:
+def run_claude(prompt: str, mode: str) -> dict:
     """Run claude --print and return parsed JSON result."""
+    result: Optional[subprocess.CompletedProcess[str]] = None
     cmd = [
         "claude",
         "--print",
@@ -115,7 +116,7 @@ def run_claude(prompt: str, mode: str, task_id: str) -> dict:
         }
     except json.JSONDecodeError as e:
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        stdout_snippet = result.stdout[:500] if result else ""
+        stdout_snippet = result.stdout[:500] if result and result.stdout else ""
         return {
             "error": f"JSON parse error: {e}",
             "result": stdout_snippet,
@@ -327,7 +328,7 @@ def main() -> None:
         cat = task["category"]
         prompt = task["prompt"]
         print(f"  {YELLOW}[baseline]{NC} Running task {BLUE}{tid}{NC} ({cat})...")
-        result = run_claude(prompt, "baseline", tid)
+        result = run_claude(prompt, "baseline")
         save_result("baseline", tid, result, task)
         if "error" in result:
             print(f"  {RED}[FAIL]{NC} {tid}: {result['error'][:100]}")
@@ -348,7 +349,7 @@ def main() -> None:
         cat = task["category"]
         prompt = task["prompt"]
         print(f"  {YELLOW}[codemesh]{NC} Running task {BLUE}{tid}{NC} ({cat})...")
-        result = run_claude(prompt, "codemesh", tid)
+        result = run_claude(prompt, "codemesh")
         save_result("codemesh", tid, result, task)
         if "error" in result:
             print(f"  {RED}[FAIL]{NC} {tid}: {result['error'][:100]}")
