@@ -1,55 +1,127 @@
-<p align="center">
-  <h1 align="center">Codemesh</h1>
-  <p align="center">
-    <strong>Intelligent code knowledge graph for AI coding agents</strong>
-  </p>
-  <p align="center">
-    <a href="#benchmarks">Benchmarks</a> &middot;
-    <a href="#quick-start">Quick Start</a> &middot;
-    <a href="#how-it-works">How It Works</a> &middot;
-    <a href="#mcp-tools">API Reference</a> &middot;
-    <a href="docs/eval-results.md">Eval Results</a>
-  </p>
-</p>
+<div align="center">
+
+# Codemesh
+
+**Intelligent code knowledge graph for AI coding agents**
+
+Reduces cost by up to 44%, speeds up exploration by up to 57%,\
+and boosts quality for smaller models to match Opus — all from a single `codemesh index`.
+
+[![Tests](https://img.shields.io/badge/tests-102%20passed-brightgreen)]()
+[![License](https://img.shields.io/badge/license-MIT-blue)]()
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)]()
+[![MCP](https://img.shields.io/badge/MCP-compatible-purple)]()
+
+[Benchmarks](#benchmarks) &middot; [Quick Start](#quick-start) &middot; [How It Works](#how-it-works) &middot; [API Reference](#mcp-tools) &middot; [Eval Results](docs/eval-results.md)
+
+</div>
 
 ---
 
-Codemesh is an MCP server that gives AI coding agents a persistent, queryable knowledge graph of your codebase. Instead of grepping through hundreds of files every session, agents query the graph and go straight to what matters.
+## The Problem
 
-**The graph gets smarter over time:** agents write back what they learn, so the next session starts informed.
+AI coding agents waste **40-80% of their tokens on discovery** — grepping through files, reading irrelevant code, and rebuilding context they've already seen in previous sessions.
 
-## Why
-
-AI coding agents waste 40-80% of their tokens on discovery — grepping, reading irrelevant files, and rebuilding context they've already seen. On a 600-file codebase, a typical exploration task involves 10+ file reads before the agent even knows what's relevant.
-
-Codemesh eliminates the discovery phase:
+On a 600-file codebase, a typical exploration task involves 10+ file reads before the agent even knows what's relevant.
 
 ```
-Before: Agent → Grep → 50 matches → Read 10 files → Understand → Work
-After:  Agent → codemesh_query → 3 relevant files → Read 1 → Work
+Before:  Agent → Grep → 50 matches → Read 10 files → Understand → Work
+After:   Agent → codemesh_query → 3 relevant files → Read 1 → Work
 ```
+
+Codemesh is an MCP server that gives agents a persistent, queryable knowledge graph. The graph gets smarter over time: agents write back what they learn, so the next session starts informed.
+
+---
 
 ## Benchmarks
 
-Evaluated on [pydantic](https://github.com/pydantic/pydantic) (656 files, 13,187 symbols) across 5 code comprehension tasks. Full methodology and raw responses in [`docs/eval-results.md`](docs/eval-results.md) and [`docs/eval-responses.md`](docs/eval-responses.md).
+Evaluated on [pydantic](https://github.com/pydantic/pydantic) (656 files, 13,187 symbols) across 5 code comprehension tasks.
 
-### Cost and Time
+Full methodology, raw responses, and judge notes: [`docs/eval-results.md`](docs/eval-results.md) &middot; [`docs/eval-responses.md`](docs/eval-responses.md)
 
-| Model | Baseline Cost | Codemesh Cost | **Saved** | Baseline Time | Codemesh Time | **Faster** |
-|---|---:|---:|---:|---:|---:|---:|
-| Opus 4.6 | $3.35 | $2.72 | **19%** | 14.5 min | 8.6 min | **41%** |
-| Sonnet 4.6 | $3.37 | $1.87 | **44%** | 20.2 min | 8.6 min | **57%** |
-| Haiku 4.5 | $2.67 | $1.79 | **33%** | 11.3 min | 9.4 min | **17%** |
+### Cost & Time
+
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th align="right">Baseline Cost</th>
+<th align="right">Codemesh Cost</th>
+<th align="right">Saved</th>
+<th align="right">Baseline Time</th>
+<th align="right">Codemesh Time</th>
+<th align="right">Faster</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Opus 4.6</strong></td>
+<td align="right">$3.35</td>
+<td align="right">$2.72</td>
+<td align="right"><strong>19%</strong></td>
+<td align="right">14.5 min</td>
+<td align="right">8.6 min</td>
+<td align="right"><strong>41%</strong></td>
+</tr>
+<tr>
+<td><strong>Sonnet 4.6</strong></td>
+<td align="right">$3.37</td>
+<td align="right">$1.87</td>
+<td align="right"><strong>44%</strong></td>
+<td align="right">20.2 min</td>
+<td align="right">8.6 min</td>
+<td align="right"><strong>57%</strong></td>
+</tr>
+<tr>
+<td><strong>Haiku 4.5</strong></td>
+<td align="right">$2.67</td>
+<td align="right">$1.79</td>
+<td align="right"><strong>33%</strong></td>
+<td align="right">11.3 min</td>
+<td align="right">9.4 min</td>
+<td align="right"><strong>17%</strong></td>
+</tr>
+</tbody>
+</table>
 
 ### Quality (1-10, LLM-as-judge)
 
-| Model | Baseline | Codemesh | **Delta** |
-|---|---:|---:|---:|
-| Opus 4.6 | 8.0 | 7.6 | -0.4 |
-| Sonnet 4.6 | 2.8 | 6.4 | **+3.6** |
-| Haiku 4.5 | 3.6 | 8.2 | **+4.6** |
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th align="right">Baseline</th>
+<th align="right">Codemesh</th>
+<th align="right">Delta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Opus 4.6</strong></td>
+<td align="right">8.0</td>
+<td align="right">7.6</td>
+<td align="right">-0.4</td>
+</tr>
+<tr>
+<td><strong>Sonnet 4.6</strong></td>
+<td align="right">2.8</td>
+<td align="right">6.4</td>
+<td align="right"><strong>+3.6</strong></td>
+</tr>
+<tr>
+<td><strong>Haiku 4.5</strong></td>
+<td align="right">3.6</td>
+<td align="right">8.2</td>
+<td align="right"><strong>+4.6</strong></td>
+</tr>
+</tbody>
+</table>
 
-> **Key finding:** Haiku + Codemesh (8.2/10, $1.79) outperforms Opus baseline (8.0/10, $3.35) at **47% lower cost**. The graph acts as an equalizer — smaller models produce Opus-quality results when they know where to look.
+> [!NOTE]
+> **Haiku + Codemesh (8.2/10, $1.79)** outperforms **Opus baseline (8.0/10, $3.35)** at 47% lower cost.
+> The graph acts as an equalizer — smaller models produce Opus-quality results when they know where to look.
+
+---
 
 ## Quick Start
 
@@ -98,94 +170,100 @@ The agent now has 6 new tools. Query the graph before reading code:
 ```
 You: "Find how pydantic handles validation"
 
-Agent: codemesh_query({ query: "validation" })
-  → 12 relevant files with summaries, 4 known workflows
+Agent calls: codemesh_query({ query: "validation" })
+       gets: 12 relevant files with summaries, 4 known workflows
 
-Agent: codemesh_context({ path: "pydantic/functional_validators.py" })
-  → symbols, imports, callers, cached summaries
+Agent calls: codemesh_context({ path: "pydantic/functional_validators.py" })
+       gets: 23 symbols, 4 imports, 2 cached summaries
 
-Agent: Read("pydantic/functional_validators.py")  // targeted read
+Agent calls: Read("pydantic/functional_validators.py")  ← targeted read
 
-Agent: codemesh_enrich({ path: "pydantic/functional_validators.py",
-  summary: "Primary V2 validator API. @field_validator for per-field,
-  @model_validator for whole-model. AfterValidator/BeforeValidator/
-  WrapValidator for Annotated[] usage." })
-  → saved for next session
+Agent calls: codemesh_enrich({
+               path: "pydantic/functional_validators.py",
+               summary: "Primary V2 validator API. @field_validator for
+                         per-field, @model_validator for whole-model..."
+             })
+       saves: summary for next session
 ```
+
+---
 
 ## How It Works
 
-Codemesh builds a persistent graph with two layers:
-
 ```
-                    ┌─────────────────────────────────┐
-                    │         Knowledge Graph          │
-                    │                                  │
-                    │  ┌───────────┐  ┌────────────┐  │
-                    │  │ Structural│  │  Semantic   │  │
-                    │  │  (auto)   │  │  (agents)   │  │
-                    │  │           │  │             │  │
-                    │  │ files     │  │ summaries   │  │
-                    │  │ symbols   │  │ workflows   │  │
-                    │  │ imports   │  │ concepts    │  │
-                    │  │ calls     │  │ related_to  │  │
-                    │  └───────────┘  └────────────┘  │
-                    │                                  │
-                    │         SQLite + FTS5            │
-                    └─────────────────────────────────┘
-                              ▲           │
-                        index │           │ query
-                              │           ▼
-                    ┌─────────┴───────────────────────┐
-                    │       MCP Server (6 tools)       │
-                    │                                  │
-                    │  query · context · enrich        │
-                    │  workflow · impact · status       │
-                    └──────────────────────────────────┘
-                              ▲           │
-                         tool │           │ result
-                        calls │           │
-                              │           ▼
-                    ┌──────────────────────────────────┐
-                    │          Claude Code              │
-                    │     (or any MCP-compatible        │
-                    │        AI coding agent)           │
-                    └──────────────────────────────────┘
+                      ┌──────────────────────────────────┐
+                      │         Knowledge Graph           │
+                      │                                   │
+                      │  ┌────────────┐ ┌─────────────┐  │
+                      │  │ Structural │ │  Semantic    │  │
+                      │  │   (auto)   │ │  (agents)   │  │
+                      │  │            │ │             │  │
+                      │  │  files     │ │  summaries  │  │
+                      │  │  symbols   │ │  workflows  │  │
+                      │  │  imports   │ │  concepts   │  │
+                      │  │  calls     │ │  related_to │  │
+                      │  └────────────┘ └─────────────┘  │
+                      │                                   │
+                      │          SQLite + FTS5            │
+                      └────────────┬──────────────────────┘
+                                   │
+                      ┌────────────┴──────────────────────┐
+                      │       MCP Server (6 tools)         │
+                      │                                    │
+                      │  query · context · enrich          │
+                      │  workflow · impact · status         │
+                      └────────────┬──────────────────────┘
+                                   │
+                      ┌────────────┴──────────────────────┐
+                      │         Claude Code                │
+                      │    (or any MCP-compatible agent)    │
+                      └────────────────────────────────────┘
 ```
 
-**Structural layer** (automatic) — tree-sitter parses your code into files, symbols (functions, classes, methods), and relationships (imports, calls, extends). Rebuilt on each index.
+**Structural layer** (automatic) — Tree-sitter parses your code into files, symbols (functions, classes, methods), and relationships (imports, calls, extends). Rebuilt on each index.
 
-**Semantic layer** (agent-built) — as agents work with your code, they write back summaries and workflow paths. These survive re-indexing and accumulate across sessions. Invalidated when referenced files change.
+**Semantic layer** (agent-built) — As agents work with your code, they write back summaries and workflow paths. These survive re-indexing and accumulate across sessions. Invalidated when referenced files change.
+
+---
 
 ## MCP Tools
 
-| Tool | Description | Example |
-|---|---|---|
-| `codemesh_query` | Search the graph by concept or symbol name | `codemesh_query({ query: "validation pipeline" })` |
-| `codemesh_context` | Full context for a file: symbols, edges, concepts, workflows | `codemesh_context({ path: "src/auth.py" })` |
-| `codemesh_enrich` | Write back what you learned about a file | `codemesh_enrich({ path: "src/auth.py", summary: "..." })` |
+| Tool | Purpose | Example |
+|:--|:--|:--|
+| `codemesh_query` | Search the graph by concept or symbol | `codemesh_query({ query: "validation pipeline" })` |
+| `codemesh_context` | Full context for a file or symbol | `codemesh_context({ path: "src/auth.py" })` |
+| `codemesh_enrich` | Write back what you learned | `codemesh_enrich({ path: "src/auth.py", summary: "..." })` |
 | `codemesh_workflow` | Record a multi-file workflow path | `codemesh_workflow({ name: "login flow", files: [...] })` |
-| `codemesh_impact` | What would be affected if you change this? | `codemesh_impact({ path: "src/models.py" })` |
-| `codemesh_status` | Graph health: node/edge counts, stale nodes | `codemesh_status()` |
+| `codemesh_impact` | What would break if you change this? | `codemesh_impact({ path: "src/models.py" })` |
+| `codemesh_status` | Graph health check | `codemesh_status()` |
+
+---
 
 ## CLI
 
 ```bash
-codemesh index      # Index the project (incremental — only re-parses changed files)
-codemesh status     # Show graph statistics
-codemesh rebuild    # Purge and re-index from scratch
-codemesh help       # Show usage
+codemesh index       # Index the project (incremental — only changed files)
+codemesh status      # Node/edge counts, stale concepts, last indexed
+codemesh rebuild     # Purge and re-index from scratch
+codemesh help        # Usage
 ```
 
-## Optional: Hooks and Skills
+---
 
-### Skill (teaches agents the workflow)
+## Optional: Hooks & Skills
 
-Copy `skills/codemesh.md` to `~/.claude/skills/` or your project's `.claude/skills/`. This teaches agents to query the graph before using Grep/Read.
+<details>
+<summary><strong>Skill</strong> — teaches agents the graph-first workflow</summary>
 
-### Hooks (automatic enrichment)
+Copy `skills/codemesh.md` to `~/.claude/skills/` or your project's `.claude/skills/`.
 
-Add to `.claude/settings.json` for automatic graph-first behavior:
+The skill instructs agents to query the graph before using Grep/Read, and to write back via `codemesh_enrich` after reading code.
+</details>
+
+<details>
+<summary><strong>Hooks</strong> — automatic pre-read context injection</summary>
+
+Add to `.claude/settings.json`:
 
 ```json
 {
@@ -202,24 +280,59 @@ Add to `.claude/settings.json` for automatic graph-first behavior:
 }
 ```
 
-- **Pre-read hook** — injects cached summaries before file reads so the agent has context
-- **Post-read hook** — nudges the agent to call `codemesh_enrich` after reading unfamiliar files
+- **Pre-read** — Injects cached summaries before file reads
+- **Post-read** — Nudges the agent to enrich after reading unfamiliar files
+</details>
+
+---
 
 ## Supported Languages
 
-Tree-sitter grammars for 14 languages:
+<table>
+<tr>
+<td>TypeScript</td><td>JavaScript</td><td>Python</td><td>Go</td><td>Rust</td><td>Java</td><td>C#</td>
+</tr>
+<tr>
+<td>Ruby</td><td>PHP</td><td>C</td><td>C++</td><td>Swift</td><td>Kotlin</td><td>Dart</td>
+</tr>
+</table>
 
-TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP, C, C++, Swift, Kotlin, and Dart.
+Any language with a [tree-sitter](https://tree-sitter.github.io/tree-sitter/) grammar can be added.
 
-Any language with a tree-sitter grammar can be added.
+---
+
+## Graph Data Model
+
+### Nodes
+
+| Type | Source | Key Fields |
+|:--|:--|:--|
+| `file` | Static (tree-sitter) | `path`, `hash`, `last_indexed_at` |
+| `symbol` | Static (tree-sitter) | `name`, `kind`, `file_path`, `line_start`, `line_end`, `signature` |
+| `concept` | Agent-written | `summary`, `last_updated_by`, `stale` |
+| `workflow` | Agent-written | `description`, `file_sequence`, `last_walked_at` |
+
+### Edges
+
+| Type | Direction | Source |
+|:--|:--|:--|
+| `contains` | file &rarr; symbol | Static |
+| `imports` | file &rarr; file | Static |
+| `calls` | symbol &rarr; symbol | Static |
+| `extends` | symbol &rarr; symbol | Static |
+| `describes` | concept &rarr; file/symbol | Agent |
+| `related_to` | concept &rarr; concept | Agent |
+| `traverses` | workflow &rarr; file | Agent |
+
+---
 
 ## Architecture
 
 ```
 codemesh/
 ├── src/
-│   ├── index.ts              # MCP server entry point (stdio transport)
-│   ├── server.ts             # Tool registration with zod schemas
+│   ├── index.ts              # MCP server entry (stdio transport)
+│   ├── server.ts             # Tool registration (zod schemas)
 │   ├── graph/
 │   │   ├── types.ts          # Node/edge type definitions
 │   │   ├── storage.ts        # StorageBackend interface (swappable)
@@ -235,93 +348,70 @@ codemesh/
 └── eval/                     # Eval framework (5 tasks, 3 models)
 ```
 
-**Storage is backend-agnostic.** The `StorageBackend` interface abstracts all persistence. v1 uses SQLite with FTS5 for zero-dependency local operation. The interface supports swapping to Memgraph, Neo4j, or other graph databases if query complexity demands it.
+Storage is **backend-agnostic**. The `StorageBackend` interface abstracts all persistence. v1 uses SQLite with FTS5 for zero-dependency local operation. The interface supports swapping to Memgraph, Neo4j, or other graph databases.
 
-## Graph Data Model
-
-### Nodes
-
-| Type | Source | Fields |
-|---|---|---|
-| `file` | Static (tree-sitter) | path, hash, last_indexed_at |
-| `symbol` | Static (tree-sitter) | name, kind, file_path, line_start, line_end, signature |
-| `concept` | Agent-written | summary, last_updated_by, stale |
-| `workflow` | Agent-written | description, file_sequence, last_walked_at |
-
-### Edges
-
-| Type | Direction | Source |
-|---|---|---|
-| `contains` | file → symbol | Static |
-| `imports` | file → file | Static |
-| `calls` | symbol → symbol | Static |
-| `extends` | symbol → symbol | Static |
-| `describes` | concept → file/symbol | Agent |
-| `related_to` | concept → concept | Agent |
-| `traverses` | workflow → file | Agent |
+---
 
 ## Eval Framework
 
-The `eval/` directory contains a reproducible evaluation harness:
+Reproducible evaluation harness with LLM-as-judge scoring:
 
 ```bash
-# Run evals against pydantic
+# Setup
 git clone --depth 1 https://github.com/pydantic/pydantic.git /tmp/pydantic
 CODEMESH_PROJECT_ROOT=/tmp/pydantic node dist/cli.js index
 
-# Run all 5 tasks for a specific model
+# Run evals (baseline + codemesh in parallel per task)
 python3 eval/run_eval.py --model opus
 python3 eval/run_eval.py --model sonnet
 python3 eval/run_eval.py --model haiku
 
-# Quality scoring (LLM-as-judge)
+# Quality scoring
 python3 eval/judge.py
 ```
 
-Tasks cover discovery, comprehension, and impact analysis. Results include cost, time, turn count, and quality scores. See [`docs/eval-results.md`](docs/eval-results.md) for full methodology.
+See [`docs/eval-results.md`](docs/eval-results.md) for full methodology and [`docs/eval-responses.md`](docs/eval-responses.md) for all 30 raw responses.
+
+---
+
+## vs. Existing Tools
+
+| Feature | [CodeGraph](https://github.com/colbymchenry/codegraph) | [Graphify](https://github.com/safishamsi/graphify) | [Axon](https://github.com/harshkedia177/axon) | **Codemesh** |
+|:--|:--:|:--:|:--:|:--:|
+| Structural indexing | Yes | Yes | Yes | Yes |
+| FTS search | Yes | &mdash; | Yes | Yes |
+| Agent write-back | &mdash; | &mdash; | &mdash; | **Yes** |
+| Workflow memory | &mdash; | &mdash; | &mdash; | **Yes** |
+| Hook interception | &mdash; | &mdash; | &mdash; | **Yes** |
+| Backend-swappable | &mdash; | &mdash; | &mdash; | **Yes** |
+| Eval framework | &mdash; | &mdash; | &mdash; | **Yes** |
+| Published benchmarks | &mdash; | &mdash; | &mdash; | **Yes** |
+
+---
 
 ## Development
 
 ```bash
-# Setup
-bun install
-
-# Build
-bun run build
-
-# Test (102 tests)
-bun run test
-
-# Watch mode
-bun run dev
-
-# Type check
-bun run lint
+bun install          # Install dependencies
+bun run build        # Compile TypeScript
+bun run test         # Run 102 tests
+bun run dev          # Watch mode
+bun run lint         # Type check
 ```
 
-## Differentiators
-
-Existing tools ([CodeGraph](https://github.com/colbymchenry/codegraph), [Graphify](https://github.com/safishamsi/graphify), [Axon](https://github.com/harshkedia177/axon)) provide read-only structural indexes. Codemesh adds:
-
-| Feature | CodeGraph | Graphify | Axon | **Codemesh** |
-|---|---|---|---|---|
-| Structural indexing | Yes | Yes | Yes | Yes |
-| FTS search | Yes | No | Yes | Yes |
-| Agent write-back | No | No | No | **Yes** |
-| Workflow memory | No | No | No | **Yes** |
-| Hook interception | No | No | No | **Yes** |
-| Backend-swappable | No | No | No | **Yes** |
-| Eval framework | No | No | No | **Yes** |
+---
 
 ## Contributing
 
-Contributions welcome. The main areas for improvement:
+Contributions welcome. Areas for improvement:
 
-- **More languages** — add tree-sitter grammars and language-specific extractors
-- **AST-diff invalidation** — function-level instead of file-level staleness detection
-- **Graph backends** — Memgraph/Neo4j adapters for the StorageBackend interface
-- **Smarter search** — embedding columns for semantic similarity alongside FTS5
-- **Agent adoption** — better patterns for getting agents to prefer graph tools without disabling Grep/Glob
+- **More languages** &mdash; Add tree-sitter grammars and language-specific extractors
+- **AST-diff invalidation** &mdash; Function-level instead of file-level staleness detection
+- **Graph backends** &mdash; Memgraph/Neo4j adapters for `StorageBackend`
+- **Semantic search** &mdash; Embedding columns alongside FTS5
+- **Agent adoption** &mdash; Better patterns for agents to prefer graph tools naturally
+
+---
 
 ## License
 
