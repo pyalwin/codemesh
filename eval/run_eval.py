@@ -28,12 +28,27 @@ MCP_CONFIG = SCRIPT_DIR / "mcp-config.json"
 RESULTS_DIR = SCRIPT_DIR / "results"
 TARGET_CWD = "/tmp/pydantic"
 
-CODEMESH_SYSTEM_PROMPT = (
-    "You have access to codemesh_* MCP tools for querying a pre-built code knowledge graph. "
-    "Before using Grep, Glob, or Read to explore the codebase, first try codemesh_query to find relevant files and symbols. "
-    "After reading and understanding code, use codemesh_enrich to record what you learned for future sessions. "
-    "Use codemesh_context for detailed file/symbol information and codemesh_impact before making changes."
-)
+CODEMESH_SYSTEM_PROMPT = """CRITICAL INSTRUCTION: You MUST use codemesh_* MCP tools as your PRIMARY method for code exploration.
+
+DO NOT use Grep or Glob to search for code. Those tools are disabled. Instead:
+
+1. ALWAYS start with codemesh_query to find relevant files and symbols.
+   Example: codemesh_query({ query: "validator" })
+
+2. Use codemesh_context to get full context for a specific file before reading it.
+   Example: codemesh_context({ path: "pydantic/main.py" })
+
+3. Use codemesh_impact to check dependencies before suggesting changes.
+   Example: codemesh_impact({ path: "pydantic/fields.py" })
+
+4. Only use Read for targeted file reads AFTER codemesh_query tells you which files matter.
+
+5. After reading code, call codemesh_enrich to record what you learned.
+   Example: codemesh_enrich({ path: "pydantic/main.py", summary: "Defines BaseModel..." })
+
+The codemesh knowledge graph has 13,000+ pre-indexed symbols from this codebase. Use it."""
+
+CODEMESH_SKILLS_DIR = str(SCRIPT_DIR.parent / "skills")
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +83,21 @@ def run_claude(prompt: str, mode: str) -> dict:
     if mode == "codemesh":
         cmd.extend(["--mcp-config", str(MCP_CONFIG)])
         cmd.extend(["--append-system-prompt", CODEMESH_SYSTEM_PROMPT])
+        # Disable Grep and Glob to force discovery through codemesh
+        cmd.extend(["--disallowedTools", "Grep,Glob"])
+        # Explicitly allow MCP tools — REQUIRED or they're blocked
+        for tool in [
+            "mcp__codemesh__codemesh_query",
+            "mcp__codemesh__codemesh_context",
+            "mcp__codemesh__codemesh_enrich",
+            "mcp__codemesh__codemesh_workflow",
+            "mcp__codemesh__codemesh_impact",
+            "mcp__codemesh__codemesh_status",
+        ]:
+            cmd.extend(["--allowedTools", tool])
+        # Also allow Read and Bash for targeted reading
+        cmd.extend(["--allowedTools", "Read"])
+        cmd.extend(["--allowedTools", "Bash"])
 
     # Build environment -- pop CLAUDECODE to avoid nested session error
     env = os.environ.copy()
@@ -271,6 +301,8 @@ def validate_prerequisites() -> bool:
 def main() -> None:
     args = sys.argv[1:]
     dry_run = "--dry-run" in args
+    codemesh_only = "--codemesh-only" in args
+    baseline_only = "--baseline-only" in args
     task_filter = [a for a in args if not a.startswith("--")]
 
     print(f"{BLUE}{BOLD}=== Codemesh Eval Framework ==={NC}")
@@ -322,8 +354,9 @@ def main() -> None:
     all_results: dict[str, dict[str, dict]] = {"baseline": {}, "codemesh": {}}
 
     # Phase 1: Baseline
-    print(f"{BLUE}--- Phase 1: Baseline (no Codemesh) ---{NC}")
-    for task in tasks:
+    if not codemesh_only:
+      print(f"{BLUE}--- Phase 1: Baseline (no Codemesh) ---{NC}")
+      for task in tasks:
         tid = task["id"]
         cat = task["category"]
         prompt = task["prompt"]
@@ -343,8 +376,9 @@ def main() -> None:
     print()
 
     # Phase 2: Codemesh-augmented
-    print(f"{BLUE}--- Phase 2: Codemesh-augmented ---{NC}")
-    for task in tasks:
+    if not baseline_only:
+      print(f"{BLUE}--- Phase 2: Codemesh-augmented ---{NC}")
+      for task in tasks:
         tid = task["id"]
         cat = task["category"]
         prompt = task["prompt"]
@@ -362,6 +396,17 @@ def main() -> None:
             )
         all_results["codemesh"][tid] = {**result, "category": cat}
     print()
+
+    # Load existing results for tasks we skipped
+    for mode in ("baseline", "codemesh"):
+        for task in tasks:
+            tid = task["id"]
+            if tid not in all_results[mode]:
+                result_file = RESULTS_DIR / mode / f"{tid}.json"
+                if result_file.exists():
+                    with open(result_file) as f:
+                        data = json.load(f)
+                    all_results[mode][tid] = {**data, "category": task["category"]}
 
     # Phase 3: Comparison
     print(f"{BLUE}--- Phase 3: Comparison ---{NC}")
