@@ -4,11 +4,17 @@
  * Returns METADATA only — signatures, line numbers, edges, concepts, workflows.
  * Does NOT return source code. The agent reads specific files/functions it needs.
  * This keeps responses small and lets the agent choose what to read.
+ *
+ * When an LSP client is available, symbol resolution is enhanced with:
+ * - Precise definition locations (definedAt)
+ * - Reference counts (referencedBy)
+ * - Disambiguation of multiple symbol matches
  */
 
 import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, GraphEdge, SymbolNode } from "../graph/types.js";
+import type { LspClient } from "./lsp-client.js";
 
 export interface ContextInput {
   path: string;
@@ -29,6 +35,10 @@ export interface SymbolInfo {
   calledBy: string[];
   /** Full call chain reachable from this symbol (depth 5) — shows the complete graph path */
   callChain: string[];
+  /** Where this symbol is defined (via LSP), if available */
+  definedAt?: { uri: string; line: number; character: number };
+  /** Number of references to this symbol (via LSP), if available */
+  referencedBy?: number;
 }
 
 export interface ContextOutput {
@@ -53,6 +63,7 @@ export async function handleContext(
   storage: StorageBackend,
   input: ContextInput,
   projectRoot?: string,
+  lspClient?: LspClient | null,
 ): Promise<ContextOutput> {
   const fileNodes = await storage.queryNodes({ type: "file", path: input.path });
   const file = fileNodes.length > 0 ? fileNodes[0] : null;
@@ -133,6 +144,47 @@ export async function handleContext(
       calledBy,
       callChain,
     });
+  }
+
+  // ── LSP Enhancement ──────────────────────────────────────────────
+  // If we have an LSP client and a specific symbol was requested with multiple
+  // matches, use LSP to disambiguate to the exact definition.
+  if (lspClient && input.symbol && symbols.length > 1) {
+    try {
+      // Use the first candidate's line to ask LSP for the true definition
+      const resolved = await lspClient.getDefinition(input.path, symbols[0].lineStart, 0);
+      if (resolved) {
+        const filtered = symbols.filter(c => c.lineStart === resolved.line);
+        if (filtered.length > 0) {
+          symbols.splice(0, symbols.length, ...filtered);
+        }
+      }
+    } catch {
+      // LSP failed — keep all candidates, no harm done
+    }
+  }
+
+  // Enrich each symbol with LSP definition and reference count
+  if (lspClient) {
+    for (const sym of symbols) {
+      try {
+        const def = await lspClient.getDefinition(input.path, sym.lineStart, 0);
+        if (def) {
+          sym.definedAt = def;
+        }
+      } catch {
+        // LSP failed — skip definition enrichment
+      }
+
+      try {
+        const refs = await lspClient.getReferences(input.path, sym.lineStart, 0);
+        if (refs.length > 0) {
+          sym.referencedBy = refs.length;
+        }
+      } catch {
+        // LSP failed — skip reference count
+      }
+    }
   }
 
   // Get imports (outgoing import edges)

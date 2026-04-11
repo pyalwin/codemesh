@@ -12,6 +12,7 @@ import { handleWorkflow } from "./tools/workflow.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
 import { handleTrace } from "./tools/trace.js";
+import { getLspClient } from "./tools/lsp-client.js";
 
 function textResult(data: unknown, projectRoot: string) {
   const payload = typeof data === "object" && data !== null ? { projectRoot, ...data } : data;
@@ -44,7 +45,9 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
         return textResult(result, projectRoot);
       } else if (args.action === "context") {
         if (!args.path) throw new Error("path is required for context action");
-        const result = await handleContext(storage, { path: args.path, symbol: args.symbol }, projectRoot);
+        // Try to get an LSP client for this file type — returns null silently if unavailable
+        const lspClient = await getLspClient(args.path, projectRoot);
+        const result = await handleContext(storage, { path: args.path, symbol: args.symbol }, projectRoot, lspClient);
         return textResult(result, projectRoot);
       } else if (args.action === "impact") {
         if (!args.path) throw new Error("path is required for impact action");
