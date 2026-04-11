@@ -20,9 +20,34 @@ export async function handleImpact(
   input: ImpactInput,
 ): Promise<ImpactOutput> {
   // Determine the target node ID
-  const targetId = input.symbol
-    ? `symbol:${input.path}:${input.symbol}`
-    : `file:${input.path}`;
+  let targetId = `file:${input.path}`;
+
+  // If a specific symbol is requested, find it using fuzzy matching
+  if (input.symbol) {
+    const fileId = `file:${input.path}`;
+    let matchedSymbol: GraphNode | null = null;
+    const containsEdges = await storage.getEdges(fileId, "out", ["contains"]);
+    
+    for (const edge of containsEdges) {
+      const node = await storage.getNode(edge.toId);
+      if (
+        node &&
+        (node.name === input.symbol ||
+          node.name.includes(input.symbol) ||
+          input.symbol.includes(node.name))
+      ) {
+        matchedSymbol = node;
+        break;
+      }
+    }
+
+    if (matchedSymbol) {
+      targetId = matchedSymbol.id;
+    } else {
+      // Fallback to exact match
+      targetId = `symbol:${input.path}:${input.symbol}`;
+    }
+  }
 
   // Verify the target exists
   const targetNode = await storage.getNode(targetId);

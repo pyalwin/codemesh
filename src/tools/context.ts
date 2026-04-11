@@ -38,14 +38,36 @@ export async function handleContext(
     };
   }
 
-  // If a specific symbol is requested, find it and return context for it
-  const targetId = input.symbol
-    ? `symbol:${input.path}:${input.symbol}`
-    : file.id;
+  let targetId = file.id;
+  let targetNode: GraphNode | null = file;
 
-  const targetNode = input.symbol
-    ? await storage.getNode(targetId)
-    : file;
+  // If a specific symbol is requested, find it using fuzzy matching
+  if (input.symbol) {
+    const containsEdges = await storage.getEdges(file.id, "out", ["contains"]);
+    let matchedSymbol: GraphNode | null = null;
+    
+    for (const edge of containsEdges) {
+      const node = await storage.getNode(edge.toId);
+      if (
+        node &&
+        (node.name === input.symbol ||
+          node.name.includes(input.symbol) ||
+          input.symbol.includes(node.name))
+      ) {
+        matchedSymbol = node;
+        break;
+      }
+    }
+
+    if (matchedSymbol) {
+      targetId = matchedSymbol.id;
+      targetNode = matchedSymbol;
+    } else {
+      // Fallback to exact match
+      targetId = `symbol:${input.path}:${input.symbol}`;
+      targetNode = await storage.getNode(targetId);
+    }
+  }
 
   if (!targetNode) {
     return {
