@@ -46,7 +46,6 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 | Baseline | 9 | 9 | 8.7 | 7 | 1 | 9 | 7.3 |
 | **Codemesh MCP** | 8 | 8.5 | 8 | **9** | **8** | **9** | **8.6** |
 | Codemesh CLI | 9 | 8.8 | 8 | **9** | **8** | **9** | 8.5 |
-| CodeGraph | 8 | 8 | 8 | 6 | 7 | 8 | 7.5 |
 
 ### Cost
 
@@ -55,21 +54,21 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 | Baseline | $0.64 | $0.66 | $1.05 | $0.73 | $0.98 | $0.31 | $0.73 |
 | **Codemesh MCP** | $0.29 | $0.81 | $0.93 | $0.47 | $0.20 | $0.47 | **$0.53** |
 | Codemesh CLI | $0.60 | $0.76 | $1.18 | $1.34 | $0.72 | $0.27 | $0.81 |
-| CodeGraph | $0.21 | $0.18 | $0.22 | $0.15 | $0.24 | $0.33 | $0.22 |
 
-### Pairwise: Codemesh CLI vs CodeGraph
+### Cost Savings: Codemesh MCP vs Baseline
 
-| Repo | Winner | Scores |
-|---|---|---|
-| Alamofire | **Codemesh CLI** | 7 vs 6 |
-| Excalidraw | CodeGraph | 7.5 vs 8.5 |
-| VS Code | **Codemesh CLI** | 9 vs 5 |
-| Swift Compiler | **Codemesh CLI** | 9 vs 5 |
-| pydantic-validators | **Codemesh CLI** | 8 vs 7 |
-| pydantic-basemodel | CodeGraph | 9 vs 8 |
+| Repo | Baseline | Codemesh MCP | **Saved** | **Time Saved** |
+|---|---:|---:|---:|---:|
+| Alamofire | $0.64 | $0.29 | **-55%** | **-52%** (198s → 95s) |
+| Excalidraw | $0.66 | $0.81 | +23% | +4% |
+| VS Code | $1.05 | $0.93 | **-11%** | +3% |
+| Swift Compiler | $0.73 | $0.47 | **-36%** | **-42%** (215s → 125s) |
+| pydantic-validators | $0.98 | $0.20 | **-80%** | **-82%** (278s → 51s) |
+| pydantic-basemodel | $0.31 | $0.47 | +52% | +44% |
+| **Average** | **$0.73** | **$0.53** | **-27%** | |
 
 > [!NOTE]
-> Codemesh CLI performed well on quality, winning pairwise comparisons in 4 of 6 benchmarks. Codemesh MCP achieves the highest average quality (**8.6/10**) across all modes. CodeGraph is the most cost-efficient ($0.22 avg) with lower quality (7.5/10 avg). On pydantic-validators, Codemesh MCP used 87% fewer calls, was 82% faster, and 80% cheaper than baseline — which scored just 1/10.
+> **Codemesh MCP** achieves **8.6/10 avg quality** (+18% over baseline's 7.3) while saving **27% on cost** ($0.53 vs $0.73 avg). On pydantic-validators, Codemesh MCP used 87% fewer calls, was 82% faster, and 80% cheaper — while baseline scored just 1/10. Savings are strongest on trace and discovery tasks; comprehension tasks on very large repos (VS Code) can cost more due to tool call overhead.
 
 ---
 

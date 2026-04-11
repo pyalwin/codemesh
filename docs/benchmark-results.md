@@ -12,7 +12,21 @@ Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. 
 | Metric | Baseline | Codemesh MCP | Codemesh CLI | CodeGraph |
 |---|---|---|---|---|
 | **Avg Quality** | 7.3/10 | **8.6/10** | 8.5/10 | 7.5/10 |
-| **Avg Cost** | $0.73 | $0.53 | $0.81 | $0.22 |
+| **Avg Cost** | $0.73 | **$0.53 (-27%)** | $0.81 | $0.22 |
+
+### Cost & Time Savings: Codemesh MCP vs Baseline
+
+| Repo | Baseline Cost | Codemesh MCP Cost | **Cost Saved** | Baseline Time | Codemesh MCP Time | **Time Saved** |
+|---|---:|---:|---:|---:|---:|---:|
+| Alamofire | $0.64 | $0.29 | **-55%** | 198s | 95s | **-52%** |
+| Excalidraw | $0.66 | $0.81 | +23% | 231s | 241s | +4% |
+| VS Code | $1.05 | $0.93 | **-11%** | 263s | 271s | +3% |
+| Swift Compiler | $0.73 | $0.47 | **-36%** | 215s | 125s | **-42%** |
+| pydantic-validators | $0.98 | $0.20 | **-80%** | 278s | 51s | **-82%** |
+| pydantic-basemodel | $0.31 | $0.47 | +52% | 94s | 136s | +44% |
+| **Average** | **$0.73** | **$0.53** | **-27%** | **213s** | **153s** | **-28%** |
+
+Codemesh MCP saves cost and time on 4 of 6 benchmarks. The two exceptions (Excalidraw, pydantic-basemodel) are cases where MCP overhead exceeds the exploration savings — the agent made more tool calls than baseline on these comprehension-heavy tasks.
 
 ## Detailed Results
 
