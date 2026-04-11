@@ -128,7 +128,7 @@ export async function handleTrace(
       filePath: sym.filePath,
       kind: sym.kind,
       signature: sym.signature,
-      source: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, 50),
+      source: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
       calls: calleeNames,
     });
   }

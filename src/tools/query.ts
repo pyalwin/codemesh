@@ -53,7 +53,7 @@ export async function handleQuery(
         ...r,
         node: {
           ...r.node,
-          source_code: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, 30),
+          source_code: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
         },
       };
     }
