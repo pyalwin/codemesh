@@ -3,7 +3,6 @@
  * with tree-sitter, and stores the results in the graph database.
  */
 
-import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, extname, dirname, resolve } from "node:path";
 import ignore, { type Ignore } from "ignore";
@@ -267,7 +266,8 @@ export class Indexer {
 
   /**
    * Recursively walk the directory tree, collecting file paths and their
-   * SHA256 hashes (truncated to 16 characters).
+   * stat-based change keys (mtime + size). This avoids reading file content
+   * for the ~90% of files that haven't changed between index runs.
    */
   private walkDirectory(
     dir: string,
@@ -302,18 +302,11 @@ export class Indexer {
         const ext = extname(absPath);
         if (!supportedExts.has(ext)) continue;
 
-        const hash = this.computeFileHash(absPath);
+        // Use stat-based fast key instead of reading file content for SHA256
+        const hash = `${stat.mtimeMs}:${stat.size}`;
         fileHashes.set(relPath, hash);
       }
     }
-  }
-
-  /**
-   * Compute SHA256 hash of a file, truncated to 16 hex characters.
-   */
-  private computeFileHash(absPath: string): string {
-    const content = readFileSync(absPath);
-    return createHash("sha256").update(content).digest("hex").slice(0, 16);
   }
 
   // ─── Import resolution ────────────────────────────────────────────

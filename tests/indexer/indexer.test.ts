@@ -69,8 +69,8 @@ describe("Indexer", () => {
     const fileNodes = await storage.queryNodes({ type: "file" });
     for (const node of fileNodes) {
       const fileNode = node as FileNode;
-      // Hash should be a 16-char hex string
-      expect(fileNode.hash).toMatch(/^[0-9a-f]{16}$/);
+      // Hash is a stat-based key: "mtimeMs:size"
+      expect(fileNode.hash).toMatch(/^\d+(\.\d+)?:\d+$/);
     }
   });
 
