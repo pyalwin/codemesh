@@ -31,6 +31,10 @@ export interface StorageBackend {
 
   search(query: string, scope?: string): Promise<SearchResult[]>;
 
+  beginTransaction(): Promise<void>;
+  commitTransaction(): Promise<void>;
+  rollbackTransaction(): Promise<void>;
+
   getStaleFiles(
     currentHashes: Map<string, string>
   ): Promise<{ changed: string[]; deleted: string[]; added: string[] }>;

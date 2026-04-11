@@ -537,6 +537,20 @@ export class SqliteBackend implements StorageBackend {
     return results;
   }
 
+  // ── Transactions ───────────────────────────────────────────────────
+
+  async beginTransaction(): Promise<void> {
+    this.getDb().exec("BEGIN TRANSACTION");
+  }
+
+  async commitTransaction(): Promise<void> {
+    this.getDb().exec("COMMIT");
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    this.getDb().exec("ROLLBACK");
+  }
+
   // ── Maintenance ────────────────────────────────────────────────────
 
   async getStaleFiles(
