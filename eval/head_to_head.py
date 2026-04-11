@@ -65,12 +65,18 @@ You have two exploration tools:
    - action='context' — see relations and symbols of a file/symbol
    - action='impact' — find reverse dependencies
 
-2. codemesh_trace — CRITICAL for tracing execution flows. Takes a symbol name and follows the ENTIRE call chain to leaf nodes, returning every function in the path. Use this AFTER explore to follow a specific flow to completion. Do NOT stop mid-trace — always use codemesh_trace to follow call chains to their end.
+2. codemesh_trace — follows call chains from a symbol to leaf nodes, returning every function in the path.
    Example: codemesh_trace({ symbol: "Session.request", depth: 5 })
 
-Workflow: explore to find entry points → trace to follow call chains → Read only if you need specific code not in trace results.
+Every response includes projectRoot so you know the absolute path for Read.
 
-Every response includes projectRoot so you know the absolute path."""
+YOU MUST FOLLOW THIS 3-PHASE WORKFLOW:
+
+PHASE 1 — MAP: Use codemesh_explore(action='search') to find entry points. Use codemesh_explore(action='context') on each key file to understand the structure.
+
+PHASE 2 — TRACE: Use codemesh_trace on the main symbol to follow the call chain. If the trace doesn't reach the final destination (e.g., the actual system call, the final delegate callback, the leaf function), call trace again from the LAST symbol in the chain, or Read the file to find where it goes next. Keep going until you've reached the END of the flow.
+
+PHASE 3 — VERIFY: Before writing your answer, check: Have I identified EVERY file involved? Have I traced from the entry point ALL THE WAY to the final system-level call? If not, go back to Phase 2 and keep tracing. Your answer MUST cover the complete flow from start to finish with no gaps."""
 
 CODEGRAPH_PROMPT = """You MUST use codegraph_* MCP tools. Grep and Glob are disabled.
 

@@ -26,7 +26,7 @@ On a 600-file codebase, a typical exploration task involves 10+ file reads befor
 
 ```
 Before:  Agent → Grep → 50 matches → Read 10 files → Understand → Work
-After:   Agent → codemesh_query → 3 relevant files → Read 1 → Work
+After:   Agent → codemesh_explore → 3 relevant files → codemesh_trace → full path → Work
 ```
 
 Codemesh is an MCP server that gives agents a persistent, queryable knowledge graph. The graph gets smarter over time: agents write back what they learn, so the next session starts informed.
@@ -170,13 +170,19 @@ The agent now has 6 new tools. Query the graph before reading code:
 ```
 You: "Find how pydantic handles validation"
 
-Agent calls: codemesh_query({ query: "validation" })
+Phase 1 — MAP:
+Agent calls: codemesh_explore({ action: "search", query: "validation" })
        gets: 12 relevant files with summaries, 4 known workflows
 
-Agent calls: codemesh_context({ path: "pydantic/functional_validators.py" })
+Agent calls: codemesh_explore({ action: "context", path: "pydantic/functional_validators.py" })
        gets: 23 symbols, 4 imports, 2 cached summaries
 
-Agent calls: Read("pydantic/functional_validators.py")  ← targeted read
+Phase 2 — TRACE:
+Agent calls: codemesh_trace({ symbol: "field_validator", depth: 5 })
+       gets: complete call chain with source code at every step
+
+Phase 3 — VERIFY:
+Agent checks: Did I reach the leaf? Did I cover all files? → Yes → writes answer
 
 Agent calls: codemesh_enrich({
                path: "pydantic/functional_validators.py",
@@ -230,11 +236,10 @@ Agent calls: codemesh_enrich({
 
 | Tool | Purpose | Example |
 |:--|:--|:--|
-| `codemesh_query` | Search the graph by concept or symbol | `codemesh_query({ query: "validation pipeline" })` |
-| `codemesh_context` | Full context for a file or symbol | `codemesh_context({ path: "src/auth.py" })` |
+| `codemesh_explore` | Omni-tool: search, context, or impact in one tool | `codemesh_explore({ action: "search", query: "validation" })` |
+| `codemesh_trace` | Follow a call chain to leaf nodes with source code | `codemesh_trace({ symbol: "Session.request", depth: 5 })` |
 | `codemesh_enrich` | Write back what you learned | `codemesh_enrich({ path: "src/auth.py", summary: "..." })` |
 | `codemesh_workflow` | Record a multi-file workflow path | `codemesh_workflow({ name: "login flow", files: [...] })` |
-| `codemesh_impact` | What would break if you change this? | `codemesh_impact({ path: "src/models.py" })` |
 | `codemesh_status` | Graph health check | `codemesh_status()` |
 
 ---
