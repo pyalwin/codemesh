@@ -12,7 +12,7 @@ and boosts quality for smaller models to match Opus — all from a single `codem
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)]()
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple)]()
 
-[Benchmarks](#benchmarks) &middot; [Quick Start](#quick-start) &middot; [How It Works](#how-it-works) &middot; [API Reference](#mcp-tools) &middot; [Eval Results](docs/eval-results.md)
+[Benchmarks](#benchmarks) &middot; [Quick Start](#quick-start) &middot; [How It Works](#how-it-works) &middot; [API Reference](#mcp-tools) &middot; [Full Results](docs/benchmark-results.md)
 
 </div>
 
@@ -35,91 +35,39 @@ Codemesh is an MCP server that gives agents a persistent, queryable knowledge gr
 
 ## Benchmarks
 
-Evaluated on [pydantic](https://github.com/pydantic/pydantic) (656 files, 13,187 symbols) across 5 code comprehension tasks.
+Head-to-head against [CodeGraph](https://github.com/colbymchenry/codegraph) on 4 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler) with Claude Sonnet 4.6.
 
-Full methodology, raw responses, and judge notes: [`docs/eval-results.md`](docs/eval-results.md) &middot; [`docs/eval-responses.md`](docs/eval-responses.md)
-
-### Cost & Time
-
-<table>
-<thead>
-<tr>
-<th>Model</th>
-<th align="right">Baseline Cost</th>
-<th align="right">Codemesh Cost</th>
-<th align="right">Saved</th>
-<th align="right">Baseline Time</th>
-<th align="right">Codemesh Time</th>
-<th align="right">Faster</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Opus 4.6</strong></td>
-<td align="right">$3.35</td>
-<td align="right">$2.72</td>
-<td align="right"><strong>19%</strong></td>
-<td align="right">14.5 min</td>
-<td align="right">8.6 min</td>
-<td align="right"><strong>41%</strong></td>
-</tr>
-<tr>
-<td><strong>Sonnet 4.6</strong></td>
-<td align="right">$3.37</td>
-<td align="right">$1.87</td>
-<td align="right"><strong>44%</strong></td>
-<td align="right">20.2 min</td>
-<td align="right">8.6 min</td>
-<td align="right"><strong>57%</strong></td>
-</tr>
-<tr>
-<td><strong>Haiku 4.5</strong></td>
-<td align="right">$2.67</td>
-<td align="right">$1.79</td>
-<td align="right"><strong>33%</strong></td>
-<td align="right">11.3 min</td>
-<td align="right">9.4 min</td>
-<td align="right"><strong>17%</strong></td>
-</tr>
-</tbody>
-</table>
+Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmark-results.md`](docs/benchmark-results.md) | [Early pydantic evals](docs/experiments/pydantic-eval-results.md)
 
 ### Quality (1-10, LLM-as-judge)
 
-<table>
-<thead>
-<tr>
-<th>Model</th>
-<th align="right">Baseline</th>
-<th align="right">Codemesh</th>
-<th align="right">Delta</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Opus 4.6</strong></td>
-<td align="right">8.0</td>
-<td align="right">7.6</td>
-<td align="right">-0.4</td>
-</tr>
-<tr>
-<td><strong>Sonnet 4.6</strong></td>
-<td align="right">2.8</td>
-<td align="right">6.4</td>
-<td align="right"><strong>+3.6</strong></td>
-</tr>
-<tr>
-<td><strong>Haiku 4.5</strong></td>
-<td align="right">3.6</td>
-<td align="right">8.2</td>
-<td align="right"><strong>+4.6</strong></td>
-</tr>
-</tbody>
-</table>
+| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | **Avg** |
+|---|---:|---:|---:|---:|---:|
+| Baseline | 8 | 9 | 7 | 8 | 8.0 |
+| **Codemesh MCP** | **9** | **9** | **8.2** | **9** | **8.8** |
+| Codemesh CLI | 8 | 9 | 8 | 8 | 8.3 |
+| CodeGraph | 8 | 9 | 7 | 5 | 7.3 |
+
+### Cost
+
+| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | **Avg** |
+|---|---:|---:|---:|---:|---:|
+| Baseline | $0.55 | $0.48 | $0.43 | $0.76 | $0.56 |
+| **Codemesh MCP** | $0.39 | $0.34 | $0.97 | $0.67 | **$0.59** |
+| Codemesh CLI | $0.38 | $0.43 | $1.20 | $0.91 | $0.73 |
+| CodeGraph | $0.21 | $0.31 | $0.15 | $0.13 | $0.20 |
+
+### Codemesh CLI vs CodeGraph (pairwise)
+
+| Repo | Winner | Scores |
+|---|---|---|
+| Alamofire | **Codemesh CLI** | 7 vs 6 |
+| Excalidraw | CodeGraph | 7.5 vs 8.5 |
+| VS Code | **Codemesh CLI** | 9 vs 5 |
+| Swift Compiler | **Codemesh CLI** | 9 vs 5 |
 
 > [!NOTE]
-> **Haiku + Codemesh (8.2/10, $1.79)** outperforms **Opus baseline (8.0/10, $3.35)** at 47% lower cost.
-> The graph acts as an equalizer — smaller models produce Opus-quality results when they know where to look.
+> **Codemesh CLI wins 3 out of 4** against CodeGraph with Sonnet. Codemesh MCP achieves the highest average quality (**8.8/10**) across all modes. CodeGraph is cheapest ($0.20 avg) but scores lowest on quality (7.3/10), particularly on large repos like VS Code and Swift Compiler.
 
 ---
 
@@ -406,19 +354,18 @@ Reproducible evaluation harness with LLM-as-judge scoring:
 
 ```bash
 # Setup
-git clone --depth 1 https://github.com/pydantic/pydantic.git /tmp/pydantic
-CODEMESH_PROJECT_ROOT=/tmp/pydantic node dist/cli.js index
+bun install -g codemesh
+git clone --depth 1 https://github.com/Alamofire/Alamofire.git /tmp/alamofire
+# ... clone other repos ...
 
-# Run evals (baseline + codemesh in parallel per task)
-python3 eval/run_eval.py --model opus
-python3 eval/run_eval.py --model sonnet
-python3 eval/run_eval.py --model haiku
+# Index
+CODEMESH_PROJECT_ROOT=/tmp/alamofire codemesh index
 
-# Quality scoring
-python3 eval/judge.py
+# Run head-to-head benchmarks
+python3 eval/head_to_head.py --model sonnet alamofire excalidraw vscode swift-compiler
 ```
 
-See [`docs/eval-results.md`](docs/eval-results.md) for full methodology and [`docs/eval-responses.md`](docs/eval-responses.md) for all 30 raw responses.
+See [`docs/benchmark-results.md`](docs/benchmark-results.md) for full methodology and results. Early pydantic evals are archived in [`docs/experiments/`](docs/experiments/).
 
 ---
 
