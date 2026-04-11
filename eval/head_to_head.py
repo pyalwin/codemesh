@@ -168,6 +168,8 @@ NC = "\033[0m"
 
 # ── Runner ──────────────────────────────────────────────────────────
 
+EVAL_MODEL = "opus"  # overridden by --model flag
+
 def run_mode(
     prompt: str,
     mode: str,
@@ -181,7 +183,7 @@ def run_mode(
         "claude", "--print",
         "--output-format", "stream-json",
         "--verbose",
-        "--model", "opus",
+        "--model", EVAL_MODEL,
         "--max-budget-usd", "2.00",
     ]
 
@@ -361,8 +363,21 @@ BENCHMARKS = [
 # ── Main ────────────────────────────────────────────────────────────
 
 def main() -> None:
-    filter_ids = [a for a in sys.argv[1:] if not a.startswith("--")]
-    skip_judge = "--skip-judge" in sys.argv
+    global EVAL_MODEL, RESULTS_DIR
+
+    args = sys.argv[1:]
+    skip_judge = "--skip-judge" in args
+
+    # Extract --model value
+    for i, a in enumerate(args):
+        if a == "--model" and i + 1 < len(args):
+            EVAL_MODEL = args[i + 1]
+
+    filter_ids = [a for a in args if not a.startswith("--") and a not in ("opus", "sonnet", "haiku")]
+
+    # Model-specific results directory
+    if EVAL_MODEL != "opus":
+        RESULTS_DIR = SCRIPT_DIR / "results" / f"head_to_head_{EVAL_MODEL}"
 
     benchmarks = BENCHMARKS
     if filter_ids:
@@ -371,6 +386,7 @@ def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     print(f"{BLUE}{BOLD}=== Head-to-Head: Codemesh vs CodeGraph vs Baseline ==={NC}")
+    print(f"  Model: {BOLD}{EVAL_MODEL}{NC}")
     print(f"  Running {len(benchmarks)} benchmark(s)")
     print()
 
