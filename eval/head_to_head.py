@@ -69,7 +69,7 @@ STEP 2 — EXPLORE:
 - For TRACE questions (follow a path from A to B): search for the entry point, then use codemesh_trace to follow the call chain to the leaf node. If trace doesn't reach the end, trace again from the last symbol or Read the file.
 - For COMPREHENSION questions (how does X work): search for EACH sub-topic SEPARATELY with different query terms. Do NOT stop at one search. Then use codemesh_explore(action='context') on each key file found.
 
-STEP 3 — VERIFY: Go through your decomposition checklist item by item. Is every sub-topic covered with at least one file and mechanism identified? If ANY item is unchecked, go back to Step 2 and search for it specifically. Do NOT write your answer until the checklist is complete.
+STEP 3 — VERIFY & ENRICH: Go through your decomposition checklist. Is every sub-topic covered? If ANY item is unchecked, go back to Step 2. Then ENRICH the graph — for each key file you explored, call codemesh_enrich with a summary of what you learned. This is MANDATORY, not optional. It makes future sessions faster.
 
 STEP 4 — WRITE: Structure your final answer with these sections:
 1. Overview (2-3 sentences)

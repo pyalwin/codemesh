@@ -105,16 +105,42 @@ Signals: "how does X work", "explain the architecture", "what are the key compon
 
 ---
 
-## Phase: VERIFY (applies to both types)
+## Phase: VERIFY & ENRICH (applies to both types)
 
-Before writing your answer, run this checklist:
+Before writing your answer, do BOTH of these:
+
+### Verify completeness
 
 1. **Decomposition coverage** — is every sub-topic from your initial decomposition covered?
 2. **File coverage** — have you identified every key file involved?
 3. **Completeness** — for traces: did you reach the leaf node? For comprehension: did you cover all aspects?
 4. **Gaps** — are there any connections you assumed without verifying?
 
-**If any check fails, go back and explore more.** Your answer must be complete with no gaps.
+**If any check fails, go back and explore more.**
+
+### Enrich the graph (MANDATORY)
+
+**This is not optional.** For each key file you explored, write back what you learned:
+
+```
+codemesh_enrich({
+  path: "src/collab/Portal.tsx",
+  summary: "WebSocket connection manager for real-time collab. Handles room join/leave, broadcasts scene updates via Socket.IO. Reconnects on disconnect.",
+  sessionId: "session-1"
+})
+```
+
+For multi-file flows you traced, record the workflow:
+
+```
+codemesh_workflow({
+  name: "collaborative editing sync",
+  description: "Real-time sync flow from user action to other clients",
+  files: ["src/collab/Portal.tsx", "src/collab/reconciliation.ts", "src/scene/Scene.ts"]
+})
+```
+
+**Why this matters:** Your enrichments make the NEXT session faster. The graph starts with structural data only — your summaries add the semantic understanding that helps future agents skip the exploration you just did.
 
 ---
 
@@ -126,15 +152,7 @@ Structure your response with:
 2. **One section per sub-topic** from your decomposition — each with file names and key functions/classes
 3. **File reference table** — list EVERY file involved and its role
 
-Your answer must be **COMPLETE**. Cover every sub-topic from your decomposition fully. Do not abbreviate, truncate, or skip sections. If you decomposed into 5 sub-topics, your answer must have 5 sections.
-
----
-
-## After Exploration: ENRICH
-
-After completing your exploration:
-- `codemesh_enrich(...)` — save summaries for files you deeply understood
-- `codemesh_workflow(...)` — record multi-file paths you traced
+Your answer must be **COMPLETE**. Cover every sub-topic from your decomposition fully. Do not abbreviate, truncate, or skip sections.
 
 ---
 
