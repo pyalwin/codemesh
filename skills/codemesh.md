@@ -77,14 +77,15 @@ Questions that ask you to follow a specific execution path from A to B.
 
 Signals: "trace", "flow", "how does X call Y", "what happens when", "step by step"
 
-**Workflow: Decompose → Search → Trace → Verify**
+**Workflow: Decompose → Search → Trace → LSP Navigate → Verify**
 
 1. **DECOMPOSE** — list the steps you expect in the path
 2. **SEARCH** — `codemesh_explore(action='search')` to find the entry point
 3. **TRACE** — `codemesh_trace(symbol, depth=5)` to follow the call chain
-4. If trace doesn't reach the end, trace again from the last symbol, or Read the file
-5. **Keep tracing** until you reach the leaf node (the system call, the final callback)
-6. **VERIFY** — check your decomposition list. Did you cover every step? If not, go back.
+4. **LSP NAVIGATE** — when the trace gives you a symbol name, use LSP go-to-definition to find its exact location. Use LSP find-references to see all callers. This is faster and more precise than Read + grep.
+5. **Read** only the specific lines you need after LSP tells you exactly where they are
+6. If the trace doesn't reach the end, use LSP go-to-definition on the last symbol to find what it calls next
+7. **VERIFY** — check your decomposition list. Did you cover every step? If not, go back.
 
 ### Type B: COMPREHENSION questions
 
@@ -92,7 +93,7 @@ Questions that ask you to understand how a feature/system/module works.
 
 Signals: "how does X work", "explain the architecture", "what are the key components"
 
-**Workflow: Decompose → Broad Search → Deep Dive Each → Cross-Reference → Verify**
+**Workflow: Decompose → Broad Search → LSP Navigate → Deep Dive → Verify**
 
 1. **DECOMPOSE** — list all aspects/sub-systems the answer needs to cover
 2. **BROAD SEARCH** — search for EACH sub-topic separately:
@@ -102,6 +103,10 @@ Signals: "how does X work", "explain the architecture", "what are the key compon
    codemesh_explore(action='search', query='session management portal')
    ```
    Do NOT stop at one search. Search for every sub-topic in your decomposition.
+3. **LSP NAVIGATE** — for each key symbol codemesh found, use LSP to resolve it precisely:
+   - LSP go-to-definition to find the exact file and line
+   - LSP find-references to see all callers/usages across the codebase
+   - This replaces multiple Read calls with single, precise LSP lookups
 3. **DEEP DIVE** — for each relevant file found, get context:
    ```
    codemesh_explore(action='context', path='src/collab/Portal.tsx')

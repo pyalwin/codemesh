@@ -78,8 +78,14 @@ MANDATORY WORKFLOW:
 STEP 1 — DECOMPOSE: Before any tool calls, break the question into sub-topics. Write them out as a numbered checklist. This checklist is your contract — you are NOT done until every item is covered.
 
 STEP 2 — EXPLORE:
-- For TRACE questions (follow a path from A to B): search for the entry point, then use codemesh_trace to follow the call chain to the leaf node. If trace doesn't reach the end, trace again from the last symbol or Read the file.
-- For COMPREHENSION questions (how does X work): search for EACH sub-topic SEPARATELY with different query terms. Do NOT stop at one search. Then use codemesh_explore(action='context') on each key file found.
+- For TRACE questions: search for the entry point, then codemesh_trace to follow the call chain.
+- For COMPREHENSION questions: search for EACH sub-topic SEPARATELY.
+
+STEP 2.5 — LSP NAVIGATE (use this BEFORE Read):
+When codemesh gives you a symbol name, use LSP to resolve it precisely:
+- LSP go-to-definition → exact file and line (replaces guessing + Read)
+- LSP find-references → all callers across the codebase
+- This is FASTER and MORE PRECISE than reading files to search for symbols. Use it.
 
 STEP 3 — VERIFY & ENRICH: Go through your decomposition checklist. Is every sub-topic covered? If ANY item is unchecked, go back to Step 2. Then ENRICH the graph — for each key file you explored, call codemesh_enrich with a summary of what you learned. This is MANDATORY, not optional. It makes future sessions faster.
 
@@ -129,6 +135,11 @@ STEP 1 — DECOMPOSE: Break the question into sub-topics as a numbered checklist
 STEP 2 — EXPLORE: Use codemesh CLI via Bash for each sub-topic.
 - For TRACE questions: `codemesh explore trace symbolName --depth 5`
 - For COMPREHENSION: search for EACH sub-topic separately, then get context on key files.
+
+STEP 2.5 — LSP NAVIGATE: When codemesh gives you a symbol name, use LSP BEFORE Read:
+- LSP go-to-definition → exact file and line (faster than Read + search)
+- LSP find-references → all callers across the codebase
+Use LSP to resolve each key symbol, then Read only the specific lines you need.
 
 STEP 3 — VERIFY: Check your checklist. If gaps, explore more.
 
