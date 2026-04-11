@@ -58,25 +58,18 @@ def write_codegraph_mcp_config(project_root: str) -> Path:
 
 CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools. Grep and Glob are disabled.
 
-You have two exploration tools:
+Tools: codemesh_explore (search/context/impact), codemesh_trace (follow call chains).
+Every response includes projectRoot for absolute file paths.
 
-1. codemesh_explore — omni-tool with 3 actions:
-   - action='search' — find things by text query
-   - action='context' — see relations and symbols of a file/symbol
-   - action='impact' — find reverse dependencies
+MANDATORY WORKFLOW:
 
-2. codemesh_trace — follows call chains from a symbol to leaf nodes, returning every function in the path.
-   Example: codemesh_trace({ symbol: "Session.request", depth: 5 })
+STEP 1 — DECOMPOSE: Before any tool calls, break the question into sub-topics. Write them out as a numbered checklist. This checklist is your contract — you are NOT done until every item is covered.
 
-Every response includes projectRoot so you know the absolute path for Read.
+STEP 2 — EXPLORE:
+- For TRACE questions (follow a path from A to B): search for the entry point, then use codemesh_trace to follow the call chain to the leaf node. If trace doesn't reach the end, trace again from the last symbol or Read the file.
+- For COMPREHENSION questions (how does X work): search for EACH sub-topic SEPARATELY with different query terms. Do NOT stop at one search. Then use codemesh_explore(action='context') on each key file found.
 
-YOU MUST FOLLOW THIS 3-PHASE WORKFLOW:
-
-PHASE 1 — MAP: Use codemesh_explore(action='search') to find entry points. Use codemesh_explore(action='context') on each key file to understand the structure.
-
-PHASE 2 — TRACE: Use codemesh_trace on the main symbol to follow the call chain. If the trace doesn't reach the final destination (e.g., the actual system call, the final delegate callback, the leaf function), call trace again from the LAST symbol in the chain, or Read the file to find where it goes next. Keep going until you've reached the END of the flow.
-
-PHASE 3 — VERIFY: Before writing your answer, check: Have I identified EVERY file involved? Have I traced from the entry point ALL THE WAY to the final system-level call? If not, go back to Phase 2 and keep tracing. Your answer MUST cover the complete flow from start to finish with no gaps."""
+STEP 3 — VERIFY: Go through your decomposition checklist item by item. Is every sub-topic covered with at least one file and mechanism identified? If ANY item is unchecked, go back to Step 2 and search for it specifically. Do NOT write your answer until the checklist is complete."""
 
 CODEGRAPH_PROMPT = """You MUST use codegraph_* MCP tools. Grep and Glob are disabled.
 

@@ -1,6 +1,6 @@
 ---
 name: codemesh
-description: Query the code knowledge graph before reading code. Use the 3-phase workflow (Map → Trace → Verify) for complete, accurate code exploration.
+description: Query the code knowledge graph before reading code. Use structured workflows for complete, accurate code exploration — decompose first, then trace or explore breadth-first depending on question type.
 ---
 
 # Codemesh: Code Knowledge Graph
@@ -13,77 +13,128 @@ You have access to a persistent code knowledge graph via `codemesh_*` MCP tools.
 
 Omni-tool with 3 actions:
 - `action='search'` — find files and symbols by text query
-  - `codemesh_explore({ action: "search", query: "validation pipeline" })`
 - `action='context'` — get symbols, edges, and relationships for a file or symbol
-  - `codemesh_explore({ action: "context", path: "src/auth.py", symbol: "login" })`
-- `action='impact'` — find reverse dependencies (what would break if you change this?)
-  - `codemesh_explore({ action: "impact", path: "src/models.py" })`
+- `action='impact'` — find reverse dependencies
 
-Every response includes `projectRoot` — the absolute path to the project root. Use it for Read calls.
+Every response includes `projectRoot` — the absolute path to the project root.
 
 ### codemesh_trace
 
-Follows a call chain from a symbol through the graph to leaf nodes. Returns every function in the path with source code. Use this to trace execution flows to completion.
-- `codemesh_trace({ symbol: "Session.request", depth: 5 })`
-- Supports fuzzy matching — `Session.request`, `request`, or `perform` all work.
+Follows a call chain from a symbol through the graph to leaf nodes. Returns every function in the path with source code. Supports fuzzy matching.
 
-### codemesh_enrich
+### codemesh_enrich / codemesh_workflow
 
-Write back what you learned about a file or symbol. Saves a summary for future sessions.
-- `codemesh_enrich({ path: "src/auth.py", summary: "Handles JWT validation and refresh...", sessionId: "session-1" })`
+Write back what you learned for future sessions.
 
-### codemesh_workflow
+---
 
-Record a multi-file workflow path you traced.
-- `codemesh_workflow({ name: "login flow", description: "...", files: ["src/routes.py", "src/auth.py", "src/models.py"] })`
+## Before You Explore: DECOMPOSE
 
-## 3-Phase Workflow
+**This step is mandatory for every exploration task.**
 
-**Always follow this workflow for code exploration tasks.**
+Before making any tool calls, break the question into sub-topics. Write them out explicitly.
 
-### Phase 1 — MAP
+Example — "How does collaborative editing work?":
+```
+Sub-topics I need to cover:
+1. Transport layer — how are messages sent? (WebSocket, HTTP polling?)
+2. State synchronization — how are changes shared between clients?
+3. Conflict resolution — what happens with concurrent edits?
+4. Session management — joining, leaving, reconnecting
+5. Data model — what is the shared state structure?
+```
 
-Find the relevant code and understand the structure.
+Example — "Trace request flow from Session.request() to URLSession":
+```
+Sub-topics I need to cover:
+1. Entry point — Session.request() public API
+2. Request construction — how is the URLRequest built?
+3. Task creation — how is URLSessionTask created?
+4. Delegation — how does URLSession report results back?
+5. Response handling — how does the response get back to the caller?
+```
 
-1. `codemesh_explore({ action: "search", query: "..." })` to find entry points
-2. `codemesh_explore({ action: "context", path: "..." })` on each key file to see symbols and relationships
+**This list is your checklist. You are not done until every sub-topic is covered.**
 
-### Phase 2 — TRACE
+---
 
-Follow execution flows to completion. Do NOT stop mid-chain.
+## Detect Question Type, Then Follow the Right Workflow
 
-3. `codemesh_trace({ symbol: "...", depth: 5 })` to follow call chains from entry points
-4. If the trace doesn't reach the final destination (the system call, the delegate callback, the leaf function), trace again from the LAST symbol in the chain, or Read the file to find where it continues
-5. Keep going until you've reached the END of the flow — not "most of it", ALL of it
+### Type A: TRACE questions
 
-### Phase 3 — VERIFY
+Questions that ask you to follow a specific execution path from A to B.
 
-Before writing your answer, check completeness:
+Signals: "trace", "flow", "how does X call Y", "what happens when", "step by step"
 
-6. Have I identified EVERY file involved in this flow?
-7. Have I traced from the entry point ALL THE WAY to the final system-level call or leaf node?
-8. Are there any gaps in the middle of my trace where I assumed a connection without verifying it?
+**Workflow: Decompose → Search → Trace → Verify**
 
-**If the answer to any of these is "no", go back to Phase 2 and keep tracing.** Your answer must cover the complete flow from start to finish with no gaps.
+1. **DECOMPOSE** — list the steps you expect in the path
+2. **SEARCH** — `codemesh_explore(action='search')` to find the entry point
+3. **TRACE** — `codemesh_trace(symbol, depth=5)` to follow the call chain
+4. If trace doesn't reach the end, trace again from the last symbol, or Read the file
+5. **Keep tracing** until you reach the leaf node (the system call, the final callback)
+6. **VERIFY** — check your decomposition list. Did you cover every step? If not, go back.
 
-### After exploration — ENRICH
+### Type B: COMPREHENSION questions
 
-9. `codemesh_enrich(...)` to save what you learned for future sessions
-10. `codemesh_workflow(...)` to record the multi-file path you traced
+Questions that ask you to understand how a feature/system/module works.
 
-## When to fall back to Grep/Read
+Signals: "how does X work", "explain the architecture", "what are the key components"
 
-- `codemesh_explore(action='search')` returns nothing relevant (new or unindexed area)
-- Graph data is marked stale and you need fresh code
-- Line-level debugging where summaries aren't sufficient
-- The trace ends at a symbol boundary and you need to see what's inside
+**Workflow: Decompose → Broad Search → Deep Dive Each → Cross-Reference → Verify**
 
-## When to skip codemesh
+1. **DECOMPOSE** — list all aspects/sub-systems the answer needs to cover
+2. **BROAD SEARCH** — search for EACH sub-topic separately:
+   ```
+   codemesh_explore(action='search', query='collab transport websocket')
+   codemesh_explore(action='search', query='conflict resolution reconcile')
+   codemesh_explore(action='search', query='session management portal')
+   ```
+   Do NOT stop at one search. Search for every sub-topic in your decomposition.
+3. **DEEP DIVE** — for each relevant file found, get context:
+   ```
+   codemesh_explore(action='context', path='src/collab/Portal.tsx')
+   ```
+4. **CROSS-REFERENCE** — check how the modules connect. Use `action='impact'` or `action='context'` to see imports/dependencies between the files you found.
+5. **VERIFY** — go through your decomposition checklist:
+   - [ ] Transport layer — covered? Which files?
+   - [ ] Conflict resolution — covered? Which mechanism?
+   - [ ] Session management — covered? Which files?
+   
+   **If any sub-topic is unchecked, search for it specifically and explore those files.** Do NOT write your answer until every sub-topic has at least one file/mechanism identified.
 
-- Simple one-file edits where you already know the exact file
+---
+
+## Phase: VERIFY (applies to both types)
+
+Before writing your answer, run this checklist:
+
+1. **Decomposition coverage** — is every sub-topic from your initial decomposition covered?
+2. **File coverage** — have you identified every key file involved?
+3. **Completeness** — for traces: did you reach the leaf node? For comprehension: did you cover all aspects?
+4. **Gaps** — are there any connections you assumed without verifying?
+
+**If any check fails, go back and explore more.** Your answer must be complete with no gaps.
+
+---
+
+## After Exploration: ENRICH
+
+After completing your exploration:
+- `codemesh_enrich(...)` — save summaries for files you deeply understood
+- `codemesh_workflow(...)` — record multi-file paths you traced
+
+---
+
+## When to Fall Back to Grep/Read
+
+- `codemesh_explore(action='search')` returns nothing relevant
+- Graph data is stale
+- Line-level debugging
+- Trace ends at a boundary and you need to see what's inside
+
+## When to Skip Codemesh
+
+- Simple one-file edits where you know the file
 - User explicitly asks to read a specific file
-- The file was just created and hasn't been indexed yet
-
-## Key principle
-
-Codemesh replaces the **discovery phase**, not code reading. Instead of 10+ exploratory greps to figure out what's relevant, one search tells you where to look. Then trace tells you the full execution path. Then you read only the specific files that matter, with full context of how they connect.
+- File was just created and hasn't been indexed
