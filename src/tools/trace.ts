@@ -3,8 +3,59 @@
  */
 
 import type { StorageBackend } from "../graph/storage.js";
-import type { SymbolNode } from "../graph/types.js";
+import type { GraphNode, SymbolNode } from "../graph/types.js";
 import { readSourceLines } from "./source-reader.js";
+
+/**
+ * Multi-strategy symbol finder.
+ * Handles: exact name, Class.method splitting, fuzzy FTS search.
+ * Returns matching nodes, best match first.
+ */
+export async function findSymbol(
+  storage: StorageBackend,
+  query: string,
+): Promise<GraphNode[]> {
+  // Strategy 1: exact name match
+  const exact = await storage.queryNodes({ type: "symbol", name: query });
+  if (exact.length > 0) return exact;
+
+  // Strategy 2: if "Class.method" format, search for the method name
+  // and filter by symbols in files containing the class
+  if (query.includes(".")) {
+    const parts = query.split(".");
+    const className = parts[0];
+    const methodName = parts[parts.length - 1];
+
+    // Find files that contain the class
+    const classNodes = await storage.queryNodes({ type: "symbol", name: className });
+    const classFiles = new Set(
+      classNodes
+        .filter((n): n is SymbolNode => n.type === "symbol")
+        .map((n) => (n as SymbolNode).filePath)
+    );
+
+    if (classFiles.size > 0) {
+      // Find method symbols in those files
+      const methodNodes = await storage.queryNodes({ type: "symbol", name: methodName });
+      const filtered = methodNodes.filter(
+        (n) => n.type === "symbol" && classFiles.has((n as SymbolNode).filePath)
+      );
+      if (filtered.length > 0) return filtered;
+    }
+
+    // Also try the full "Class.method" as stored name (some languages do this)
+    const dotName = await storage.queryNodes({ type: "symbol", name: `${className}.${methodName}` });
+    if (dotName.length > 0) return dotName;
+  }
+
+  // Strategy 3: FTS search
+  const searchResults = await storage.search(query, "symbols");
+  if (searchResults.length > 0) {
+    return searchResults.slice(0, 3).map((r) => r.node);
+  }
+
+  return [];
+}
 
 export interface TraceInput {
   symbol: string; // symbol name to start tracing from
@@ -35,15 +86,8 @@ export async function handleTrace(
   const steps: TraceStep[] = [];
   const visited = new Set<string>();
 
-  // Find the starting symbol
-  let startNodes = await storage.queryNodes({ type: "symbol", name: input.symbol });
-  if (startNodes.length === 0) {
-    // Try fuzzy search
-    const searchResults = await storage.search(input.symbol, "symbols");
-    if (searchResults.length > 0) {
-      startNodes = [searchResults[0].node];
-    }
-  }
+  // Find the starting symbol with multi-strategy matching
+  let startNodes = await findSymbol(storage, input.symbol);
 
   if (startNodes.length === 0) {
     return { startSymbol: input.symbol, steps: [], depth: maxDepth };

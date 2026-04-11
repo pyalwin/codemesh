@@ -2,6 +2,7 @@
  * codemesh_context — Get full context for a file or symbol.
  */
 
+import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, GraphEdge, SymbolNode } from "../graph/types.js";
 import { readSourceLines } from "./source-reader.js";
@@ -44,6 +45,11 @@ export async function handleContext(
     };
   }
 
+  // Add absolute path to file for easy Read access regardless of CWD
+  const enrichedFile = projectRoot
+    ? { ...file, absolutePath: join(projectRoot, input.path) }
+    : file;
+
   // If a specific symbol is requested, find it and return context for it
   const targetId = input.symbol
     ? `symbol:${input.path}:${input.symbol}`
@@ -55,7 +61,7 @@ export async function handleContext(
 
   if (!targetNode) {
     return {
-      file,
+      file: enrichedFile,
       symbols: [],
       incomingEdges: [],
       outgoingEdges: [],
@@ -132,7 +138,7 @@ export async function handleContext(
   }
 
   return {
-    file,
+    file: enrichedFile,
     symbols,
     incomingEdges,
     outgoingEdges,

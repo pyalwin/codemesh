@@ -4,6 +4,7 @@
  * every symbol in the connected subgraph. One call, complete picture.
  */
 
+import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, SymbolNode, FileNode, ConceptNode, WorkflowNode } from "../graph/types.js";
 import { readSourceLines } from "./source-reader.js";
@@ -21,6 +22,7 @@ export interface ExploreSymbol {
   name: string;
   kind: string;
   filePath: string;
+  absolutePath: string; // full disk path for Read tool
   lineStart: number;
   lineEnd: number;
   signature: string;
@@ -31,6 +33,7 @@ export interface ExploreSymbol {
 
 export interface ExploreFile {
   path: string;
+  absolutePath: string; // full disk path for Read tool
   symbols: string[];    // symbol names in this file
   imports: string[];    // files this file imports
   importedBy: string[]; // files that import this file
@@ -138,6 +141,7 @@ export async function handleExplore(
         name: sym.name,
         kind: sym.kind,
         filePath: sym.filePath,
+        absolutePath: join(projectRoot, sym.filePath),
         lineStart: sym.lineStart,
         lineEnd: sym.lineEnd,
         signature: sym.signature,
@@ -212,6 +216,7 @@ export async function handleExplore(
 
     fileDetails.push({
       path: filePath,
+      absolutePath: join(projectRoot, filePath),
       symbols: symbolNames,
       imports,
       importedBy,
