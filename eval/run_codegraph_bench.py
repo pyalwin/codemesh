@@ -20,16 +20,21 @@ BENCH_FILE = SCRIPT_DIR / "codegraph_benchmark.json"
 RESULTS_DIR = SCRIPT_DIR / "results" / "codegraph_bench"
 MCP_CONFIG_TEMPLATE = SCRIPT_DIR / "mcp-config.json"
 
-CODEMESH_SYSTEM_PROMPT = """CRITICAL INSTRUCTION: You MUST use codemesh_* MCP tools as your PRIMARY method for code exploration.
+CODEMESH_SYSTEM_PROMPT = """CRITICAL INSTRUCTION: You MUST use codemesh_* MCP tools. Grep and Glob are disabled.
 
-DO NOT use Grep or Glob to search for code. Those tools are disabled. Instead:
+YOUR PRIMARY TOOL IS codemesh_explore. It takes a task description and returns the COMPLETE connected subgraph with FULL SOURCE CODE for every symbol — files, call chains, callers, imports, everything. ONE call, complete picture.
 
-1. ALWAYS start with codemesh_query to find relevant files and symbols.
-2. Use codemesh_context to get full context for a specific file before reading it.
-3. Only use Read for targeted file reads AFTER codemesh tells you which files matter.
-4. After reading code, call codemesh_enrich to record what you learned.
+Example: codemesh_explore({ task: "How does Session.request() flow to URLSession?" })
 
-The codemesh knowledge graph has pre-indexed symbols from this codebase. Use it."""
+This returns all relevant symbols with their actual source code, call relationships, and file structure. You do NOT need to Read files — the source is in the response. Trust the graph results.
+
+Other tools available:
+- codemesh_query — quick search if you need a specific symbol name
+- codemesh_context — detailed view of a single file
+- codemesh_trace — follow a specific call chain
+- codemesh_impact — reverse dependency analysis
+
+But START with codemesh_explore for any exploration task."""
 
 MCP_TOOLS = [
     "mcp__codemesh__codemesh_query",
@@ -38,6 +43,8 @@ MCP_TOOLS = [
     "mcp__codemesh__codemesh_workflow",
     "mcp__codemesh__codemesh_impact",
     "mcp__codemesh__codemesh_status",
+    "mcp__codemesh__codemesh_trace",
+    "mcp__codemesh__codemesh_explore",
 ]
 
 GREEN = "\033[0;32m"
@@ -130,14 +137,23 @@ def run_claude(prompt: str, mode: str, cwd: str, mcp_config: Optional[Path] = No
         "--max-budget-usd", "2.00",
     ]
 
-    if mode == "codemesh" and mcp_config:
+    if mode in ("codemesh", "graph-only") and mcp_config:
         cmd.extend(["--mcp-config", str(mcp_config)])
-        cmd.extend(["--append-system-prompt", CODEMESH_SYSTEM_PROMPT])
         cmd.extend(["--disallowedTools", "Grep,Glob"])
         for tool in MCP_TOOLS:
             cmd.extend(["--allowedTools", tool])
-        cmd.extend(["--allowedTools", "Read"])
-        cmd.extend(["--allowedTools", "Bash"])
+
+        if mode == "codemesh":
+            # Graph + targeted reads (practical mode)
+            cmd.extend(["--append-system-prompt", CODEMESH_SYSTEM_PROMPT])
+            cmd.extend(["--allowedTools", "Read"])
+            cmd.extend(["--allowedTools", "Bash"])
+        else:
+            # Graph-only (apples-to-apples with CodeGraph — no file reads)
+            cmd.extend(["--append-system-prompt",
+                CODEMESH_SYSTEM_PROMPT + "\n\nIMPORTANT: You can ONLY use codemesh_* tools. "
+                "Read and Bash are NOT available. Answer entirely from the knowledge graph."
+            ])
 
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
@@ -221,18 +237,20 @@ def main() -> None:
         # Write MCP config for this repo
         mcp_config = write_mcp_config(local_path)
 
-        # Run baseline and codemesh in parallel
+        # Run all three modes in parallel
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
+        modes = ["baseline", "codemesh", "graph-only"]
         results: Dict[str, Dict] = {}
 
         def run_mode(mode: str) -> tuple:
             print(f"  {YELLOW}[{mode}]{NC} Running...")
-            r = run_claude(query, mode, local_path, mcp_config if mode == "codemesh" else None)
+            mcp = mcp_config if mode in ("codemesh", "graph-only") else None
+            r = run_claude(query, mode, local_path, mcp)
             return mode, r
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = {executor.submit(run_mode, m): m for m in ["baseline", "codemesh"]}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {executor.submit(run_mode, m): m for m in modes}
             for future in as_completed(futures):
                 mode, result = future.result()
                 results[mode] = result
@@ -242,7 +260,7 @@ def main() -> None:
                     print(f"  {GREEN}[{mode}] turns={result['num_turns']}, cost=${result['cost_usd']:.4f}, time={result['duration_ms']/1000:.1f}s{NC}")
 
         # Save individual results
-        for mode in ["baseline", "codemesh"]:
+        for mode in modes:
             out_dir = RESULTS_DIR / mode
             out_dir.mkdir(parents=True, exist_ok=True)
             with open(out_dir / f"{bid}.json", "w") as f:
@@ -257,21 +275,27 @@ def main() -> None:
         # Compare
         bl = results.get("baseline", {})
         cm = results.get("codemesh", {})
+        go = results.get("graph-only", {})
 
         entry = {
             "id": bid,
             "language": bench["language"],
             "index_stats": index_stats,
             "codegraph": cg,
-            "codemesh_baseline": {
+            "baseline": {
                 "turns": bl.get("num_turns", 0),
                 "cost": bl.get("cost_usd", 0),
                 "time_s": bl.get("duration_ms", 0) / 1000,
             },
-            "codemesh_augmented": {
+            "codemesh": {
                 "turns": cm.get("num_turns", 0),
                 "cost": cm.get("cost_usd", 0),
                 "time_s": cm.get("duration_ms", 0) / 1000,
+            },
+            "graph_only": {
+                "turns": go.get("num_turns", 0),
+                "cost": go.get("cost_usd", 0),
+                "time_s": go.get("duration_ms", 0) / 1000,
             },
         }
         all_results.append(entry)
@@ -283,29 +307,53 @@ def main() -> None:
     # Print comparison table
     print(f"{BOLD}{BLUE}=== Results: Codemesh vs CodeGraph ==={NC}")
     print()
-    print(f"{'Repo':<18s} {'Files':>6s} {'Symbols':>8s} "
-          f"{'CG calls':>8s} {'CM calls':>8s} "
-          f"{'CG time':>8s} {'CM time':>8s} "
-          f"{'BL time':>8s} {'BL cost':>9s} {'CM cost':>9s}")
-    print("-" * 110)
+    print(f"{'Repo':<16s} {'Files':>6s} {'Syms':>6s} "
+          f"{'':>3s}{'CodeGraph':>14s} "
+          f"{'':>3s}{'Graph-Only':>14s} "
+          f"{'':>3s}{'CM+Read':>14s} "
+          f"{'':>3s}{'Baseline':>14s}")
+    print(f"{'':16s} {'':>6s} {'':>6s} "
+          f"{'':>3s}{'calls':>6s} {'time':>7s} "
+          f"{'':>3s}{'calls':>6s} {'time':>7s} "
+          f"{'':>3s}{'calls':>6s} {'time':>7s} "
+          f"{'':>3s}{'calls':>6s} {'time':>7s}")
+    print("-" * 115)
 
     for r in all_results:
         cg = r["codegraph"]
-        bl = r["codemesh_baseline"]
-        cm = r["codemesh_augmented"]
+        bl = r["baseline"]
+        cm = r["codemesh"]
+        go = r["graph_only"]
         idx = r["index_stats"]
 
         print(
-            f"{r['id']:<18s} "
+            f"{r['id']:<16s} "
             f"{idx.get('files', '?'):>6} "
-            f"{idx.get('symbols', '?'):>8} "
-            f"{cg['with_tool_calls']:>8} "
-            f"{cm['turns']:>8} "
-            f"{cg['with_time_s']:>7}s "
-            f"{cm['time_s']:>7.1f}s "
-            f"{bl['time_s']:>7.1f}s "
-            f"${bl['cost']:>8.4f} "
-            f"${cm['cost']:>8.4f}"
+            f"{idx.get('symbols', '?'):>6} "
+            f"   {cg['with_tool_calls']:>6} {cg['with_time_s']:>6}s "
+            f"   {go['turns']:>6} {go['time_s']:>6.1f}s "
+            f"   {cm['turns']:>6} {cm['time_s']:>6.1f}s "
+            f"   {bl['turns']:>6} {bl['time_s']:>6.1f}s"
+        )
+
+    print()
+    print(f"{'':16s} {'':>6s} {'':>6s} "
+          f"   {'cost':>13s} "
+          f"   {'cost':>13s} "
+          f"   {'cost':>13s} "
+          f"   {'cost':>13s}")
+    print("-" * 115)
+    for r in all_results:
+        cg = r["codegraph"]
+        bl = r["baseline"]
+        cm = r["codemesh"]
+        go = r["graph_only"]
+        print(
+            f"{r['id']:<16s} {'':>6s} {'':>6s} "
+            f"   {'N/A':>13s} "
+            f"   ${go['cost']:>11.4f} "
+            f"   ${cm['cost']:>11.4f} "
+            f"   ${bl['cost']:>11.4f}"
         )
 
     # Save aggregate results

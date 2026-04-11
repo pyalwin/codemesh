@@ -12,6 +12,7 @@ import { handleWorkflow } from "./tools/workflow.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
 import { handleTrace } from "./tools/trace.js";
+import { handleExplore } from "./tools/explore.js";
 
 function textResult(data: unknown) {
   return {
@@ -133,6 +134,26 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     },
     async ({ symbol, depth }) => {
       const result = await handleTrace(storage, { symbol, depth }, projectRoot);
+      return textResult(result);
+    },
+  );
+
+  // ── codemesh_explore ────────────────────────────────────────────
+  server.tool(
+    "codemesh_explore",
+    "The mega-tool. Takes a task description, searches the graph for relevant code, then traverses ALL connected symbols (calls, callers, imports) to completion. Returns full source code for every symbol in the subgraph. One call, complete picture. Use includeSource=false for a map-only overview.",
+    {
+      task: z.string().describe("Natural language task description (e.g., 'How does request flow from Session.request() to URLSession?')"),
+      includeSource: z.boolean().optional().describe("Include actual source code? Default true. Set false for map-only overview."),
+      maxDepth: z.number().optional().describe("Max traversal depth (default 10)"),
+      maxSymbols: z.number().optional().describe("Max symbols to include (default 200)"),
+    },
+    async ({ task, includeSource, maxDepth, maxSymbols }) => {
+      const result = await handleExplore(
+        storage,
+        { task, includeSource, maxDepth, maxSymbols },
+        projectRoot,
+      );
       return textResult(result);
     },
   );
