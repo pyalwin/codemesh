@@ -59,6 +59,7 @@ def write_codegraph_mcp_config(project_root: str) -> Path:
 CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools. Grep and Glob are disabled.
 
 Tools: codemesh_explore (search/context/impact), codemesh_trace (follow call chains).
+IMPORTANT: All tool responses include COMPLETE source code for every symbol — not snippets, the FULL function/class body. Do NOT use Read to re-read files the graph already returned source for. The source in the response IS the file content.
 Every response includes projectRoot for absolute file paths.
 
 MANDATORY WORKFLOW:
@@ -101,7 +102,7 @@ CLI commands (all return JSON):
 - `codemesh explore trace symbolName --depth 5` — follow a call chain with source code
 - `codemesh explore impact path/to/file.swift` — reverse dependency analysis
 
-The results include actual source code. You do NOT need to Read files after querying — the source is in the JSON output.
+IMPORTANT: The results include COMPLETE source code for every symbol — not snippets, the FULL function/class body. Do NOT use Read to re-read files — the source in the JSON IS the file content. Trust it completely.
 
 MANDATORY WORKFLOW:
 
