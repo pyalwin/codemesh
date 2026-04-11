@@ -1,5 +1,5 @@
 /**
- * MCP Server — Registers all 6 codemesh tools on a McpServer instance.
+ * MCP Server — Registers all 7 codemesh tools on a McpServer instance.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -11,6 +11,7 @@ import { handleEnrich } from "./tools/enrich.js";
 import { handleWorkflow } from "./tools/workflow.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
+import { handleTrace } from "./tools/trace.js";
 
 function textResult(data: unknown) {
   return {
@@ -18,7 +19,7 @@ function textResult(data: unknown) {
   };
 }
 
-export function createServer(storage: StorageBackend): McpServer {
+export function createServer(storage: StorageBackend, projectRoot: string): McpServer {
   const server = new McpServer({
     name: "codemesh",
     version: "0.1.0",
@@ -36,7 +37,7 @@ export function createServer(storage: StorageBackend): McpServer {
         .describe("Limit results to a specific node type"),
     },
     async (args) => {
-      const result = await handleQuery(storage, args);
+      const result = await handleQuery(storage, args, projectRoot);
       return textResult(result);
     },
   );
@@ -44,7 +45,7 @@ export function createServer(storage: StorageBackend): McpServer {
   // ── codemesh_context ────────────────────────────────────────────
   server.tool(
     "codemesh_context",
-    "Get full context for a file or symbol, including its symbols, edges, related concepts, and workflows.",
+    "Get full context for a file or symbol, including its symbols with source code, edges, related concepts, and workflows.",
     {
       path: z.string().describe("Relative file path (e.g. src/index.ts)"),
       symbol: z
@@ -53,7 +54,7 @@ export function createServer(storage: StorageBackend): McpServer {
         .describe("Symbol name within the file to focus on"),
     },
     async (args) => {
-      const result = await handleContext(storage, args);
+      const result = await handleContext(storage, args, projectRoot);
       return textResult(result);
     },
   );
@@ -118,6 +119,20 @@ export function createServer(storage: StorageBackend): McpServer {
     "Get statistics about the knowledge graph: node counts by type, edge counts by type, stale count, and last indexed timestamp.",
     async () => {
       const result = await handleStatus(storage);
+      return textResult(result);
+    },
+  );
+
+  // ── codemesh_trace ─────────────────────────────────────────────
+  server.tool(
+    "codemesh_trace",
+    "Trace a call chain from a symbol. Returns source code of every function in the path. Use this to understand execution flows without reading files.",
+    {
+      symbol: z.string().describe("Symbol name to start tracing from (e.g., 'Session.request')"),
+      depth: z.number().optional().describe("Max call chain depth (default: 3)"),
+    },
+    async ({ symbol, depth }) => {
+      const result = await handleTrace(storage, { symbol, depth }, projectRoot);
       return textResult(result);
     },
   );
