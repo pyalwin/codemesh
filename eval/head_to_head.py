@@ -92,6 +92,29 @@ CODEMESH_TOOLS = [
     "mcp__codemesh__codemesh_status",
 ]
 
+CODEMESH_CLI_PROMPT = """You have a CLI tool called 'codemesh' for exploring the codebase. Use it via Bash. Grep and Glob are disabled.
+
+CLI commands (all return JSON):
+- `codemesh explore search "query"` — find files and symbols by text (includes source code)
+- `codemesh explore context path/to/file.swift` — get symbols, edges, source for a file
+- `codemesh explore context path/to/file.swift --symbol name` — focus on a specific symbol
+- `codemesh explore trace symbolName --depth 5` — follow a call chain with source code
+- `codemesh explore impact path/to/file.swift` — reverse dependency analysis
+
+The results include actual source code. You do NOT need to Read files after querying — the source is in the JSON output.
+
+MANDATORY WORKFLOW:
+
+STEP 1 — DECOMPOSE: Break the question into sub-topics as a numbered checklist.
+
+STEP 2 — EXPLORE: Use codemesh CLI via Bash for each sub-topic.
+- For TRACE questions: `codemesh explore trace symbolName --depth 5`
+- For COMPREHENSION: search for EACH sub-topic separately, then get context on key files.
+
+STEP 3 — VERIFY: Check your checklist. If gaps, explore more.
+
+STEP 4 — WRITE: Complete answer with one section per sub-topic + file reference table."""
+
 CODEGRAPH_TOOLS = [
     "mcp__codegraph__codegraph_search",
     "mcp__codegraph__codegraph_context",
@@ -147,6 +170,12 @@ def run_mode(
 
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
+
+    # CLI mode needs CODEMESH_PROJECT_ROOT so Bash calls to `codemesh` work
+    if mode == "codemesh-cli":
+        env["CODEMESH_PROJECT_ROOT"] = cwd
+        # Ensure codemesh CLI is on PATH
+        env["PATH"] = str(PROJECT_DIR / "node_modules" / ".bin") + ":" + env.get("PATH", "")
 
     start = time.monotonic()
     try:
@@ -345,12 +374,13 @@ def main() -> None:
         modes = {
             "baseline": {"mcp": None, "prompt": "", "tools": None},
             "codemesh": {"mcp": cm_config, "prompt": CODEMESH_PROMPT, "tools": CODEMESH_TOOLS},
+            "codemesh-cli": {"mcp": None, "prompt": CODEMESH_CLI_PROMPT, "tools": None},
             "codegraph": {"mcp": cg_config, "prompt": CODEGRAPH_PROMPT, "tools": CODEGRAPH_TOOLS},
         }
 
         results: Dict[str, Dict] = {}
 
-        # Run all 3 modes in parallel
+        # Run all 4 modes in parallel
         def run_one(mode: str) -> tuple:
             cfg = modes[mode]
             print(f"  {YELLOW}[{mode}]{NC} Running...")
@@ -362,7 +392,7 @@ def main() -> None:
             )
             return mode, r
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {executor.submit(run_one, m): m for m in modes}
             for future in as_completed(futures):
                 mode, result = future.result()
@@ -398,8 +428,10 @@ def main() -> None:
             print(f"  {BLUE}Judging: pairwise comparisons...{NC}")
             pairs = [
                 ("codemesh", "baseline"),
+                ("codemesh-cli", "baseline"),
                 ("codegraph", "baseline"),
-                ("codemesh", "codegraph"),
+                ("codemesh-cli", "codemesh"),
+                ("codemesh-cli", "codegraph"),
             ]
             for mode_a, mode_b in pairs:
                 resp_a = results.get(mode_a, {}).get("response", "")
@@ -438,7 +470,7 @@ def main() -> None:
     print("-" * 110)
 
     for entry in all_results:
-        for mode in ["baseline", "codemesh", "codegraph"]:
+        for mode in ["baseline", "codemesh", "codemesh-cli", "codegraph"]:
             d = entry.get(mode, {})
             tc = d.get("tool_calls", 0)
             t = d.get("time_s", 0)
