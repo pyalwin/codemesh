@@ -118,6 +118,18 @@ Before writing your answer, run this checklist:
 
 ---
 
+## Writing Your Answer
+
+Structure your response with:
+
+1. **Overview** — 2-3 sentence summary
+2. **One section per sub-topic** from your decomposition — each with file names and key functions/classes
+3. **File reference table** — list EVERY file involved and its role
+
+Your answer must be **COMPLETE**. Cover every sub-topic from your decomposition fully. Do not abbreviate, truncate, or skip sections. If you decomposed into 5 sub-topics, your answer must have 5 sections.
+
+---
+
 ## After Exploration: ENRICH
 
 After completing your exploration:
