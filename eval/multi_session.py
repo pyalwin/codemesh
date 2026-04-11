@@ -121,20 +121,21 @@ def get_graph_stats(project_root: str) -> Dict:
         ["node", str(PROJECT_DIR / "dist" / "cli.js"), "status"],
         capture_output=True, text=True, env=env, timeout=30,
     )
-    stats = {"raw": result.stdout.strip()}
+    stats = {"raw": result.stdout.strip(), "concepts": 0, "workflows": 0, "stale": 0}
     for line in result.stdout.strip().split("\n"):
         line = line.strip()
-        if "concept" in line.lower():
+        # Match "  concept: 11" but NOT "Stale concepts: 0"
+        if line.startswith("concept:"):
             try:
                 stats["concepts"] = int(line.split(":")[1].strip())
             except (ValueError, IndexError):
                 pass
-        if "workflow" in line.lower() and ":" in line:
+        elif line.startswith("workflow:"):
             try:
                 stats["workflows"] = int(line.split(":")[1].strip())
             except (ValueError, IndexError):
                 pass
-        if "Stale" in line:
+        elif line.startswith("Stale"):
             try:
                 stats["stale"] = int(line.split(":")[1].strip())
             except (ValueError, IndexError):
