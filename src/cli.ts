@@ -1,8 +1,12 @@
 #!/usr/bin/env node
-// Commands: codemesh index | status | rebuild | help
+// Commands: codemesh index | status | rebuild | explore | help
 
 import { SqliteBackend } from "./graph/sqlite.js";
 import { Indexer } from "./indexer/indexer.js";
+import { handleQuery } from "./tools/query.js";
+import { handleContext } from "./tools/context.js";
+import { handleTrace } from "./tools/trace.js";
+import { handleImpact } from "./tools/impact.js";
 import { join } from "path";
 import { mkdirSync, rmSync, existsSync } from "fs";
 
@@ -17,10 +21,14 @@ function printUsage(): void {
 codemesh — Code knowledge graph CLI
 
 Usage:
-  codemesh index     Index the project (incremental)
-  codemesh status    Show graph statistics
-  codemesh rebuild   Delete DB and re-index from scratch
-  codemesh help      Show this help message
+  codemesh index                                 Index the project (incremental)
+  codemesh status                                Show graph statistics
+  codemesh rebuild                               Delete DB and re-index from scratch
+  codemesh explore search <query>                Search the knowledge graph (FTS)
+  codemesh explore context <path> [--symbol S]   Get file/symbol context with source code
+  codemesh explore trace <symbol> [--depth N]    Trace a call chain from a symbol
+  codemesh explore impact <path> [--symbol S]    Find reverse dependencies
+  codemesh help                                  Show this help message
 
 Environment:
   CODEMESH_PROJECT_ROOT   Project root directory (default: cwd)
@@ -93,6 +101,85 @@ async function runRebuild(): Promise<void> {
   await runIndex();
 }
 
+function parseFlag(flagArgs: string[], flag: string): string | undefined {
+  const idx = flagArgs.indexOf(flag);
+  if (idx !== -1 && idx + 1 < flagArgs.length) {
+    return flagArgs[idx + 1];
+  }
+  return undefined;
+}
+
+async function runExplore(): Promise<void> {
+  const subcommand = args[1];
+  if (!subcommand) {
+    console.error("Usage: codemesh explore <search|context|trace|impact> ...");
+    process.exit(1);
+  }
+
+  if (!existsSync(dbPath)) {
+    console.error("No codemesh database found. Run `codemesh index` first.");
+    process.exit(1);
+  }
+
+  const storage = new SqliteBackend(dbPath);
+  await storage.initialize();
+
+  try {
+    let result: unknown;
+
+    switch (subcommand) {
+      case "search": {
+        const query = args.slice(2).filter((a) => !a.startsWith("--")).join(" ");
+        if (!query) {
+          console.error("Usage: codemesh explore search <query>");
+          process.exit(1);
+        }
+        result = await handleQuery(storage, { query }, projectRoot);
+        break;
+      }
+      case "context": {
+        const path = args[2];
+        if (!path) {
+          console.error("Usage: codemesh explore context <path> [--symbol name]");
+          process.exit(1);
+        }
+        const symbol = parseFlag(args, "--symbol");
+        result = await handleContext(storage, { path, symbol }, projectRoot);
+        break;
+      }
+      case "trace": {
+        const symbol = args[2];
+        if (!symbol) {
+          console.error("Usage: codemesh explore trace <symbol> [--depth N]");
+          process.exit(1);
+        }
+        const depthStr = parseFlag(args, "--depth");
+        const depth = depthStr ? parseInt(depthStr, 10) : 5;
+        result = await handleTrace(storage, { symbol, depth }, projectRoot);
+        break;
+      }
+      case "impact": {
+        const path = args[2];
+        if (!path) {
+          console.error("Usage: codemesh explore impact <path> [--symbol name]");
+          process.exit(1);
+        }
+        const symbol = parseFlag(args, "--symbol");
+        result = await handleImpact(storage, { path, symbol });
+        break;
+      }
+      default:
+        console.error(`Unknown explore subcommand: ${subcommand}`);
+        console.error("Available: search, context, trace, impact");
+        process.exit(1);
+    }
+
+    console.log(JSON.stringify({ projectRoot, ...result as Record<string, unknown> }, null, 2));
+  } finally {
+    await storage.close();
+  }
+}
+
 async function main(): Promise<void> {
   switch (command) {
     case "index":
@@ -103,6 +190,9 @@ async function main(): Promise<void> {
       break;
     case "rebuild":
       await runRebuild();
+      break;
+    case "explore":
+      await runExplore();
       break;
     case "help":
     case "--help":

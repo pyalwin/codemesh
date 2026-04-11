@@ -2,17 +2,23 @@
  * codemesh_context — Get full context for a file or symbol.
  */
 
+import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
-import type { GraphNode, GraphEdge } from "../graph/types.js";
+import type { GraphNode, GraphEdge, SymbolNode } from "../graph/types.js";
+import { readSourceLines } from "./source-reader.js";
 
 export interface ContextInput {
   path: string;
   symbol?: string;
 }
 
+export type SymbolWithSource = GraphNode & {
+  source_code?: string | null;
+};
+
 export interface ContextOutput {
-  file: GraphNode | null;
-  symbols: GraphNode[];
+  file: (GraphNode & { absolutePath?: string }) | null;
+  symbols: SymbolWithSource[];
   incomingEdges: GraphEdge[];
   outgoingEdges: GraphEdge[];
   concepts: GraphNode[];
@@ -22,6 +28,7 @@ export interface ContextOutput {
 export async function handleContext(
   storage: StorageBackend,
   input: ContextInput,
+  projectRoot?: string,
 ): Promise<ContextOutput> {
   // Find the file node by path
   const fileNodes = await storage.queryNodes({ type: "file", path: input.path });
@@ -71,7 +78,7 @@ export async function handleContext(
 
   if (!targetNode) {
     return {
-      file,
+      file: { ...file, ...(projectRoot ? { absolutePath: join(projectRoot, input.path) } : {}) },
       symbols: [],
       incomingEdges: [],
       outgoingEdges: [],
@@ -82,10 +89,17 @@ export async function handleContext(
 
   // Get symbols via contains edges from the file
   const containsEdges = await storage.getEdges(file.id, "out", ["contains"]);
-  const symbols: GraphNode[] = [];
+  const symbols: SymbolWithSource[] = [];
   for (const edge of containsEdges) {
     const node = await storage.getNode(edge.toId);
-    if (node) symbols.push(node);
+    if (node) {
+      const entry: SymbolWithSource = { ...node };
+      if (projectRoot && node.type === "symbol") {
+        const sym = node as SymbolNode;
+        entry.source_code = readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd);
+      }
+      symbols.push(entry);
+    }
   }
 
   // Get incoming and outgoing edges for the target
@@ -135,8 +149,12 @@ export async function handleContext(
     }
   }
 
+  const fileOutput: ContextOutput["file"] = file
+    ? { ...file, ...(projectRoot ? { absolutePath: join(projectRoot, input.path) } : {}) }
+    : null;
+
   return {
-    file,
+    file: fileOutput,
     symbols,
     incomingEdges,
     outgoingEdges,

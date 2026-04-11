@@ -40,11 +40,11 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     async (args) => {
       if (args.action === "search") {
         if (!args.query) throw new Error("query is required for search action");
-        const result = await handleQuery(storage, { query: args.query, scope: args.scope });
+        const result = await handleQuery(storage, { query: args.query, scope: args.scope }, projectRoot);
         return textResult(result, projectRoot);
       } else if (args.action === "context") {
         if (!args.path) throw new Error("path is required for context action");
-        const result = await handleContext(storage, { path: args.path, symbol: args.symbol });
+        const result = await handleContext(storage, { path: args.path, symbol: args.symbol }, projectRoot);
         return textResult(result, projectRoot);
       } else if (args.action === "impact") {
         if (!args.path) throw new Error("path is required for impact action");

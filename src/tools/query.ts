@@ -3,21 +3,29 @@
  */
 
 import type { StorageBackend } from "../graph/storage.js";
-import type { SearchResult } from "../graph/types.js";
+import type { SearchResult, SymbolNode } from "../graph/types.js";
+import { readSourceLines } from "./source-reader.js";
 
 export interface QueryInput {
   query: string;
   scope?: "files" | "symbols" | "workflows" | "all";
 }
 
+export interface QueryResultItem {
+  node: SearchResult["node"] & { source_code?: string | null };
+  rank: number;
+  matchedField: string;
+}
+
 export interface QueryOutput {
-  results: SearchResult[];
+  results: QueryResultItem[];
   total: number;
 }
 
 export async function handleQuery(
   storage: StorageBackend,
   input: QueryInput,
+  projectRoot?: string,
 ): Promise<QueryOutput> {
   const scope = input.scope ?? "all";
 
@@ -37,8 +45,23 @@ export async function handleQuery(
     results = allResults;
   }
 
+  // Enrich symbol results with source code
+  const enriched: QueryResultItem[] = results.map((r) => {
+    if (projectRoot && r.node.type === "symbol") {
+      const sym = r.node as SymbolNode;
+      return {
+        ...r,
+        node: {
+          ...r.node,
+          source_code: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, 30),
+        },
+      };
+    }
+    return r;
+  });
+
   return {
-    results,
-    total: results.length,
+    results: enriched,
+    total: enriched.length,
   };
 }
