@@ -357,6 +357,20 @@ BENCHMARKS = [
         "query": "How does the Swift compiler handle error diagnostics?",
         "rubric": "Should identify the diagnostics engine, DiagnosticEngine class, diagnostic message emission pipeline, and how diagnostics flow from parsing/type-checking to user-visible error messages. Key files in lib/AST/ and include/swift/AST/.",
     },
+    {
+        "id": "pydantic-validators",
+        "repo": "https://github.com/pydantic/pydantic.git",
+        "local_path": "/tmp/pydantic",
+        "query": "Find all the validator-related functions and classes in the pydantic codebase. List the key files and what each one does for validation.",
+        "rubric": "Should identify validator files, explain validator registration mechanism, mention both v1 and v2 validators. Key files: functional_validators.py, _internal/_validators.py, _internal/_validate_call.py, deprecated/class_validators.py.",
+    },
+    {
+        "id": "pydantic-basemodel",
+        "repo": "https://github.com/pydantic/pydantic.git",
+        "local_path": "/tmp/pydantic",
+        "query": "Explain how pydantic's BaseModel.__init__ works. Trace the initialization flow from when a user creates a model instance to when fields are validated.",
+        "rubric": "Should trace BaseModel.__init__ through model construction, field validation, and explain the __pydantic_validator__ usage. Key files: main.py, _internal/_model_construction.py.",
+    },
 ]
 
 
