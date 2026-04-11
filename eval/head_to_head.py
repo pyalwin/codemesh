@@ -281,6 +281,20 @@ BENCHMARKS = [
         "query": "How does collaborative editing and real-time sync work?",
         "rubric": "Should identify the collab module, WebSocket/HTTP transport, scene reconciliation, and conflict resolution mechanisms. Should mention key files in the collab/ directory.",
     },
+    {
+        "id": "vscode",
+        "repo": "https://github.com/microsoft/vscode.git",
+        "local_path": "/tmp/vscode",
+        "query": "How does the extension host communicate with the main process?",
+        "rubric": "Should identify the extension host process architecture, IPC mechanism (MessagePort/RPC), the ExtensionHostMain entry point, and the protocol layer. Key files in src/vs/workbench/services/extensions/.",
+    },
+    {
+        "id": "swift-compiler",
+        "repo": "https://github.com/swiftlang/swift.git",
+        "local_path": "/tmp/swift",
+        "query": "How does the Swift compiler handle error diagnostics?",
+        "rubric": "Should identify the diagnostics engine, DiagnosticEngine class, diagnostic message emission pipeline, and how diagnostics flow from parsing/type-checking to user-visible error messages. Key files in lib/AST/ and include/swift/AST/.",
+    },
 ]
 
 
