@@ -3,9 +3,12 @@ import { join } from "node:path";
 
 /**
  * Read source lines from a file.
- * Returns the COMPLETE source code between lineStart and lineEnd (1-indexed, inclusive).
- * No truncation — the full function/class body is returned so the agent
- * doesn't need a separate Read call.
+ * Returns the source code between lineStart and lineEnd (1-indexed, inclusive).
+ * Returns null if file can't be read.
+ *
+ * NOT used in default tool responses — agents should Read files themselves.
+ * This is for trace tool only, where following a call chain benefits from
+ * seeing the code inline.
  */
 export function readSourceLines(
   projectRoot: string,
@@ -20,22 +23,6 @@ export function readSourceLines(
     const start = Math.max(0, lineStart - 1);
     const end = Math.min(lines.length, lineEnd);
     return lines.slice(start, end).join("\n");
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Read the full file content.
- * No truncation — returns everything so the agent trusts the result.
- */
-export function readFileContent(
-  projectRoot: string,
-  filePath: string,
-): string | null {
-  try {
-    const absPath = join(projectRoot, filePath);
-    return readFileSync(absPath, "utf-8");
   } catch {
     return null;
   }

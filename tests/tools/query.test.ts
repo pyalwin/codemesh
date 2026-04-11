@@ -89,14 +89,21 @@ describe("handleQuery", () => {
 // ── codemesh_context ──────────────────────────────────────────────
 
 describe("handleContext", () => {
-  it("gets file context with symbols", async () => {
+  it("gets file context with symbol metadata", async () => {
     const result = await handleContext(storage, { path: "src/math.ts" });
     expect(result.file).not.toBeNull();
-    expect(result.file!.type).toBe("file");
-    expect(result.symbols.length).toBeGreaterThanOrEqual(2); // add, multiply, MathHelper
+    expect(result.file!.path).toBe("src/math.ts");
+    expect(result.symbols.length).toBeGreaterThanOrEqual(2);
     const names = result.symbols.map((s) => s.name);
     expect(names).toContain("add");
     expect(names).toContain("multiply");
+    // Each symbol has rich metadata
+    const addSym = result.symbols.find((s) => s.name === "add");
+    expect(addSym).toBeDefined();
+    expect(addSym!.kind).toBeDefined();
+    expect(addSym!.signature).toBeDefined();
+    expect(addSym!.lineStart).toBeGreaterThan(0);
+    expect(addSym!.callChain).toBeDefined();
   });
 
   it("returns null file for unknown path", async () => {
@@ -107,29 +114,30 @@ describe("handleContext", () => {
     expect(result.symbols).toHaveLength(0);
   });
 
-  it("returns outgoing edges for a file", async () => {
+  it("returns imports for a file", async () => {
     const result = await handleContext(storage, {
       path: "src/calculator.ts",
     });
     expect(result.file).not.toBeNull();
-    // calculator.ts imports math.ts, so should have outgoing edges
-    expect(result.outgoingEdges.length).toBeGreaterThanOrEqual(1);
+    // calculator.ts imports math.ts
+    expect(result.imports.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("returns incoming edges for a file", async () => {
+  it("returns importedBy for a file", async () => {
     const result = await handleContext(storage, { path: "src/math.ts" });
-    // math.ts is imported by calculator.ts, so should have incoming edges
-    expect(result.incomingEdges.length).toBeGreaterThanOrEqual(1);
+    // math.ts is imported by calculator.ts
+    expect(result.importedBy.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("returns symbol-specific context when symbol is specified", async () => {
+  it("filters to specific symbol when symbol is specified", async () => {
     const result = await handleContext(storage, {
       path: "src/math.ts",
       symbol: "add",
     });
     expect(result.file).not.toBeNull();
-    // Should still return all symbols from the file
-    expect(result.symbols.length).toBeGreaterThanOrEqual(2);
+    // Should only return matched symbols
+    expect(result.symbols.length).toBeGreaterThanOrEqual(1);
+    expect(result.symbols.some((s) => s.name === "add")).toBe(true);
   });
 });
 

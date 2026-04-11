@@ -1,28 +1,52 @@
 /**
  * codemesh_context — Get full context for a file or symbol.
+ *
+ * Returns METADATA only — signatures, line numbers, edges, concepts, workflows.
+ * Does NOT return source code. The agent reads specific files/functions it needs.
+ * This keeps responses small and lets the agent choose what to read.
  */
 
 import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, GraphEdge, SymbolNode } from "../graph/types.js";
-import { readSourceLines } from "./source-reader.js";
 
 export interface ContextInput {
   path: string;
   symbol?: string;
 }
 
-export type SymbolWithSource = GraphNode & {
-  source_code?: string | null;
-};
+/** Symbol metadata — enough for the agent to decide whether to Read it */
+export interface SymbolInfo {
+  name: string;
+  kind: string;
+  signature: string;
+  lineStart: number;
+  lineEnd: number;
+  lineCount: number;
+  /** What this symbol calls (outgoing call edges) */
+  calls: string[];
+  /** What calls this symbol (incoming call edges) */
+  calledBy: string[];
+  /** Full call chain reachable from this symbol (depth 5) — shows the complete graph path */
+  callChain: string[];
+}
 
 export interface ContextOutput {
-  file: (GraphNode & { absolutePath?: string }) | null;
-  symbols: SymbolWithSource[];
-  incomingEdges: GraphEdge[];
-  outgoingEdges: GraphEdge[];
-  concepts: GraphNode[];
-  workflows: GraphNode[];
+  file: {
+    path: string;
+    absolutePath: string;
+    name: string;
+  } | null;
+  /** Symbols with rich metadata — signature, line range, calls, calledBy */
+  symbols: SymbolInfo[];
+  /** Files this file imports */
+  imports: string[];
+  /** Files that import this file */
+  importedBy: string[];
+  /** Agent-written summaries about this file */
+  concepts: Array<{ summary: string; lastUpdatedBy: string }>;
+  /** Known workflows that traverse this file */
+  workflows: Array<{ name: string; description: string; files: string[] }>;
 }
 
 export async function handleContext(
@@ -30,134 +54,155 @@ export async function handleContext(
   input: ContextInput,
   projectRoot?: string,
 ): Promise<ContextOutput> {
-  // Find the file node by path
   const fileNodes = await storage.queryNodes({ type: "file", path: input.path });
   const file = fileNodes.length > 0 ? fileNodes[0] : null;
 
   if (!file) {
-    return {
-      file: null,
-      symbols: [],
-      incomingEdges: [],
-      outgoingEdges: [],
-      concepts: [],
-      workflows: [],
-    };
+    return { file: null, symbols: [], imports: [], importedBy: [], concepts: [], workflows: [] };
   }
 
-  let targetId = file.id;
-  let targetNode: GraphNode | null = file;
+  const absPath = projectRoot ? join(projectRoot, input.path) : input.path;
 
-  // If a specific symbol is requested, find it using fuzzy matching
-  if (input.symbol) {
-    const containsEdges = await storage.getEdges(file.id, "out", ["contains"]);
-    let matchedSymbol: GraphNode | null = null;
-    
-    for (const edge of containsEdges) {
-      const node = await storage.getNode(edge.toId);
-      if (
-        node &&
-        (node.name === input.symbol ||
-          node.name.includes(input.symbol) ||
-          input.symbol.includes(node.name))
-      ) {
-        matchedSymbol = node;
-        break;
-      }
-    }
-
-    if (matchedSymbol) {
-      targetId = matchedSymbol.id;
-      targetNode = matchedSymbol;
-    } else {
-      // Fallback to exact match
-      targetId = `symbol:${input.path}:${input.symbol}`;
-      targetNode = await storage.getNode(targetId);
-    }
-  }
-
-  if (!targetNode) {
-    return {
-      file: { ...file, ...(projectRoot ? { absolutePath: join(projectRoot, input.path) } : {}) },
-      symbols: [],
-      incomingEdges: [],
-      outgoingEdges: [],
-      concepts: [],
-      workflows: [],
-    };
-  }
-
-  // Get symbols via contains edges from the file
+  // Get symbols with rich metadata
   const containsEdges = await storage.getEdges(file.id, "out", ["contains"]);
-  const symbols: SymbolWithSource[] = [];
+  const symbols: SymbolInfo[] = [];
+
   for (const edge of containsEdges) {
     const node = await storage.getNode(edge.toId);
-    if (node) {
-      const entry: SymbolWithSource = { ...node };
-      if (projectRoot && node.type === "symbol") {
-        const sym = node as SymbolNode;
-        entry.source_code = readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd);
-      }
-      symbols.push(entry);
+    if (!node || node.type !== "symbol") continue;
+    const sym = node as SymbolNode;
+
+    // If a specific symbol was requested, filter
+    if (input.symbol) {
+      const match = sym.name === input.symbol
+        || sym.name.includes(input.symbol)
+        || input.symbol.includes(sym.name);
+      if (!match) continue;
     }
-  }
 
-  // Get incoming and outgoing edges for the target
-  const incomingEdges = await storage.getEdges(targetId, "in");
-  const outgoingEdges = await storage.getEdges(targetId, "out");
-
-  // Find concepts via describes edges pointing to the target or its symbols
-  const concepts: GraphNode[] = [];
-  const conceptIds = new Set<string>();
-
-  // Check describes edges pointing to the target
-  for (const edge of incomingEdges) {
-    if (edge.type === "describes") {
-      const node = await storage.getNode(edge.fromId);
-      if (node && node.type === "concept" && !conceptIds.has(node.id)) {
-        concepts.push(node);
-        conceptIds.add(node.id);
-      }
+    // Get calls (outgoing)
+    const callEdges = await storage.getEdges(node.id, "out", ["calls"]);
+    const calls: string[] = [];
+    for (const ce of callEdges) {
+      const target = await storage.getNode(ce.toId);
+      if (target) calls.push(target.name);
     }
-  }
 
-  // Also check describes edges pointing to symbols of this file
-  if (!input.symbol) {
-    for (const sym of symbols) {
-      const symIncoming = await storage.getEdges(sym.id, "in", ["describes"]);
-      for (const edge of symIncoming) {
-        const node = await storage.getNode(edge.fromId);
-        if (node && node.type === "concept" && !conceptIds.has(node.id)) {
-          concepts.push(node);
-          conceptIds.add(node.id);
+    // Get calledBy (incoming)
+    const callerEdges = await storage.getEdges(node.id, "in", ["calls"]);
+    const calledBy: string[] = [];
+    for (const ce of callerEdges) {
+      const caller = await storage.getNode(ce.fromId);
+      if (caller) calledBy.push(caller.name);
+    }
+
+    // BFS to get the full call chain reachable from this symbol (depth 5)
+    const callChain: string[] = [];
+    const visited = new Set<string>([node.id]);
+    const queue: Array<{ id: string; depth: number }> = calls.length > 0
+      ? (await Promise.all(callEdges.map(async (ce) => {
+          const t = await storage.getNode(ce.toId);
+          return t ? { id: ce.toId, depth: 1 } : null;
+        }))).filter((x): x is { id: string; depth: number } => x !== null)
+      : [];
+
+    while (queue.length > 0) {
+      const { id: nid, depth } = queue.shift()!;
+      if (visited.has(nid) || depth > 5) continue;
+      visited.add(nid);
+      const n = await storage.getNode(nid);
+      if (!n) continue;
+      const nSym = n.type === "symbol" ? n as SymbolNode : null;
+      callChain.push(nSym ? `${n.name} (${nSym.filePath}:${nSym.lineStart})` : n.name);
+      const nextEdges = await storage.getEdges(nid, "out", ["calls"]);
+      for (const ne of nextEdges) {
+        if (!visited.has(ne.toId)) {
+          queue.push({ id: ne.toId, depth: depth + 1 });
         }
       }
     }
+
+    symbols.push({
+      name: sym.name,
+      kind: sym.kind,
+      signature: sym.signature,
+      lineStart: sym.lineStart,
+      lineEnd: sym.lineEnd,
+      lineCount: sym.lineEnd - sym.lineStart + 1,
+      calls,
+      calledBy,
+      callChain,
+    });
   }
 
-  // Find workflows via traverses edges pointing to the target file
-  const workflows: GraphNode[] = [];
-  const workflowIds = new Set<string>();
+  // Get imports (outgoing import edges)
+  const importEdges = await storage.getEdges(file.id, "out", ["imports"]);
+  const imports: string[] = [];
+  for (const edge of importEdges) {
+    const target = await storage.getNode(edge.toId);
+    if (target && "path" in target) imports.push((target as any).path);
+  }
 
-  // Check traverses edges pointing to the file
+  // Get importedBy (incoming import edges)
+  const importedByEdges = await storage.getEdges(file.id, "in", ["imports"]);
+  const importedBy: string[] = [];
+  for (const edge of importedByEdges) {
+    const source = await storage.getNode(edge.fromId);
+    if (source && "path" in source) importedBy.push((source as any).path);
+  }
+
+  // Get concepts
+  const concepts: Array<{ summary: string; lastUpdatedBy: string }> = [];
+  const conceptIds = new Set<string>();
+  const allIncoming = await storage.getEdges(file.id, "in", ["describes"]);
+  for (const edge of allIncoming) {
+    const node = await storage.getNode(edge.fromId);
+    if (node && node.type === "concept" && !conceptIds.has(node.id)) {
+      conceptIds.add(node.id);
+      concepts.push({
+        summary: (node as any).summary ?? "",
+        lastUpdatedBy: (node as any).lastUpdatedBy ?? "",
+      });
+    }
+  }
+
+  // Also get concepts on symbols
+  for (const sym of symbols) {
+    const symId = `symbol:${input.path}:${sym.name}`;
+    const symIncoming = await storage.getEdges(symId, "in", ["describes"]);
+    for (const edge of symIncoming) {
+      const node = await storage.getNode(edge.fromId);
+      if (node && node.type === "concept" && !conceptIds.has(node.id)) {
+        conceptIds.add(node.id);
+        concepts.push({
+          summary: (node as any).summary ?? "",
+          lastUpdatedBy: (node as any).lastUpdatedBy ?? "",
+        });
+      }
+    }
+  }
+
+  // Get workflows
+  const workflows: Array<{ name: string; description: string; files: string[] }> = [];
+  const workflowIds = new Set<string>();
   const fileIncoming = await storage.getEdges(file.id, "in", ["traverses"]);
   for (const edge of fileIncoming) {
     const node = await storage.getNode(edge.fromId);
     if (node && node.type === "workflow" && !workflowIds.has(node.id)) {
-      workflows.push(node);
       workflowIds.add(node.id);
+      workflows.push({
+        name: node.name,
+        description: (node as any).description ?? "",
+        files: (node as any).fileSequence ?? [],
+      });
     }
   }
 
-  const fileOutput: ContextOutput["file"] = file
-    ? { ...file, ...(projectRoot ? { absolutePath: join(projectRoot, input.path) } : {}) }
-    : null;
-
   return {
-    file: fileOutput,
+    file: { path: input.path, absolutePath: absPath, name: file.name },
     symbols,
-    incomingEdges,
-    outgoingEdges,
+    imports,
+    importedBy,
     concepts,
     workflows,
   };

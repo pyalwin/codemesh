@@ -58,8 +58,16 @@ def write_codegraph_mcp_config(project_root: str) -> Path:
 
 CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools. Grep and Glob are disabled.
 
-Tools: codemesh_explore (search/context/impact), codemesh_trace (follow call chains).
-IMPORTANT: All tool responses include COMPLETE source code for every symbol — not snippets, the FULL function/class body. Do NOT use Read to re-read files the graph already returned source for. The source in the response IS the file content.
+Tools:
+- codemesh_explore (search/context/impact) — returns metadata: signatures, line ranges, call chains, concepts, workflows
+- codemesh_trace — follows a call chain and returns source code for each step
+
+The graph tells you WHERE things are and HOW they connect. It returns:
+1. Existing workflows and concepts from previous sessions (if any) — use these first
+2. Symbol metadata: name, signature, lineStart-lineEnd, calls, calledBy, callChain (full reachable path up to depth 5)
+3. File relationships: imports, importedBy
+
+Based on this metadata, YOU decide which specific functions to Read. Only Read what you need — the metadata tells you enough to choose.
 Every response includes projectRoot for absolute file paths.
 
 MANDATORY WORKFLOW:
@@ -102,7 +110,7 @@ CLI commands (all return JSON):
 - `codemesh explore trace symbolName --depth 5` — follow a call chain with source code
 - `codemesh explore impact path/to/file.swift` — reverse dependency analysis
 
-IMPORTANT: The results include COMPLETE source code for every symbol — not snippets, the FULL function/class body. Do NOT use Read to re-read files — the source in the JSON IS the file content. Trust it completely.
+The results include metadata: signatures, line ranges, call chains (full graph paths), concepts from previous sessions. Based on this, YOU decide which specific functions to Read. Only Read what you actually need.
 
 MANDATORY WORKFLOW:
 
