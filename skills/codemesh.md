@@ -5,26 +5,37 @@ description: Query the code knowledge graph before reading code. Use structured 
 
 # Codemesh: Code Knowledge Graph
 
-You have access to a persistent code knowledge graph via `codemesh_*` MCP tools. The graph contains structural data (files, symbols, imports, call chains) and semantic data (agent-written summaries, workflow paths) that accumulate across sessions.
+You have access to a persistent code knowledge graph via `codemesh_*` MCP tools, plus LSP for exact navigation. Use them together as a two-tier system.
 
-## Tools
+## Two-Tier Navigation
 
-### codemesh_explore (primary)
+### Tier 1 — Codemesh (global discovery: "where is everything?")
 
-Omni-tool with 3 actions:
-- `action='search'` — find files and symbols by text query
-- `action='context'` — get symbols, edges, and relationships for a file or symbol
+**codemesh_explore** — omni-tool with 3 actions:
+- `action='search'` — find files and symbols across the entire codebase
+- `action='context'` — get symbol metadata: signatures, call chains (full depth-5 paths), imports, concepts, workflows
 - `action='impact'` — find reverse dependencies
 
-Every response includes `projectRoot` — the absolute path to the project root.
+**codemesh_trace** — follow a call chain from a symbol to leaf nodes with source code. Supports fuzzy matching.
 
-### codemesh_trace
+**codemesh_enrich / codemesh_workflow** — write back what you learned for future sessions.
 
-Follows a call chain from a symbol through the graph to leaf nodes. Returns every function in the path with source code. Supports fuzzy matching.
+### Tier 2 — LSP (exact navigation: "what exactly is this?")
 
-### codemesh_enrich / codemesh_workflow
+Use LSP when codemesh gives you a symbol but you need surgical precision:
+- **Go to definition** — when you know a function name but need its exact file and line
+- **Find references** — see every caller of a specific function across the codebase
+- **Resolve ambiguity** — if codemesh returns 5 `save()` methods, LSP tells you which one a specific call resolves to
 
-Write back what you learned for future sessions.
+### How they work together
+
+Codemesh gives you the **map** — the big picture of what exists, how files connect, what workflows have been traced before. LSP gives you the **GPS** — exact navigation within the territory codemesh mapped.
+
+```
+codemesh_explore(search) → "auth logic is in src/auth/, src/middleware/, src/models/user.ts"
+LSP(go-to-definition) → "this specific validateToken() call resolves to src/auth/jwt.ts:45"
+Read(src/auth/jwt.ts, lines 45-80) → the actual code you need
+```
 
 ---
 

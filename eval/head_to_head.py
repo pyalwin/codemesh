@@ -56,18 +56,21 @@ def write_codegraph_mcp_config(project_root: str) -> Path:
 
 # ── System Prompts ──────────────────────────────────────────────────
 
-CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools. Grep and Glob are disabled.
+CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools for global discovery. Grep and Glob are disabled. LSP is available for exact navigation.
 
-Tools:
-- codemesh_explore (search/context/impact) — returns metadata: signatures, line ranges, call chains, concepts, workflows
-- codemesh_trace — follows a call chain and returns source code for each step
+TWO-TIER NAVIGATION:
 
-The graph tells you WHERE things are and HOW they connect. It returns:
-1. Existing workflows and concepts from previous sessions (if any) — use these first
-2. Symbol metadata: name, signature, lineStart-lineEnd, calls, calledBy, callChain (full reachable path up to depth 5)
-3. File relationships: imports, importedBy
+TIER 1 — CODEMESH (global discovery, "where is everything?"):
+- codemesh_explore(action='search') — find files and symbols across the whole codebase
+- codemesh_explore(action='context') — get symbol metadata: signatures, call chains, imports, concepts
+- codemesh_trace — follow a call chain through the graph
 
-Based on this metadata, YOU decide which specific functions to Read. Only Read what you need — the metadata tells you enough to choose.
+TIER 2 — LSP (exact navigation, "what exactly is this?"):
+- Use LSP for go-to-definition when you know a symbol but need its exact location
+- Use LSP for find-references to see all callers of a specific function
+- LSP resolves type ambiguity that the graph can't — if codemesh returns 5 "request" methods, LSP tells you which one is actually called
+
+WORKFLOW: codemesh_explore to find the area → LSP to navigate precisely within it → Read only the specific lines you need.
 Every response includes projectRoot for absolute file paths.
 
 MANDATORY WORKFLOW:
@@ -101,16 +104,23 @@ CODEMESH_TOOLS = [
     "mcp__codemesh__codemesh_status",
 ]
 
-CODEMESH_CLI_PROMPT = """You have a CLI tool called 'codemesh' for exploring the codebase. Use it via Bash. Grep and Glob are disabled.
+CODEMESH_CLI_PROMPT = """You have a CLI tool called 'codemesh' for global codebase discovery. Use it via Bash. Grep and Glob are disabled. LSP is available for exact navigation.
 
-CLI commands (all return JSON):
-- `codemesh explore search "query"` — find files and symbols by text (includes source code)
-- `codemesh explore context path/to/file.swift` — get symbols, edges, source for a file
+TWO-TIER NAVIGATION:
+
+TIER 1 — CODEMESH CLI (global discovery via Bash):
+- `codemesh explore search "query"` — find files and symbols across the codebase
+- `codemesh explore context path/to/file.swift` — get symbol metadata, call chains, imports
 - `codemesh explore context path/to/file.swift --symbol name` — focus on a specific symbol
-- `codemesh explore trace symbolName --depth 5` — follow a call chain with source code
+- `codemesh explore trace symbolName --depth 5` — follow a call chain through the graph
 - `codemesh explore impact path/to/file.swift` — reverse dependency analysis
 
-The results include metadata: signatures, line ranges, call chains (full graph paths), concepts from previous sessions. Based on this, YOU decide which specific functions to Read. Only Read what you actually need.
+TIER 2 — LSP (exact navigation):
+- Use LSP for go-to-definition when codemesh gives you a symbol but you need its exact location
+- Use LSP for find-references to see all callers
+- LSP resolves ambiguity the graph can't
+
+WORKFLOW: codemesh CLI to find the area → LSP to navigate precisely → Read only the specific lines you need.
 
 MANDATORY WORKFLOW:
 
@@ -176,6 +186,7 @@ def run_mode(
         if mode != "baseline":
             cmd.extend(["--allowedTools", "Read"])
             cmd.extend(["--allowedTools", "Bash"])
+            cmd.extend(["--allowedTools", "LSP"])
 
     env = os.environ.copy()
     env.pop("CLAUDECODE", None)
