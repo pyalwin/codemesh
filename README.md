@@ -145,7 +145,12 @@ Indexed 656 files
   Duration:       10009ms
 ```
 
-### 3. Configure as MCP server
+### 3. Choose your mode
+
+Codemesh offers two ways to integrate with AI agents:
+
+<details open>
+<summary><strong>Option A: MCP Server</strong> (structured tool calls)</summary>
 
 Add to your Claude Code MCP config (`~/.claude/mcp-servers.json` or project `.mcp.json`):
 
@@ -162,6 +167,44 @@ Add to your Claude Code MCP config (`~/.claude/mcp-servers.json` or project `.mc
   }
 }
 ```
+
+The agent gets native MCP tools: `codemesh_explore`, `codemesh_trace`, `codemesh_enrich`, `codemesh_workflow`, `codemesh_status`.
+
+**Best for:** Opus, structured workflows, enrichment/write-back
+
+</details>
+
+<details>
+<summary><strong>Option B: CLI Mode</strong> (via Bash — zero MCP overhead)</summary>
+
+No MCP config needed. The agent calls codemesh directly via Bash:
+
+```bash
+# Set the project root
+export CODEMESH_PROJECT_ROOT=/path/to/your/project
+
+# Agent uses Bash to call these:
+codemesh explore search "request flow"
+codemesh explore context Source/Core/Session.swift
+codemesh explore trace Session.request --depth 5
+codemesh explore impact Source/Core/Session.swift
+```
+
+All commands return JSON to stdout. No MCP server process, no protocol overhead.
+
+**Best for:** Sonnet/Haiku, speed-sensitive workflows, simpler setup
+
+</details>
+
+### Which mode should I use?
+
+| | MCP Server | CLI Mode |
+|---|---|---|
+| **Setup** | MCP config file | Just `export CODEMESH_PROJECT_ROOT` |
+| **Overhead** | MCP protocol per call | Zero — direct subprocess |
+| **Enrichment** | Native `codemesh_enrich` tool | Via `Bash("codemesh enrich ...")` |
+| **Best model** | Opus (follows MCP well) | **Sonnet** (55% cheaper, 61% faster than baseline) |
+| **Recommended** | Complex codebases | **Default choice** |
 
 ### 4. Use it
 

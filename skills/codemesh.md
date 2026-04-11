@@ -5,20 +5,43 @@ description: Query the code knowledge graph before reading code. Use structured 
 
 # Codemesh: Code Knowledge Graph
 
-You have access to a persistent code knowledge graph via `codemesh_*` MCP tools, plus LSP for exact navigation. Use them together as a two-tier system.
+You have access to a persistent code knowledge graph, plus LSP for exact navigation. Codemesh works in two modes — detect which one is available:
+
+**MCP mode** — if you have `codemesh_explore`, `codemesh_trace` etc. as MCP tools, use them directly.
+
+**CLI mode** — if no MCP tools are available but `codemesh` is on PATH, call it via Bash:
+```bash
+codemesh explore search "query"
+codemesh explore context path/to/file.ts --symbol functionName
+codemesh explore trace symbolName --depth 5
+codemesh explore impact path/to/file.ts
+```
+
+Both modes return the same data. Use whichever is available.
 
 ## Two-Tier Navigation
 
 ### Tier 1 — Codemesh (global discovery: "where is everything?")
 
-**codemesh_explore** — omni-tool with 3 actions:
-- `action='search'` — find files and symbols across the entire codebase
-- `action='context'` — get symbol metadata: signatures, call chains (full depth-5 paths), imports, concepts, workflows
-- `action='impact'` — find reverse dependencies
+**Explore** (search, context, impact):
 
-**codemesh_trace** — follow a call chain from a symbol to leaf nodes with source code. Supports fuzzy matching.
+| Action | MCP | CLI |
+|---|---|---|
+| Search | `codemesh_explore({ action: "search", query: "..." })` | `codemesh explore search "..."` |
+| Context | `codemesh_explore({ action: "context", path: "..." })` | `codemesh explore context path/to/file` |
+| Impact | `codemesh_explore({ action: "impact", path: "..." })` | `codemesh explore impact path/to/file` |
 
-**codemesh_enrich / codemesh_workflow** — write back what you learned for future sessions.
+**Trace** (follow call chains with source code):
+
+| MCP | CLI |
+|---|---|
+| `codemesh_trace({ symbol: "name", depth: 5 })` | `codemesh explore trace name --depth 5` |
+
+**Enrich** (write back what you learned — makes future sessions faster):
+
+| MCP | CLI |
+|---|---|
+| `codemesh_enrich({ path: "...", summary: "...", sessionId: "..." })` | `codemesh enrich --path "..." --summary "..."` |
 
 ### Tier 2 — LSP (exact navigation: "what exactly is this?")
 
