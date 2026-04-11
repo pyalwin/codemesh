@@ -11,6 +11,7 @@ import { handleEnrich } from "./tools/enrich.js";
 import { handleWorkflow } from "./tools/workflow.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
+import { handleTrace } from "./tools/trace.js";
 
 function textResult(data: unknown, projectRoot: string) {
   const payload = typeof data === "object" && data !== null ? { projectRoot, ...data } : data;
@@ -97,6 +98,20 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     "Get statistics about the knowledge graph: node counts by type, edge counts by type, stale count, and last indexed timestamp.",
     async () => {
       const result = await handleStatus(storage);
+      return textResult(result, projectRoot);
+    },
+  );
+
+  // ── codemesh_trace ──────────────────────────────────────────────
+  server.tool(
+    "codemesh_trace",
+    "Trace a call chain from a symbol to its leaf nodes. Follows calls/callers edges through the graph and returns every function in the path. Use this AFTER codemesh_explore to follow a specific execution flow to completion.",
+    {
+      symbol: z.string().describe("Symbol name to start tracing from (e.g., 'Session.request' or 'request'). Supports fuzzy matching."),
+      depth: z.number().optional().describe("Max call chain depth (default: 5)"),
+    },
+    async ({ symbol, depth }) => {
+      const result = await handleTrace(storage, { symbol, depth: depth ?? 5 }, projectRoot);
       return textResult(result, projectRoot);
     },
   );
