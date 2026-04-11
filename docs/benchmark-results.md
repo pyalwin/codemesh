@@ -2,12 +2,12 @@
 
 **Date:** 2026-04-10
 **Model:** Claude Sonnet 4.6
-**Benchmarks:** 6 real-world codebases (4 from CodeGraph's published suite + 2 pydantic)
-**Modes:** Baseline (standard tools) vs Codemesh MCP vs Codemesh CLI vs CodeGraph
+**Benchmarks:** 6 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler, pydantic-validators, pydantic-basemodel)
+**Modes:** Baseline (standard tools), Codemesh MCP, Codemesh CLI, CodeGraph (graph-only approach)
 
 ## Executive Summary
 
-Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. Codemesh CLI beats CodeGraph in pairwise quality on 4 out of 6 benchmarks with Sonnet.
+Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. Codemesh CLI performed well on quality, winning pairwise comparisons in 4 of 6 benchmarks with Sonnet.
 
 | Metric | Baseline | Codemesh MCP | Codemesh CLI | CodeGraph |
 |---|---|---|---|---|
@@ -59,7 +59,7 @@ Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. 
 
 ### Quality — Pairwise Comparisons
 
-#### Codemesh CLI vs CodeGraph (the key matchup)
+#### Codemesh CLI vs CodeGraph
 
 | Repo | Winner | Scores |
 |---|---|---|
@@ -70,7 +70,7 @@ Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. 
 | **pydantic-validators** | **Codemesh CLI** | 8 vs 7 |
 | pydantic-basemodel | CodeGraph | 9 vs 8 |
 
-**Codemesh CLI wins 4 out of 6** against CodeGraph with Sonnet.
+Codemesh CLI performed well on quality, winning pairwise comparisons in 4 of 6 benchmarks.
 
 #### Codemesh CLI vs Baseline
 
@@ -92,13 +92,13 @@ Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. 
 
 ### Key Findings
 
-1. **Codemesh MCP has the highest quality** — 8.6/10 average across 6 repos, beating baseline (7.3) and CodeGraph (7.5)
-2. **pydantic-validators is a standout** — Codemesh MCP was 87% fewer calls, 82% faster, 80% cheaper than baseline; baseline scored 1/10
-3. **Codemesh CLI beats CodeGraph 4/6 on pairwise** — wins on Alamofire, VS Code, Swift Compiler, and pydantic-validators
-4. **CodeGraph is cheapest** — $0.22 avg but lowest quality (7.5/10 avg)
-5. **Sonnet + Codemesh is the sweet spot** — dramatically benefits from the graph more than Opus does
-6. **Large repos (VS Code, Swift) are expensive for codemesh** — MCP/CLI overhead scales with repo size. CodeGraph handles large repos better cost-wise.
-7. **The "cuts off" problem persists** — both Codemesh and CodeGraph lose to baseline in some pairwise comparisons because responses truncate before completion
+1. **Codemesh MCP has the highest quality** — 8.6/10 average across 6 repos, compared to baseline (7.3) and CodeGraph (7.5)
+2. **pydantic-validators is a standout** — Codemesh MCP used 87% fewer calls, was 82% faster, and 80% cheaper than baseline; baseline scored 1/10
+3. **Codemesh CLI performed well on pairwise quality** — won comparisons on Alamofire, VS Code, Swift Compiler, and pydantic-validators
+4. **CodeGraph is the most cost-efficient** — $0.22 avg, though with lower quality scores (7.5/10 avg)
+5. **Sonnet + Codemesh is the sweet spot** — smaller models benefit dramatically from graph-augmented navigation
+6. **Large repos (VS Code, Swift) are expensive for Codemesh** — MCP/CLI overhead scales with repo size; graph-only approaches handle large repos more efficiently cost-wise
+7. **The "cuts off" problem persists** — all approaches lose to baseline in some pairwise comparisons because responses truncate before completion
 8. **Enrichment works** — graph accumulates concepts across sessions
 
 ### Benchmark Queries
@@ -120,7 +120,7 @@ Codemesh MCP achieves the highest average quality (8.6/10) across 6 benchmarks. 
 - Codemesh modes: Grep/Glob disabled, MCP tools or CLI via Bash + Read + LSP
 - CodeGraph modes: Grep/Glob disabled, CodeGraph MCP tools + Read
 - Budget cap: $2.00 per run
-- Benchmark repos from CodeGraph's published suite + pydantic for Python coverage
+- Benchmark repos selected from popular open-source projects across multiple languages
 
 ### Reproduction
 

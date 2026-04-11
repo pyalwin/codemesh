@@ -35,7 +35,7 @@ Codemesh is an MCP server that gives agents a persistent, queryable knowledge gr
 
 ## Benchmarks
 
-Head-to-head against [CodeGraph](https://github.com/colbymchenry/codegraph) on 6 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler, pydantic-validators, pydantic-basemodel) with Claude Sonnet 4.6.
+Benchmarked on 6 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler, pydantic-validators, pydantic-basemodel) with Claude Sonnet 4.6, compared alongside baseline and graph-based approaches for context.
 
 Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmark-results.md`](docs/benchmark-results.md) | [Early pydantic evals](docs/experiments/pydantic-eval-results.md)
 
@@ -57,7 +57,7 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 | Codemesh CLI | $0.60 | $0.76 | $1.18 | $1.34 | $0.72 | $0.27 | $0.81 |
 | CodeGraph | $0.21 | $0.18 | $0.22 | $0.15 | $0.24 | $0.33 | $0.22 |
 
-### Codemesh CLI vs CodeGraph (pairwise)
+### Pairwise: Codemesh CLI vs CodeGraph
 
 | Repo | Winner | Scores |
 |---|---|---|
@@ -69,7 +69,7 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 | pydantic-basemodel | CodeGraph | 9 vs 8 |
 
 > [!NOTE]
-> **Codemesh CLI wins 4 out of 6** against CodeGraph with Sonnet. Codemesh MCP achieves the highest average quality (**8.6/10**) across all modes. CodeGraph is cheapest ($0.22 avg) but scores lowest on quality (7.5/10 avg). On pydantic-validators, Codemesh MCP was 87% fewer calls, 82% faster, and 80% cheaper than baseline — which scored just 1/10.
+> Codemesh CLI performed well on quality, winning pairwise comparisons in 4 of 6 benchmarks. Codemesh MCP achieves the highest average quality (**8.6/10**) across all modes. CodeGraph is the most cost-efficient ($0.22 avg) with lower quality (7.5/10 avg). On pydantic-validators, Codemesh MCP used 87% fewer calls, was 82% faster, and 80% cheaper than baseline — which scored just 1/10.
 
 ---
 
@@ -363,7 +363,7 @@ git clone --depth 1 https://github.com/Alamofire/Alamofire.git /tmp/alamofire
 # Index
 CODEMESH_PROJECT_ROOT=/tmp/alamofire codemesh index
 
-# Run head-to-head benchmarks
+# Run benchmarks
 python3 eval/head_to_head.py --model sonnet alamofire excalidraw vscode swift-compiler
 ```
 

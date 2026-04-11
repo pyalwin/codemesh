@@ -1,14 +1,14 @@
 # Codemesh v2 Roadmap
 
 **Date:** 2026-04-11
-**Based on:** Benchmark results from CodeGraph head-to-head + Gemini architecture analysis
+**Based on:** Benchmark results from multi-tool evaluation + Gemini architecture analysis
 
 ## Current State (v1)
 
 - 102 tests, metadata-first architecture
 - MCP + CLI modes, 3-phase workflow (Decompose → Explore → Verify & Enrich)
 - Sonnet + Codemesh: 55% cheaper, 61% faster than baseline, 9/10 quality
-- Tied with CodeGraph on pairwise quality (2-2 across 4 benchmarks)
+- Competitive pairwise quality across benchmarks (2-2 vs graph-only approach on initial 4)
 - Multi-session enrichment working (0 → 11 concepts across 3 sessions)
 
 ## Action Items (prioritized by impact)

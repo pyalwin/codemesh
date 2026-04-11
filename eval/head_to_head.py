@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Head-to-head benchmark: Codemesh vs CodeGraph vs Baseline.
+Multi-tool benchmark: Codemesh, CodeGraph, and Baseline.
 Runs the same queries on the same repos, captures tool calls via stream-json,
 then judges output quality.
 """
@@ -399,7 +399,7 @@ def main() -> None:
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"{BLUE}{BOLD}=== Head-to-Head: Codemesh vs CodeGraph vs Baseline ==={NC}")
+    print(f"{BLUE}{BOLD}=== Multi-Tool Benchmark: Codemesh, CodeGraph, Baseline ==={NC}")
     print(f"  Model: {BOLD}{EVAL_MODEL}{NC}")
     print(f"  Running {len(benchmarks)} benchmark(s)")
     print()
@@ -525,7 +525,7 @@ def main() -> None:
         print()
 
     # Print comparison table
-    print(f"{BOLD}{BLUE}=== Head-to-Head Results ==={NC}")
+    print(f"{BOLD}{BLUE}=== Benchmark Results ==={NC}")
     print()
     print(f"{'Repo':<16s}  {'Mode':<12s}  {'Calls':>5s}  {'Time':>7s}  {'Cost':>9s}  {'Quality':>7s}  Tool Breakdown")
     print("-" * 110)

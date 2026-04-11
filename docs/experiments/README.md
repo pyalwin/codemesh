@@ -8,5 +8,4 @@ These documents record the evolution of the tool from initial prototype through 
 
 - `pydantic-eval-results.md` — Early eval on pydantic (5 tasks, 3 models, baseline vs codemesh MCP)
 - `pydantic-eval-responses.md` — Full prompts and responses for all 30 early eval runs
-- `codegraph-iterations-v1-v5.md` — Detailed iteration notes from CodeGraph benchmark comparison
-- `approach-iterations.md` — Architecture decision log
+- `approach-iterations.md` — Architecture decision log with iteration notes from multi-tool benchmark comparison

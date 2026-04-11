@@ -305,7 +305,7 @@ def main() -> None:
         return
 
     # Print comparison table
-    print(f"{BOLD}{BLUE}=== Results: Codemesh vs CodeGraph ==={NC}")
+    print(f"{BOLD}{BLUE}=== Benchmark Results ==={NC}")
     print()
     print(f"{'Repo':<16s} {'Files':>6s} {'Syms':>6s} "
           f"{'':>3s}{'CodeGraph':>14s} "
