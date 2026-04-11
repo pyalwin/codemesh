@@ -27,6 +27,8 @@ export interface AnswerOutput {
       lineStart: number;
       lineEnd: number;
     }>;
+    hotspot?: { changeCount: number; lastChanged: string };
+    coChanges: string[];
   }>;
   callChains: Array<{
     from: string;
@@ -198,14 +200,32 @@ export async function handleAnswer(
     }
   }
 
-  // Step 6: Build relevantFiles output
+  // Step 6: Build relevantFiles output (with hotspot + co-change data)
   const relevantFiles: AnswerOutput["relevantFiles"] = [];
   for (const [filePath, entry] of fileMap) {
+    // Extract hotspot from file node data
+    const hotspotData = (entry.node as any).hotspot as { changeCount: number; lastChanged: string } | undefined;
+
+    // Collect co-change pairs
+    const coChanges: string[] = [];
+    const coChangeEdgesOut = await storage.getEdges(entry.node.id, "out", ["co_changes"]);
+    for (const edge of coChangeEdgesOut) {
+      const target = await storage.getNode(edge.toId);
+      if (target && "path" in target) coChanges.push((target as any).path);
+    }
+    const coChangeEdgesIn = await storage.getEdges(entry.node.id, "in", ["co_changes"]);
+    for (const edge of coChangeEdgesIn) {
+      const source = await storage.getNode(edge.fromId);
+      if (source && "path" in source) coChanges.push((source as any).path);
+    }
+
     relevantFiles.push({
       path: filePath,
       absolutePath: join(projectRoot, filePath),
       why: entry.why,
       symbols: entry.symbols,
+      hotspot: hotspotData,
+      coChanges,
     });
   }
 

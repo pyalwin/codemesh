@@ -57,6 +57,10 @@ export interface ContextOutput {
   concepts: Array<{ summary: string; lastUpdatedBy: string }>;
   /** Known workflows that traverse this file */
   workflows: Array<{ name: string; description: string; files: string[] }>;
+  /** Git hotspot data — change frequency and last changed date */
+  hotspot?: { changeCount: number; lastChanged: string };
+  /** Files that frequently change together with this file */
+  coChanges: string[];
 }
 
 export async function handleContext(
@@ -69,7 +73,7 @@ export async function handleContext(
   const file = fileNodes.length > 0 ? fileNodes[0] : null;
 
   if (!file) {
-    return { file: null, symbols: [], imports: [], importedBy: [], concepts: [], workflows: [] };
+    return { file: null, symbols: [], imports: [], importedBy: [], concepts: [], workflows: [], coChanges: [] };
   }
 
   const absPath = projectRoot ? join(projectRoot, input.path) : input.path;
@@ -250,6 +254,22 @@ export async function handleContext(
     }
   }
 
+  // Get hotspot data from the file node's data field
+  const hotspotData = (file as any).hotspot as { changeCount: number; lastChanged: string } | undefined;
+
+  // Get co-change pairs (outgoing and incoming co_changes edges)
+  const coChanges: string[] = [];
+  const coChangeEdgesOut = await storage.getEdges(file.id, "out", ["co_changes"]);
+  for (const edge of coChangeEdgesOut) {
+    const target = await storage.getNode(edge.toId);
+    if (target && "path" in target) coChanges.push((target as any).path);
+  }
+  const coChangeEdgesIn = await storage.getEdges(file.id, "in", ["co_changes"]);
+  for (const edge of coChangeEdgesIn) {
+    const source = await storage.getNode(edge.fromId);
+    if (source && "path" in source) coChanges.push((source as any).path);
+  }
+
   return {
     file: { path: input.path, absolutePath: absPath, name: file.name },
     symbols,
@@ -257,5 +277,7 @@ export async function handleContext(
     importedBy,
     concepts,
     workflows,
+    hotspot: hotspotData,
+    coChanges,
   };
 }

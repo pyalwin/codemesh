@@ -219,15 +219,21 @@ export class SqliteBackend implements StorageBackend {
     };
 
     switch (row.type) {
-      case "file":
-        return {
+      case "file": {
+        const fileNode: any = {
           ...base,
           type: "file",
           source: "static",
           path: row.path!,
           hash: row.hash!,
           lastIndexedAt: data.lastIndexedAt ?? base.createdAt,
-        } as FileNode;
+        };
+        // Carry through hotspot data if present
+        if (data.hotspot) {
+          fileNode.hotspot = data.hotspot;
+        }
+        return fileNode as FileNode;
+      }
 
       case "symbol":
         return {

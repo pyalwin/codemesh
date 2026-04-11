@@ -69,7 +69,8 @@ export type EdgeType =
   | "extends"
   | "describes"
   | "related_to"
-  | "traverses";
+  | "traverses"
+  | "co_changes";
 
 export type EdgeSource = "static" | "agent";
 

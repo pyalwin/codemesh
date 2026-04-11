@@ -15,6 +15,7 @@ import type {
 } from "../graph/types.js";
 import { parseFile } from "./parser.js";
 import { getSupportedExtensions } from "./languages.js";
+import { analyzeGitHistory } from "./git-intel.js";
 
 // ─── Public types ───────────────────────────────────────────────────
 
@@ -237,6 +238,71 @@ export class Indexer {
     } catch (e) {
       await this.storage.rollbackTransaction();
       throw e;
+    }
+
+    // Step 6: Git intelligence — hotspots and co-change pairs
+    try {
+      const gitIntel = await analyzeGitHistory(this.projectRoot);
+
+      await this.storage.beginTransaction();
+      try {
+        const now = new Date().toISOString();
+
+        // Store hotspot data as metadata on file nodes
+        for (const hotspot of gitIntel.hotspots) {
+          const fileId = `file:${hotspot.path}`;
+          const fileNode = await this.storage.getNode(fileId);
+          if (!fileNode || fileNode.type !== "file") continue;
+
+          // Update the file node's data with hotspot info
+          const updatedNode = {
+            ...fileNode,
+            updatedAt: now,
+          } as FileNode & { hotspot?: { changeCount: number; lastChanged: string } };
+
+          // We use a type assertion to attach hotspot data to the node.
+          // The storage layer serializes extra fields into the JSON `data` column.
+          (updatedNode as any).hotspot = {
+            changeCount: hotspot.changeCount,
+            lastChanged: hotspot.lastChanged,
+          };
+          await this.storage.upsertNode(updatedNode as any);
+        }
+
+        // Store co-change pairs as edges between file nodes
+        for (const pair of gitIntel.coChangePairs) {
+          const fileAId = `file:${pair.fileA}`;
+          const fileBId = `file:${pair.fileB}`;
+
+          // Only create edges between files that exist in the graph
+          const fileA = await this.storage.getNode(fileAId);
+          const fileB = await this.storage.getNode(fileBId);
+          if (!fileA || !fileB) continue;
+
+          const edgeId = `edge:co_changes:${fileAId}:${fileBId}`;
+          const coChangeEdge: GraphEdge = {
+            id: edgeId,
+            type: "co_changes",
+            source: "static",
+            fromId: fileAId,
+            toId: fileBId,
+            data: {
+              coChangeCount: pair.coChangeCount,
+              confidence: pair.confidence,
+            },
+            createdAt: now,
+          };
+          await this.storage.upsertEdge(coChangeEdge);
+          edgesCreated++;
+        }
+
+        await this.storage.commitTransaction();
+      } catch (e) {
+        await this.storage.rollbackTransaction();
+        // Git intelligence is non-critical — don't fail the entire index
+      }
+    } catch {
+      // Git not available or not a git repo — skip silently
     }
 
     const durationMs = Date.now() - startTime;
