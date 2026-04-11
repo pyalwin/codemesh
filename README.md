@@ -35,27 +35,27 @@ Codemesh is an MCP server that gives agents a persistent, queryable knowledge gr
 
 ## Benchmarks
 
-Head-to-head against [CodeGraph](https://github.com/colbymchenry/codegraph) on 4 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler) with Claude Sonnet 4.6.
+Head-to-head against [CodeGraph](https://github.com/colbymchenry/codegraph) on 6 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler, pydantic-validators, pydantic-basemodel) with Claude Sonnet 4.6.
 
 Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmark-results.md`](docs/benchmark-results.md) | [Early pydantic evals](docs/experiments/pydantic-eval-results.md)
 
 ### Quality (1-10, LLM-as-judge)
 
-| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | **Avg** |
-|---|---:|---:|---:|---:|---:|
-| Baseline | 8 | 9 | 7 | 8 | 8.0 |
-| **Codemesh MCP** | **9** | **9** | **8.2** | **9** | **8.8** |
-| Codemesh CLI | 8 | 9 | 8 | 8 | 8.3 |
-| CodeGraph | 8 | 9 | 7 | 5 | 7.3 |
+| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | pydantic-validators | pydantic-basemodel | **Avg** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline | 9 | 9 | 8.7 | 7 | 1 | 9 | 7.3 |
+| **Codemesh MCP** | 8 | 8.5 | 8 | **9** | **8** | **9** | **8.6** |
+| Codemesh CLI | 9 | 8.8 | 8 | **9** | **8** | **9** | 8.5 |
+| CodeGraph | 8 | 8 | 8 | 6 | 7 | 8 | 7.5 |
 
 ### Cost
 
-| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | **Avg** |
-|---|---:|---:|---:|---:|---:|
-| Baseline | $0.55 | $0.48 | $0.43 | $0.76 | $0.56 |
-| **Codemesh MCP** | $0.39 | $0.34 | $0.97 | $0.67 | **$0.59** |
-| Codemesh CLI | $0.38 | $0.43 | $1.20 | $0.91 | $0.73 |
-| CodeGraph | $0.21 | $0.31 | $0.15 | $0.13 | $0.20 |
+| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | pydantic-validators | pydantic-basemodel | **Avg** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline | $0.64 | $0.66 | $1.05 | $0.73 | $0.98 | $0.31 | $0.73 |
+| **Codemesh MCP** | $0.29 | $0.81 | $0.93 | $0.47 | $0.20 | $0.47 | **$0.53** |
+| Codemesh CLI | $0.60 | $0.76 | $1.18 | $1.34 | $0.72 | $0.27 | $0.81 |
+| CodeGraph | $0.21 | $0.18 | $0.22 | $0.15 | $0.24 | $0.33 | $0.22 |
 
 ### Codemesh CLI vs CodeGraph (pairwise)
 
@@ -65,9 +65,11 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 | Excalidraw | CodeGraph | 7.5 vs 8.5 |
 | VS Code | **Codemesh CLI** | 9 vs 5 |
 | Swift Compiler | **Codemesh CLI** | 9 vs 5 |
+| pydantic-validators | **Codemesh CLI** | 8 vs 7 |
+| pydantic-basemodel | CodeGraph | 9 vs 8 |
 
 > [!NOTE]
-> **Codemesh CLI wins 3 out of 4** against CodeGraph with Sonnet. Codemesh MCP achieves the highest average quality (**8.8/10**) across all modes. CodeGraph is cheapest ($0.20 avg) but scores lowest on quality (7.3/10), particularly on large repos like VS Code and Swift Compiler.
+> **Codemesh CLI wins 4 out of 6** against CodeGraph with Sonnet. Codemesh MCP achieves the highest average quality (**8.6/10**) across all modes. CodeGraph is cheapest ($0.22 avg) but scores lowest on quality (7.5/10 avg). On pydantic-validators, Codemesh MCP was 87% fewer calls, 82% faster, and 80% cheaper than baseline — which scored just 1/10.
 
 ---
 
