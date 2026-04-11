@@ -129,7 +129,6 @@ def run_mode(
         "--output-format", "stream-json",
         "--verbose",
         "--model", "opus",
-        "--effort", "max",
         "--max-budget-usd", "2.00",
     ]
 
