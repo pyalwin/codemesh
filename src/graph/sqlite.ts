@@ -13,6 +13,19 @@ import type {
 } from "./types.js";
 import type { StorageBackend } from "./storage.js";
 
+/**
+ * Generate unique trigrams (3-character substrings) from text.
+ * Used to power partial/substring symbol matching.
+ */
+function generateTrigrams(text: string): string[] {
+  const normalized = text.toLowerCase();
+  const trigrams: string[] = [];
+  for (let i = 0; i <= normalized.length - 3; i++) {
+    trigrams.push(normalized.slice(i, i + 3));
+  }
+  return [...new Set(trigrams)]; // dedupe
+}
+
 // Fields stored directly in the nodes table (not in the JSON `data` column)
 const BASE_FIELDS = new Set([
   "id",
@@ -95,6 +108,14 @@ export class SqliteBackend implements StorageBackend {
       CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_id);
       CREATE INDEX IF NOT EXISTS idx_edges_to   ON edges(to_id);
       CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(type);
+
+      -- Trigram index for partial/substring symbol matching
+      CREATE TABLE IF NOT EXISTS trigrams (
+        trigram TEXT NOT NULL,
+        node_id TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_trigrams_tri ON trigrams(trigram);
+      CREATE INDEX IF NOT EXISTS idx_trigrams_node ON trigrams(node_id);
 
       -- FTS5 virtual table for full-text search on node content
       CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
@@ -265,6 +286,22 @@ export class SqliteBackend implements StorageBackend {
         updated_at = excluded.updated_at
     `).run(row);
 
+    // Maintain trigram index for symbol nodes
+    if (node.type === "symbol") {
+      const sym = node as SymbolNode;
+      // Remove old trigrams
+      db.prepare("DELETE FROM trigrams WHERE node_id = ?").run(node.id);
+      // Generate trigrams from name and signature
+      const text = `${sym.name} ${sym.signature ?? ""}`;
+      const trigrams = generateTrigrams(text);
+      const insertTri = db.prepare(
+        "INSERT INTO trigrams (trigram, node_id) VALUES (?, ?)"
+      );
+      for (const tri of trigrams) {
+        insertTri.run(tri, node.id);
+      }
+    }
+
     return node.id;
   }
 
@@ -318,6 +355,8 @@ export class SqliteBackend implements StorageBackend {
 
   async deleteNode(id: string): Promise<void> {
     const db = this.getDb();
+    // Remove trigrams for this node
+    db.prepare("DELETE FROM trigrams WHERE node_id = ?").run(id);
     // Foreign key cascade will delete associated edges
     db.prepare("DELETE FROM nodes WHERE id = ?").run(id);
   }
@@ -533,6 +572,72 @@ export class SqliteBackend implements StorageBackend {
 
     // Sort by rank descending (highest = most relevant)
     results.sort((a, b) => b.rank - a.rank);
+
+    // If FTS5 returned fewer than 5 results, augment with trigram search
+    if (results.length < 5) {
+      const trigramResults = await this.searchTrigrams(query);
+      const existingIds = new Set(results.map((r) => r.node.id));
+      for (const tr of trigramResults) {
+        if (!existingIds.has(tr.node.id)) {
+          results.push(tr);
+          existingIds.add(tr.node.id);
+        }
+      }
+      // Re-sort merged results
+      results.sort((a, b) => b.rank - a.rank);
+    }
+
+    return results;
+  }
+
+  /**
+   * Search using trigram index for partial/substring symbol matching.
+   * Finds nodes whose name or signature contains the query as a substring.
+   */
+  async searchTrigrams(query: string): Promise<SearchResult[]> {
+    const db = this.getDb();
+
+    const queryTrigrams = generateTrigrams(query);
+    if (queryTrigrams.length === 0) return [];
+
+    // Build a query that finds nodes matching the most trigrams
+    const placeholders = queryTrigrams.map((_, i) => `@tri${i}`).join(", ");
+    const params: Record<string, unknown> = {};
+    queryTrigrams.forEach((tri, i) => {
+      params[`tri${i}`] = tri;
+    });
+    params.triCount = queryTrigrams.length;
+
+    const sql = `
+      SELECT
+        node_id,
+        COUNT(*) AS match_count,
+        CAST(COUNT(*) AS REAL) / @triCount AS match_ratio
+      FROM trigrams
+      WHERE trigram IN (${placeholders})
+      GROUP BY node_id
+      HAVING match_ratio >= 0.6
+      ORDER BY match_count DESC
+      LIMIT 20
+    `;
+
+    const rows = db.prepare(sql).all(params) as Array<{
+      node_id: string;
+      match_count: number;
+      match_ratio: number;
+    }>;
+
+    const results: SearchResult[] = [];
+    for (const row of rows) {
+      const node = await this.getNode(row.node_id);
+      if (!node) continue;
+
+      results.push({
+        node,
+        rank: row.match_ratio,
+        matchedField: "trigram",
+      });
+    }
 
     return results;
   }
