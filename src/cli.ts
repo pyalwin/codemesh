@@ -26,7 +26,7 @@ Usage:
   codemesh status                                Show graph statistics
   codemesh rebuild                               Delete DB and re-index from scratch
   codemesh explore search <query>                Search the knowledge graph (FTS)
-  codemesh explore context <path> [--symbol S]   Get file/symbol context with source code
+  codemesh explore context <path...> [--symbol S] Get file/symbol context (multi-path supported)
   codemesh explore trace <symbol> [--depth N]    Trace a call chain from a symbol
   codemesh explore impact <path> [--symbol S]    Find reverse dependencies
   codemesh explore answer <question>             One-call context assembly for a question
@@ -140,13 +140,28 @@ async function runExplore(): Promise<void> {
         break;
       }
       case "context": {
-        const path = args[2];
-        if (!path) {
-          console.error("Usage: codemesh explore context <path> [--symbol name]");
+        const symbol = parseFlag(args, "--symbol");
+        // Collect positional args after "context", skipping --flags and their values
+        const contextPaths: string[] = [];
+        const contextArgs = args.slice(2);
+        for (let i = 0; i < contextArgs.length; i++) {
+          if (contextArgs[i].startsWith("--")) {
+            i++; // skip the flag's value too
+            continue;
+          }
+          contextPaths.push(contextArgs[i]);
+        }
+
+        if (contextPaths.length === 0) {
+          console.error("Usage: codemesh explore context <path> [path2 ...] [--symbol name]");
           process.exit(1);
         }
-        const symbol = parseFlag(args, "--symbol");
-        result = await handleContext(storage, { path, symbol }, projectRoot);
+
+        if (contextPaths.length === 1) {
+          result = await handleContext(storage, { path: contextPaths[0], symbol }, projectRoot);
+        } else {
+          result = await handleContext(storage, { paths: contextPaths, symbol }, projectRoot);
+        }
         break;
       }
       case "trace": {

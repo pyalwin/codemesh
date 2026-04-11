@@ -17,7 +17,8 @@ import type { GraphNode, GraphEdge, SymbolNode } from "../graph/types.js";
 import type { LspClient } from "./lsp-client.js";
 
 export interface ContextInput {
-  path: string;
+  path?: string;
+  paths?: string[];
   symbol?: string;
 }
 
@@ -63,12 +64,94 @@ export interface ContextOutput {
   coChanges: string[];
 }
 
+/**
+ * Merge multiple ContextOutput results, deduplicating symbols, imports, concepts, and workflows.
+ */
+function mergeContextResults(results: ContextOutput[]): ContextOutput {
+  const allSymbols: SymbolInfo[] = [];
+  const allImports = new Set<string>();
+  const allImportedBy = new Set<string>();
+  const conceptSummaries = new Set<string>();
+  const allConcepts: ContextOutput["concepts"] = [];
+  const workflowNames = new Set<string>();
+  const allWorkflows: ContextOutput["workflows"] = [];
+  const allCoChanges = new Set<string>();
+
+  // Collect the first non-null file entry for the merged file field
+  // For multi-path, we create a synthetic file entry
+  const files: Array<{ path: string; absolutePath: string; name: string }> = [];
+  const symbolNames = new Set<string>();
+  let bestHotspot: ContextOutput["hotspot"] | undefined;
+
+  for (const result of results) {
+    if (result.file) {
+      files.push(result.file);
+    }
+
+    for (const sym of result.symbols) {
+      const key = `${sym.name}:${sym.lineStart}:${sym.lineEnd}`;
+      if (!symbolNames.has(key)) {
+        symbolNames.add(key);
+        allSymbols.push(sym);
+      }
+    }
+
+    for (const imp of result.imports) allImports.add(imp);
+    for (const imp of result.importedBy) allImportedBy.add(imp);
+
+    for (const concept of result.concepts) {
+      if (!conceptSummaries.has(concept.summary)) {
+        conceptSummaries.add(concept.summary);
+        allConcepts.push(concept);
+      }
+    }
+
+    for (const wf of result.workflows) {
+      if (!workflowNames.has(wf.name)) {
+        workflowNames.add(wf.name);
+        allWorkflows.push(wf);
+      }
+    }
+
+    if (result.hotspot) {
+      if (!bestHotspot || result.hotspot.changeCount > bestHotspot.changeCount) {
+        bestHotspot = result.hotspot;
+      }
+    }
+
+    for (const cc of result.coChanges) allCoChanges.add(cc);
+  }
+
+  return {
+    file: files.length === 1 ? files[0] : (files.length > 0 ? files[0] : null),
+    symbols: allSymbols,
+    imports: Array.from(allImports),
+    importedBy: Array.from(allImportedBy),
+    concepts: allConcepts,
+    workflows: allWorkflows,
+    hotspot: bestHotspot,
+    coChanges: Array.from(allCoChanges),
+  };
+}
+
 export async function handleContext(
   storage: StorageBackend,
   input: ContextInput,
   projectRoot?: string,
   lspClient?: LspClient | null,
 ): Promise<ContextOutput> {
+  // Multi-path support: if paths is provided, handle each path and merge
+  if (input.paths && input.paths.length > 0) {
+    const allResults = await Promise.all(
+      input.paths.map(p => handleContext(storage, { path: p, symbol: input.symbol }, projectRoot, lspClient))
+    );
+    return mergeContextResults(allResults);
+  }
+
+  if (!input.path) {
+    return { file: null, symbols: [], imports: [], importedBy: [], concepts: [], workflows: [], coChanges: [] };
+  }
+
   const fileNodes = await storage.queryNodes({ type: "file", path: input.path });
   const file = fileNodes.length > 0 ? fileNodes[0] : null;
 

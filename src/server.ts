@@ -47,6 +47,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
       action: z.enum(["search", "context", "impact"]).describe("The exploration action to perform"),
       query: z.string().optional().describe("Search query text (required for 'search' action)"),
       path: z.string().optional().describe("Relative file path (required for 'context' and 'impact' actions)"),
+      paths: z.array(z.string()).optional().describe("Multiple file paths to get context for in one call"),
       symbol: z.string().optional().describe("Symbol name for context/impact (fuzzy matched)"),
       scope: z.enum(["files", "symbols", "workflows", "all"]).optional().describe("Scope for 'search' action"),
     },
@@ -56,7 +57,13 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
         const result = await handleQuery(storage, { query: args.query, scope: args.scope }, projectRoot);
         return textResult(result, projectRoot);
       } else if (args.action === "context") {
-        if (!args.path) throw new Error("path is required for context action");
+        // Support multi-target queries via paths[]
+        if (args.paths && args.paths.length > 0) {
+          const lspClient = await getLspClient(args.paths[0], projectRoot);
+          const result = await handleContext(storage, { paths: args.paths, symbol: args.symbol }, projectRoot, lspClient);
+          return textResult(result, projectRoot);
+        }
+        if (!args.path) throw new Error("path or paths is required for context action");
         // Try to get an LSP client for this file type — returns null silently if unavailable
         const lspClient = await getLspClient(args.path, projectRoot);
         const result = await handleContext(storage, { path: args.path, symbol: args.symbol }, projectRoot, lspClient);
