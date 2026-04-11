@@ -7,6 +7,7 @@ import { handleQuery } from "./tools/query.js";
 import { handleContext } from "./tools/context.js";
 import { handleTrace } from "./tools/trace.js";
 import { handleImpact } from "./tools/impact.js";
+import { handleAnswer } from "./tools/answer.js";
 import { join } from "path";
 import { mkdirSync, rmSync, existsSync } from "fs";
 
@@ -28,6 +29,7 @@ Usage:
   codemesh explore context <path> [--symbol S]   Get file/symbol context with source code
   codemesh explore trace <symbol> [--depth N]    Trace a call chain from a symbol
   codemesh explore impact <path> [--symbol S]    Find reverse dependencies
+  codemesh explore answer <question>             One-call context assembly for a question
   codemesh help                                  Show this help message
 
 Environment:
@@ -112,7 +114,7 @@ function parseFlag(flagArgs: string[], flag: string): string | undefined {
 async function runExplore(): Promise<void> {
   const subcommand = args[1];
   if (!subcommand) {
-    console.error("Usage: codemesh explore <search|context|trace|impact> ...");
+    console.error("Usage: codemesh explore <search|context|trace|impact|answer> ...");
     process.exit(1);
   }
 
@@ -168,9 +170,18 @@ async function runExplore(): Promise<void> {
         result = await handleImpact(storage, { path, symbol });
         break;
       }
+      case "answer": {
+        const question = args.slice(2).filter((a) => !a.startsWith("--")).join(" ");
+        if (!question) {
+          console.error("Usage: codemesh explore answer <question>");
+          process.exit(1);
+        }
+        result = await handleAnswer(storage, { question }, projectRoot);
+        break;
+      }
       default:
         console.error(`Unknown explore subcommand: ${subcommand}`);
-        console.error("Available: search, context, trace, impact");
+        console.error("Available: search, context, trace, impact, answer");
         process.exit(1);
     }
 

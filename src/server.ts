@@ -1,5 +1,5 @@
 /**
- * MCP Server — Registers all 6 codemesh tools on a McpServer instance.
+ * MCP Server — Registers all 7 codemesh tools on a McpServer instance.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -12,6 +12,7 @@ import { handleWorkflow } from "./tools/workflow.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
 import { handleTrace } from "./tools/trace.js";
+import { handleAnswer } from "./tools/answer.js";
 import { getLspClient } from "./tools/lsp-client.js";
 
 function textResult(data: unknown, projectRoot: string) {
@@ -26,6 +27,17 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     name: "codemesh",
     version: "0.1.0",
   });
+
+  // ── codemesh_answer ─────────────────────────────────────────────
+  server.tool(
+    "codemesh_answer",
+    "One-call context assembly. Takes a question, searches the graph, follows call chains, and returns ALL relevant files, symbols, concepts, workflows, and suggested reads in a single response. Use this FIRST before any other exploration.",
+    { question: z.string().describe("Natural language question about the codebase") },
+    async ({ question }) => {
+      const result = await handleAnswer(storage, { question }, projectRoot);
+      return textResult(result, projectRoot);
+    }
+  );
 
   // ── codemesh_explore ────────────────────────────────────────────
   server.tool(
