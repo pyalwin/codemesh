@@ -1,5 +1,5 @@
 /**
- * MCP Server — Registers all 7 codemesh tools on a McpServer instance.
+ * MCP Server — Registers all 6 codemesh tools on a McpServer instance.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -11,8 +11,6 @@ import { handleEnrich } from "./tools/enrich.js";
 import { handleWorkflow } from "./tools/workflow.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
-import { handleTrace } from "./tools/trace.js";
-import { handleExplore } from "./tools/explore.js";
 
 function textResult(data: unknown) {
   return {
@@ -20,7 +18,7 @@ function textResult(data: unknown) {
   };
 }
 
-export function createServer(storage: StorageBackend, projectRoot: string): McpServer {
+export function createServer(storage: StorageBackend): McpServer {
   const server = new McpServer({
     name: "codemesh",
     version: "0.1.0",
@@ -38,7 +36,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
         .describe("Limit results to a specific node type"),
     },
     async (args) => {
-      const result = await handleQuery(storage, args, projectRoot);
+      const result = await handleQuery(storage, args);
       return textResult(result);
     },
   );
@@ -46,7 +44,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
   // ── codemesh_context ────────────────────────────────────────────
   server.tool(
     "codemesh_context",
-    "Get full context for a file or symbol, including its symbols with source code, edges, related concepts, and workflows.",
+    "Get full context for a file or symbol, including its symbols, edges, related concepts, and workflows.",
     {
       path: z.string().describe("Relative file path (e.g. src/index.ts)"),
       symbol: z
@@ -55,7 +53,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
         .describe("Symbol name within the file to focus on"),
     },
     async (args) => {
-      const result = await handleContext(storage, args, projectRoot);
+      const result = await handleContext(storage, args);
       return textResult(result);
     },
   );
@@ -120,40 +118,6 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     "Get statistics about the knowledge graph: node counts by type, edge counts by type, stale count, and last indexed timestamp.",
     async () => {
       const result = await handleStatus(storage);
-      return textResult(result);
-    },
-  );
-
-  // ── codemesh_trace ─────────────────────────────────────────────
-  server.tool(
-    "codemesh_trace",
-    "Trace a call chain from a symbol. Returns source code of every function in the path. Use this to understand execution flows without reading files.",
-    {
-      symbol: z.string().describe("Symbol name to start tracing from (e.g., 'Session.request')"),
-      depth: z.number().optional().describe("Max call chain depth (default: 3)"),
-    },
-    async ({ symbol, depth }) => {
-      const result = await handleTrace(storage, { symbol, depth }, projectRoot);
-      return textResult(result);
-    },
-  );
-
-  // ── codemesh_explore ────────────────────────────────────────────
-  server.tool(
-    "codemesh_explore",
-    "The mega-tool. Takes a task description, searches the graph for relevant code, then traverses ALL connected symbols (calls, callers, imports) to completion. Returns full source code for every symbol in the subgraph. One call, complete picture. Use includeSource=false for a map-only overview.",
-    {
-      task: z.string().describe("Natural language task description (e.g., 'How does request flow from Session.request() to URLSession?')"),
-      includeSource: z.boolean().optional().describe("Include actual source code? Default true. Set false for map-only overview."),
-      maxDepth: z.number().optional().describe("Max traversal depth (default 10)"),
-      maxSymbols: z.number().optional().describe("Max symbols to include (default 200)"),
-    },
-    async ({ task, includeSource, maxDepth, maxSymbols }) => {
-      const result = await handleExplore(
-        storage,
-        { task, includeSource, maxDepth, maxSymbols },
-        projectRoot,
-      );
       return textResult(result);
     },
   );

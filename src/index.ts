@@ -15,6 +15,6 @@ mkdirSync(dbDir, { recursive: true });
 const storage = new SqliteBackend(dbPath);
 await storage.initialize();
 
-const server = createServer(storage, projectRoot);
+const server = createServer(storage);
 const transport = new StdioServerTransport();
 await server.connect(transport);
