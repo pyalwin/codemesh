@@ -9,6 +9,7 @@
 import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, SymbolNode, FileNode, SearchResult } from "../graph/types.js";
+import { semanticSearch } from "../indexer/embeddings.js";
 
 export interface AnswerInput {
   question: string;
@@ -57,6 +58,19 @@ export async function handleAnswer(
   input: AnswerInput,
   projectRoot: string,
 ): Promise<AnswerOutput> {
+  // Step 0: Try semantic search (LanceDB) — gracefully returns [] if not available
+  let semanticResults: Array<{
+    id: string;
+    name: string;
+    filePath: string;
+    score: number;
+  }> = [];
+  try {
+    semanticResults = await semanticSearch(projectRoot, input.question, 5);
+  } catch {
+    // Semantic search unavailable — continue with FTS5 only
+  }
+
   // Step 1: Search the graph with the question (FTS5 + trigram fallback)
   const searchResults = await storage.search(input.question, "all");
   const topResults = searchResults.slice(0, 10);
@@ -102,6 +116,34 @@ export async function handleAnswer(
             symbols: [],
           });
         }
+      }
+    }
+  }
+
+  // Merge semantic search results — add symbols/files not already found by FTS5
+  const ftsSymbolIds = new Set(symbolResults.map((r) => r.sym.id));
+  for (const sr of semanticResults) {
+    if (ftsSymbolIds.has(sr.id)) continue; // already captured by FTS5
+
+    const node = await storage.getNode(sr.id);
+    if (!node || node.type !== "symbol") continue;
+    const sym = node as SymbolNode;
+    symbolResults.push({
+      sym,
+      rank: 1 / (1 + sr.score), // Convert distance to a relevance score (lower distance = higher rank)
+      matchedField: "semantic",
+    });
+
+    // Track the file this semantic result belongs to
+    if (!fileMap.has(sym.filePath)) {
+      const fileId = `file:${sym.filePath}`;
+      const fileNode = await storage.getNode(fileId);
+      if (fileNode && fileNode.type === "file") {
+        fileMap.set(sym.filePath, {
+          node: fileNode as FileNode,
+          why: `Semantically related (vector distance ${sr.score.toFixed(3)})`,
+          symbols: [],
+        });
       }
     }
   }

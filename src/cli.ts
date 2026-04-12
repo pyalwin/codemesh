@@ -8,6 +8,7 @@ import { handleContext } from "./tools/context.js";
 import { handleTrace } from "./tools/trace.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleAnswer } from "./tools/answer.js";
+import { semanticSearch } from "./indexer/embeddings.js";
 import { join } from "path";
 import { mkdirSync, rmSync, existsSync } from "fs";
 
@@ -22,7 +23,7 @@ function printUsage(): void {
 codemesh — Code knowledge graph CLI
 
 Usage:
-  codemesh index                                 Index the project (incremental)
+  codemesh index [--with-embeddings]             Index the project (incremental)
   codemesh status                                Show graph statistics
   codemesh rebuild                               Delete DB and re-index from scratch
   codemesh explore search <query>                Search the knowledge graph (FTS)
@@ -30,6 +31,7 @@ Usage:
   codemesh explore trace <symbol> [--depth N]    Trace a call chain from a symbol
   codemesh explore impact <path> [--symbol S]    Find reverse dependencies
   codemesh explore answer <question>             One-call context assembly for a question
+  codemesh explore semantic <query>              Semantic vector search (requires --with-embeddings)
   codemesh help                                  Show this help message
 
 Environment:
@@ -38,12 +40,14 @@ Environment:
 }
 
 async function runIndex(): Promise<void> {
+  const withEmbeddings = args.includes("--with-embeddings");
+
   mkdirSync(dbDir, { recursive: true });
   const storage = new SqliteBackend(dbPath);
   await storage.initialize();
 
   const indexer = new Indexer(storage, projectRoot);
-  const result = await indexer.index();
+  const result = await indexer.index({ withEmbeddings });
 
   console.log(`Indexed ${result.filesIndexed} files`);
   console.log(`  Symbols found:  ${result.symbolsFound}`);
@@ -59,6 +63,10 @@ async function runIndex(): Promise<void> {
         console.log(`    ${id} — ${score.toFixed(6)}`);
       }
     }
+  }
+
+  if (result.embeddings) {
+    console.log(`  Embeddings:     ${result.embeddings.count} symbols embedded in ${result.embeddings.durationMs}ms`);
   }
 
   await storage.close();
@@ -204,9 +212,28 @@ async function runExplore(): Promise<void> {
         result = await handleAnswer(storage, { question }, projectRoot);
         break;
       }
+      case "semantic": {
+        const query = args.slice(2).filter((a) => !a.startsWith("--")).join(" ");
+        if (!query) {
+          console.error("Usage: codemesh explore semantic <query>");
+          process.exit(1);
+        }
+        const limitStr = parseFlag(args, "--limit");
+        const limit = limitStr ? parseInt(limitStr, 10) : 10;
+        try {
+          const matches = await semanticSearch(projectRoot, query, limit);
+          result = { query, results: matches };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error(`Semantic search failed: ${msg}`);
+          console.error("Did you run `codemesh index --with-embeddings` first?");
+          process.exit(1);
+        }
+        break;
+      }
       default:
         console.error(`Unknown explore subcommand: ${subcommand}`);
-        console.error("Available: search, context, trace, impact, answer");
+        console.error("Available: search, context, trace, impact, answer, semantic");
         process.exit(1);
     }
 

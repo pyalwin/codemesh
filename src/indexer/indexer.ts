@@ -17,6 +17,7 @@ import { parseFile } from "./parser.js";
 import { getSupportedExtensions } from "./languages.js";
 import { analyzeGitHistory } from "./git-intel.js";
 import { computePageRank } from "./pagerank.js";
+import { indexEmbeddings } from "./embeddings.js";
 
 // ─── Public types ───────────────────────────────────────────────────
 
@@ -27,6 +28,11 @@ export interface IndexResult {
   filesDeleted: number;
   durationMs: number;
   pagerankScore?: { computed: number; topNodes: Array<{ id: string; score: number }> };
+  embeddings?: { count: number; durationMs: number };
+}
+
+export interface IndexOptions {
+  withEmbeddings?: boolean;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -58,8 +64,11 @@ export class Indexer {
    * 2. Compute hashes and identify changed/new/deleted files
    * 3. Parse changed/new files and store in graph
    * 4. Remove deleted file nodes
+   * 5. Git intelligence
+   * 6. PageRank scoring
+   * 7. Embeddings (opt-in via options.withEmbeddings)
    */
-  async index(): Promise<IndexResult> {
+  async index(options?: IndexOptions): Promise<IndexResult> {
     const startTime = Date.now();
 
     const supportedExts = new Set(getSupportedExtensions());
@@ -343,6 +352,35 @@ export class Indexer {
       // PageRank computation is non-critical — skip silently
     }
 
+    // Step 8: Embeddings (opt-in) — generate vector embeddings for semantic search
+    let embeddingsResult: IndexResult["embeddings"];
+    if (options?.withEmbeddings) {
+      try {
+        // Collect all symbol nodes for embedding
+        const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
+        const symbolsForEmbedding = allSymbolNodes.map((n) => {
+          const sym = n as SymbolNode;
+          return {
+            id: sym.id,
+            name: sym.name,
+            signature: sym.signature,
+            filePath: sym.filePath,
+          };
+        });
+
+        if (symbolsForEmbedding.length > 0) {
+          embeddingsResult = await indexEmbeddings(
+            this.projectRoot,
+            symbolsForEmbedding,
+          );
+        }
+      } catch (e) {
+        // Embedding generation is non-critical — log and continue
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`Warning: embedding generation failed — ${msg}`);
+      }
+    }
+
     const durationMs = Date.now() - startTime;
 
     return {
@@ -352,6 +390,7 @@ export class Indexer {
       filesDeleted: deleted.length,
       durationMs,
       pagerankScore: pagerankResult,
+      embeddings: embeddingsResult,
     };
   }
 
