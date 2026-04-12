@@ -56,36 +56,22 @@ def write_codegraph_mcp_config(project_root: str) -> Path:
 
 # ── System Prompts ──────────────────────────────────────────────────
 
-CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools for global discovery. Grep and Glob are disabled. LSP is available for exact navigation.
+CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools. Grep and Glob are disabled. LSP is available.
 
-TWO-TIER NAVIGATION:
+YOUR PRIMARY TOOL IS codemesh_answer. It takes a question and returns ALL relevant files, symbols, call chains, concepts, hotspots, co-change relationships, and suggested reads in ONE call. Start with this ALWAYS.
 
-TIER 1 — CODEMESH (global discovery, "where is everything?"):
-- codemesh_explore(action='search') — find files and symbols across the whole codebase
-- codemesh_explore(action='context') — get symbol metadata: signatures, call chains, imports, concepts
-- codemesh_trace — follow a call chain through the graph
-
-TIER 2 — LSP (exact navigation, "what exactly is this?"):
-- Use LSP for go-to-definition when you know a symbol but need its exact location
-- Use LSP for find-references to see all callers of a specific function
-- LSP resolves type ambiguity that the graph can't — if codemesh returns 5 "request" methods, LSP tells you which one is actually called
-
-WORKFLOW: codemesh_explore to find the area → LSP to navigate precisely within it → Read only the specific lines you need.
-Every response includes projectRoot for absolute file paths.
+Other tools for follow-up:
+- codemesh_explore — search, context (multi-target), impact
+- codemesh_trace — follow specific call chains
+- LSP — go-to-definition, find-references for exact navigation
 
 MANDATORY WORKFLOW:
 
-STEP 1 — DECOMPOSE: Before any tool calls, break the question into sub-topics. Write them out as a numbered checklist. This checklist is your contract — you are NOT done until every item is covered.
+STEP 1 — ASK: Call codemesh_answer with your question. This returns the complete context in one call — relevant files ranked by PageRank, call chains, git hotspots, co-changes, and specific lines to read.
 
-STEP 2 — EXPLORE:
-- For TRACE questions: search for the entry point, then codemesh_trace to follow the call chain.
-- For COMPREHENSION questions: search for EACH sub-topic SEPARATELY.
+STEP 2 — READ: Based on codemesh_answer's suggestedReads, Read ONLY the specific files/lines it recommends. Use LSP for go-to-definition if you need to resolve a symbol precisely.
 
-STEP 2.5 — LSP NAVIGATE (use this BEFORE Read):
-When codemesh gives you a symbol name, use LSP to resolve it precisely:
-- LSP go-to-definition → exact file and line (replaces guessing + Read)
-- LSP find-references → all callers across the codebase
-- This is FASTER and MORE PRECISE than reading files to search for symbols. Use it.
+STEP 3 — VERIFY & ENRICH: Check completeness. Call codemesh_enrich for each key file you understood.
 
 STEP 3 — VERIFY & ENRICH: Go through your decomposition checklist. Is every sub-topic covered? If ANY item is unchecked, go back to Step 2. Then ENRICH the graph — for each key file you explored, call codemesh_enrich with a summary of what you learned. This is MANDATORY, not optional. It makes future sessions faster.
 
@@ -103,6 +89,7 @@ Use codegraph_callers/codegraph_callees to trace call chains.
 Do NOT re-read files that codegraph already returned source code for. The source sections are complete and authoritative."""
 
 CODEMESH_TOOLS = [
+    "mcp__codemesh__codemesh_answer",
     "mcp__codemesh__codemesh_explore",
     "mcp__codemesh__codemesh_trace",
     "mcp__codemesh__codemesh_enrich",
@@ -110,31 +97,20 @@ CODEMESH_TOOLS = [
     "mcp__codemesh__codemesh_status",
 ]
 
-CODEMESH_CLI_PROMPT = """You have a CLI tool called 'codemesh' for global codebase discovery. Use it via Bash. Grep and Glob are disabled. LSP is available for exact navigation.
+CODEMESH_CLI_PROMPT = """You have a CLI tool called 'codemesh'. Use it via Bash. Grep and Glob are disabled. LSP is available.
 
-TWO-TIER NAVIGATION:
+YOUR PRIMARY COMMAND IS `codemesh explore answer "your question"`. It returns ALL relevant files, symbols, call chains, hotspots, co-changes, and suggested reads in ONE call.
 
-TIER 1 — CODEMESH CLI (global discovery via Bash):
-- `codemesh explore search "query"` — find files and symbols across the codebase
-- `codemesh explore context path/to/file.swift` — get symbol metadata, call chains, imports
-- `codemesh explore context path/to/file.swift --symbol name` — focus on a specific symbol
-- `codemesh explore trace symbolName --depth 5` — follow a call chain through the graph
-- `codemesh explore impact path/to/file.swift` — reverse dependency analysis
-
-TIER 2 — LSP (exact navigation):
-- Use LSP for go-to-definition when codemesh gives you a symbol but you need its exact location
-- Use LSP for find-references to see all callers
-- LSP resolves ambiguity the graph can't
-
-WORKFLOW: codemesh CLI to find the area → LSP to navigate precisely → Read only the specific lines you need.
+Other commands for follow-up:
+- `codemesh explore context file1 file2` — multi-file context in one call
+- `codemesh explore trace symbolName --depth 5` — follow call chains
+- LSP — go-to-definition, find-references
 
 MANDATORY WORKFLOW:
 
-STEP 1 — DECOMPOSE: Break the question into sub-topics as a numbered checklist.
+STEP 1 — ASK: `codemesh explore answer "your question"` — get complete context in one call.
 
-STEP 2 — EXPLORE: Use codemesh CLI via Bash for each sub-topic.
-- For TRACE questions: `codemesh explore trace symbolName --depth 5`
-- For COMPREHENSION: search for EACH sub-topic separately, then get context on key files.
+STEP 2 — READ: Based on the suggestedReads from the answer, Read ONLY the specific files/lines recommended. Use LSP for precise symbol resolution.
 
 STEP 2.5 — LSP NAVIGATE: When codemesh gives you a symbol name, use LSP BEFORE Read:
 - LSP go-to-definition → exact file and line (faster than Read + search)
