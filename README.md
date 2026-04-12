@@ -76,15 +76,26 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 
 ### 1. Install
 
+The package isn't published to npm yet. Clone and build from source:
+
 ```bash
-bun install -g codemesh
+git clone https://github.com/pyalwin/codemesh.git
+cd codemesh
+bun install
+bun run build
+```
+
+Then add the binary to your PATH or use it directly:
+
+```bash
+node /path/to/codemesh/dist/cli.js
 ```
 
 ### 2. Index your project
 
 ```bash
 cd /your/project
-codemesh index
+codemesh index --with-embeddings
 ```
 
 ```
@@ -92,6 +103,8 @@ Indexed 656 files
   Symbols found:  16733
   Edges created:  33266
   Duration:       10009ms
+  PageRank:       13843 nodes scored
+  Embeddings:     13187 symbols embedded
 ```
 
 ### 3. Choose your mode
@@ -117,7 +130,13 @@ Add to your Claude Code MCP config (`~/.claude/mcp-servers.json` or project `.mc
 }
 ```
 
-The agent gets native MCP tools: `codemesh_explore`, `codemesh_trace`, `codemesh_enrich`, `codemesh_workflow`, `codemesh_status`.
+The agent gets native MCP tools:
+
+- `codemesh_answer` — one-call question answering (PRIMARY)
+- `codemesh_explore` — search, context (multi-target), impact
+- `codemesh_trace` — follow call chains
+- `codemesh_enrich` / `codemesh_workflow` — write back
+- `codemesh_status` — health check
 
 **Best for:** Opus, structured workflows, enrichment/write-back
 
@@ -129,14 +148,16 @@ The agent gets native MCP tools: `codemesh_explore`, `codemesh_trace`, `codemesh
 No MCP config needed. The agent calls codemesh directly via Bash:
 
 ```bash
-# Set the project root
 export CODEMESH_PROJECT_ROOT=/path/to/your/project
 
-# Agent uses Bash to call these:
+# Primary — one-call question answering:
+codemesh explore answer "How does request handling work?"
+
+# Follow-up commands:
 codemesh explore search "request flow"
-codemesh explore context Source/Core/Session.swift
+codemesh explore context Source/Core/Session.swift Source/Core/Request.swift
 codemesh explore trace Session.request --depth 5
-codemesh explore impact Source/Core/Session.swift
+codemesh explore semantic "network request handling"  # requires --with-embeddings
 ```
 
 All commands return JSON to stdout. No MCP server process, no protocol overhead.
@@ -162,25 +183,15 @@ The agent now has 6 new tools. Query the graph before reading code:
 ```
 You: "Find how pydantic handles validation"
 
-Phase 1 — MAP:
-Agent calls: codemesh_explore({ action: "search", query: "validation" })
-       gets: 12 relevant files with summaries, 4 known workflows
+Agent calls: codemesh_answer({ question: "How does pydantic handle validation?" })
+       gets: 9 relevant files ranked by PageRank, call chains, 
+             git hotspots, co-change relationships, 5 suggested reads
 
-Agent calls: codemesh_explore({ action: "context", path: "pydantic/functional_validators.py" })
-       gets: 23 symbols, 4 imports, 2 cached summaries
+Agent calls: Read("pydantic/functional_validators.py", lines 1-50)
+       reads: only the specific lines suggested by the answer tool
 
-Phase 2 — TRACE:
-Agent calls: codemesh_trace({ symbol: "field_validator", depth: 5 })
-       gets: complete call chain with source code at every step
-
-Phase 3 — VERIFY:
-Agent checks: Did I reach the leaf? Did I cover all files? → Yes → writes answer
-
-Agent calls: codemesh_enrich({
-               path: "pydantic/functional_validators.py",
-               summary: "Primary V2 validator API. @field_validator for
-                         per-field, @model_validator for whole-model..."
-             })
+Agent calls: codemesh_enrich({ path: "pydantic/functional_validators.py",
+               summary: "Primary V2 validator API..." })
        saves: summary for next session
 ```
 
@@ -192,29 +203,33 @@ Agent calls: codemesh_enrich({
                       ┌──────────────────────────────────┐
                       │         Knowledge Graph           │
                       │                                   │
-                      │  ┌────────────┐ ┌─────────────┐  │
-                      │  │ Structural │ │  Semantic    │  │
-                      │  │   (auto)   │ │  (agents)   │  │
-                      │  │            │ │             │  │
-                      │  │  files     │ │  summaries  │  │
-                      │  │  symbols   │ │  workflows  │  │
-                      │  │  imports   │ │  concepts   │  │
-                      │  │  calls     │ │  related_to │  │
-                      │  └────────────┘ └─────────────┘  │
+                      │  ┌──────────┐ ┌───────────────┐  │
+                      │  │Structural│ │   Semantic     │  │
+                      │  │  (auto)  │ │   (agents)    │  │
+                      │  │          │ │               │  │
+                      │  │ files    │ │ summaries     │  │
+                      │  │ symbols  │ │ workflows     │  │
+                      │  │ imports  │ │ concepts      │  │
+                      │  │ calls    │ │ enrichments   │  │
+                      │  └──────────┘ └───────────────┘  │
                       │                                   │
-                      │          SQLite + FTS5            │
+                      │  ┌──────────┐ ┌───────────────┐  │
+                      │  │   Git    │ │   Search      │  │
+                      │  │  Intel   │ │               │  │
+                      │  │          │ │ FTS5 (exact)  │  │
+                      │  │ hotspots │ │ Trigram (fuzzy)│  │
+                      │  │ co-change│ │ LanceDB (sem) │  │
+                      │  │ churn    │ │ PageRank      │  │
+                      │  └──────────┘ └───────────────┘  │
+                      │                                   │
+                      │        SQLite + LanceDB           │
                       └────────────┬──────────────────────┘
                                    │
                       ┌────────────┴──────────────────────┐
-                      │       MCP Server (6 tools)         │
+                      │    MCP Server / CLI (7 tools)      │
                       │                                    │
-                      │  query · context · enrich          │
-                      │  workflow · impact · status         │
-                      └────────────┬──────────────────────┘
-                                   │
-                      ┌────────────┴──────────────────────┐
-                      │         Claude Code                │
-                      │    (or any MCP-compatible agent)    │
+                      │  answer · explore · trace          │
+                      │  enrich · workflow · status         │
                       └────────────────────────────────────┘
 ```
 
@@ -227,11 +242,12 @@ Agent calls: codemesh_enrich({
 ## MCP Tools
 
 | Tool | Purpose | Example |
-|:--|:--|:--|
-| `codemesh_explore` | Omni-tool: search, context, or impact in one tool | `codemesh_explore({ action: "search", query: "validation" })` |
-| `codemesh_trace` | Follow a call chain to leaf nodes with source code | `codemesh_trace({ symbol: "Session.request", depth: 5 })` |
-| `codemesh_enrich` | Write back what you learned | `codemesh_enrich({ path: "src/auth.py", summary: "..." })` |
-| `codemesh_workflow` | Record a multi-file workflow path | `codemesh_workflow({ name: "login flow", files: [...] })` |
+|---|---|---|
+| `codemesh_answer` | **One-call context assembly** — returns all relevant files, call chains, hotspots, suggested reads | `codemesh_answer({ question: "How does auth work?" })` |
+| `codemesh_explore` | Search, context (multi-target), impact analysis | `codemesh_explore({ action: "search", query: "auth" })` |
+| `codemesh_trace` | Follow call chains with source code | `codemesh_trace({ symbol: "login", depth: 5 })` |
+| `codemesh_enrich` | Write back what you learned for future sessions | `codemesh_enrich({ path: "src/auth.py", summary: "..." })` |
+| `codemesh_workflow` | Record multi-file workflow paths | `codemesh_workflow({ name: "login flow", files: [...] })` |
 | `codemesh_status` | Graph health check | `codemesh_status()` |
 
 ---
@@ -239,10 +255,17 @@ Agent calls: codemesh_enrich({
 ## CLI
 
 ```bash
-codemesh index       # Index the project (incremental — only changed files)
-codemesh status      # Node/edge counts, stale concepts, last indexed
-codemesh rebuild     # Purge and re-index from scratch
-codemesh help        # Usage
+codemesh index                          # structural + git intel + pagerank
+codemesh index --with-embeddings        # + semantic vectors (~80MB model, zero API cost)
+codemesh status                         # graph statistics
+codemesh rebuild                        # purge and re-index
+
+codemesh explore answer "question"      # one-call context assembly (PRIMARY)
+codemesh explore search "query"         # FTS5 + trigram + semantic search
+codemesh explore context file1 file2    # multi-target context
+codemesh explore trace symbol --depth 5 # follow call chains
+codemesh explore semantic "query"       # vector similarity (needs embeddings)
+codemesh explore impact file            # reverse dependencies
 ```
 
 ---
@@ -253,6 +276,11 @@ codemesh help        # Usage
 <summary><strong>Skill</strong> — teaches agents the graph-first workflow</summary>
 
 Copy `skills/codemesh.md` to `~/.claude/skills/` or your project's `.claude/skills/`.
+
+```bash
+# Install the skill so Claude Code loads the workflow automatically
+cp /path/to/codemesh/skills/codemesh.md /your/project/.claude/skills/
+```
 
 The skill instructs agents to query the graph before using Grep/Read, and to write back via `codemesh_enrich` after reading code.
 </details>
