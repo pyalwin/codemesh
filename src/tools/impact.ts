@@ -74,6 +74,13 @@ export async function handleImpact(
     });
   }
 
+  // Sort dependents by PageRank (most important first)
+  dependents.sort((a, b) => {
+    const aPr = (a.node as any).pagerankScore ?? 0;
+    const bPr = (b.node as any).pagerankScore ?? 0;
+    return bPr - aPr;
+  });
+
   return {
     dependents,
     total: dependents.length,

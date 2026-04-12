@@ -69,6 +69,7 @@ export interface TraceStep {
   signature: string;
   source: string | null;
   calls: string[]; // names of symbols this one calls
+  pagerankScore?: number;
 }
 
 export interface TraceOutput {
@@ -130,8 +131,12 @@ export async function handleTrace(
       signature: sym.signature,
       source: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
       calls: calleeNames,
+      pagerankScore: (node as any).pagerankScore ?? undefined,
     });
   }
+
+  // Sort steps by PageRank — most important symbols first
+  steps.sort((a, b) => ((b as any).pagerankScore ?? 0) - ((a as any).pagerankScore ?? 0));
 
   return { startSymbol: input.symbol, steps, depth: maxDepth };
 }
