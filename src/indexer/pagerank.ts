@@ -15,6 +15,8 @@ import type { StorageBackend } from "../graph/storage.js";
 const Graph = (GraphModule as any).default ?? GraphModule;
 const pagerank = (pagerankModule as any).default ?? pagerankModule;
 
+const MAX_NODES_FOR_PAGERANK = 20000;
+
 export async function computePageRank(
   storage: StorageBackend,
 ): Promise<Map<string, number>> {
@@ -22,6 +24,12 @@ export async function computePageRank(
   const fileNodes = await storage.queryNodes({ type: "file" });
   const symbolNodes = await storage.queryNodes({ type: "symbol" });
   const allNodes = [...fileNodes, ...symbolNodes];
+
+  // Guard: skip PageRank for very large repos to avoid stack overflow
+  if (allNodes.length > MAX_NODES_FOR_PAGERANK) {
+    console.log(`  PageRank skipped: ${allNodes.length} nodes exceeds ${MAX_NODES_FOR_PAGERANK} limit`);
+    return new Map();
+  }
 
   const graph = new Graph();
 
