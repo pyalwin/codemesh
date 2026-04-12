@@ -232,11 +232,15 @@ export class SqliteBackend implements StorageBackend {
         if (data.hotspot) {
           fileNode.hotspot = data.hotspot;
         }
+        // Carry through pagerank score if present
+        if (data.pagerankScore !== undefined) {
+          fileNode.pagerankScore = data.pagerankScore;
+        }
         return fileNode as FileNode;
       }
 
-      case "symbol":
-        return {
+      case "symbol": {
+        const symbolNode: any = {
           ...base,
           type: "symbol",
           source: "static",
@@ -245,7 +249,13 @@ export class SqliteBackend implements StorageBackend {
           lineStart: data.lineStart ?? 0,
           lineEnd: data.lineEnd ?? 0,
           signature: data.signature ?? "",
-        } as SymbolNode;
+        };
+        // Carry through pagerank score if present
+        if (data.pagerankScore !== undefined) {
+          symbolNode.pagerankScore = data.pagerankScore;
+        }
+        return symbolNode as SymbolNode;
+      }
 
       case "concept":
         return {

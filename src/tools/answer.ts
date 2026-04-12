@@ -29,6 +29,7 @@ export interface AnswerOutput {
     }>;
     hotspot?: { changeCount: number; lastChanged: string };
     coChanges: string[];
+    pagerankScore?: number;
   }>;
   callChains: Array<{
     from: string;
@@ -200,11 +201,14 @@ export async function handleAnswer(
     }
   }
 
-  // Step 6: Build relevantFiles output (with hotspot + co-change data)
+  // Step 6: Build relevantFiles output (with hotspot + co-change data + pagerank)
   const relevantFiles: AnswerOutput["relevantFiles"] = [];
   for (const [filePath, entry] of fileMap) {
     // Extract hotspot from file node data
     const hotspotData = (entry.node as any).hotspot as { changeCount: number; lastChanged: string } | undefined;
+
+    // Extract pagerank score from file node data
+    const pagerankScore = (entry.node as any).pagerankScore as number | undefined;
 
     // Collect co-change pairs
     const coChanges: string[] = [];
@@ -226,13 +230,26 @@ export async function handleAnswer(
       symbols: entry.symbols,
       hotspot: hotspotData,
       coChanges,
+      pagerankScore,
     });
   }
 
-  // Step 7: Build suggestedReads — top 5 most relevant symbols by search rank
+  // Sort relevantFiles by pagerank score (higher = more important = first)
+  relevantFiles.sort((a, b) => (b.pagerankScore ?? 0) - (a.pagerankScore ?? 0));
+
+  // Step 7: Build suggestedReads — top 5 most relevant symbols by search rank + pagerank boost
   const suggestedReads: AnswerOutput["suggestedReads"] = [];
   const rankedSymbols = symbolResults
-    .sort((a, b) => b.rank - a.rank)
+    .sort((a, b) => {
+      // Primary sort: search rank; secondary: pagerank of the containing file
+      const rankDiff = b.rank - a.rank;
+      if (Math.abs(rankDiff) > 0.01) return rankDiff;
+      const aFileEntry = fileMap.get(a.sym.filePath);
+      const bFileEntry = fileMap.get(b.sym.filePath);
+      const aPr = aFileEntry ? ((aFileEntry.node as any).pagerankScore ?? 0) : 0;
+      const bPr = bFileEntry ? ((bFileEntry.node as any).pagerankScore ?? 0) : 0;
+      return bPr - aPr;
+    })
     .slice(0, 5);
 
   for (const { sym, matchedField } of rankedSymbols) {

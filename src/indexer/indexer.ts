@@ -16,6 +16,7 @@ import type {
 import { parseFile } from "./parser.js";
 import { getSupportedExtensions } from "./languages.js";
 import { analyzeGitHistory } from "./git-intel.js";
+import { computePageRank } from "./pagerank.js";
 
 // ─── Public types ───────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ export interface IndexResult {
   edgesCreated: number;
   filesDeleted: number;
   durationMs: number;
+  pagerankScore?: { computed: number; topNodes: Array<{ id: string; score: number }> };
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -305,6 +307,42 @@ export class Indexer {
       // Git not available or not a git repo — skip silently
     }
 
+    // Step 7: PageRank — compute centrality scores for all nodes
+    let pagerankResult: IndexResult["pagerankScore"];
+    try {
+      const ranks = await computePageRank(this.storage);
+
+      if (ranks.size > 0) {
+        // Store pagerank scores on each node's data field via batch update
+        await this.storage.beginTransaction();
+        try {
+          for (const [nodeId, score] of ranks) {
+            const node = await this.storage.getNode(nodeId);
+            if (!node) continue;
+            const updatedNode = {
+              ...node,
+              updatedAt: new Date().toISOString(),
+            } as typeof node & { pagerankScore?: number };
+            (updatedNode as any).pagerankScore = score;
+            await this.storage.upsertNode(updatedNode as any);
+          }
+          await this.storage.commitTransaction();
+        } catch (e) {
+          await this.storage.rollbackTransaction();
+          // PageRank storage is non-critical — don't fail the entire index
+        }
+
+        // Build top-N summary for the result
+        const sorted = [...ranks.entries()].sort((a, b) => b[1] - a[1]);
+        pagerankResult = {
+          computed: ranks.size,
+          topNodes: sorted.slice(0, 10).map(([id, score]) => ({ id, score })),
+        };
+      }
+    } catch {
+      // PageRank computation is non-critical — skip silently
+    }
+
     const durationMs = Date.now() - startTime;
 
     return {
@@ -313,6 +351,7 @@ export class Indexer {
       edgesCreated,
       filesDeleted: deleted.length,
       durationMs,
+      pagerankScore: pagerankResult,
     };
   }
 

@@ -51,6 +51,16 @@ async function runIndex(): Promise<void> {
   console.log(`  Files deleted:  ${result.filesDeleted}`);
   console.log(`  Duration:       ${result.durationMs}ms`);
 
+  if (result.pagerankScore) {
+    console.log(`  PageRank:       ${result.pagerankScore.computed} nodes scored`);
+    if (result.pagerankScore.topNodes.length > 0) {
+      console.log(`  Top nodes by PageRank:`);
+      for (const { id, score } of result.pagerankScore.topNodes.slice(0, 5)) {
+        console.log(`    ${id} — ${score.toFixed(6)}`);
+      }
+    }
+  }
+
   await storage.close();
 }
 

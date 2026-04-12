@@ -40,6 +40,8 @@ export interface SymbolInfo {
   definedAt?: { uri: string; line: number; character: number };
   /** Number of references to this symbol (via LSP), if available */
   referencedBy?: number;
+  /** PageRank centrality score — higher means more structurally important */
+  pagerank?: number;
 }
 
 export interface ContextOutput {
@@ -220,6 +222,9 @@ export async function handleContext(
       }
     }
 
+    // Get pagerank score from the symbol node's data
+    const symPagerankScore = (node as any).pagerankScore as number | undefined;
+
     symbols.push({
       name: sym.name,
       kind: sym.kind,
@@ -230,6 +235,7 @@ export async function handleContext(
       calls,
       calledBy,
       callChain,
+      pagerank: symPagerankScore,
     });
   }
 
