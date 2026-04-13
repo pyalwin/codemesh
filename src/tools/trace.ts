@@ -60,6 +60,7 @@ export async function findSymbol(
 export interface TraceInput {
   symbol: string; // symbol name to start tracing from
   depth?: number; // max depth (default 3)
+  compact?: boolean; // if true, omit source bodies and return line ranges instead
 }
 
 export interface TraceStep {
@@ -68,6 +69,7 @@ export interface TraceStep {
   kind: string;
   signature: string;
   source: string | null;
+  lines?: string; // e.g. "271-438" — only in compact mode
   calls: string[]; // names of symbols this one calls
   pagerankScore?: number;
 }
@@ -124,15 +126,19 @@ export async function handleTrace(
       }
     }
 
-    steps.push({
+    const step: TraceStep = {
       symbol: sym.name,
       filePath: sym.filePath,
       kind: sym.kind,
       signature: sym.signature,
-      source: readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
+      source: input.compact ? null : readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
       calls: calleeNames,
       pagerankScore: (node as any).pagerankScore ?? undefined,
-    });
+    };
+    if (input.compact && sym.lineStart != null && sym.lineEnd != null) {
+      step.lines = `${sym.lineStart}-${sym.lineEnd}`;
+    }
+    steps.push(step);
   }
 
   // Sort steps by PageRank — most important symbols first

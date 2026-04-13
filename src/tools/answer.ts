@@ -13,6 +13,7 @@ import { semanticSearch } from "../indexer/embeddings.js";
 
 export interface AnswerInput {
   question: string;
+  compact?: boolean; // if true, return only file paths, top symbol names, and suggestedReads — skip full symbol lists
 }
 
 export interface AnswerOutput {
@@ -321,6 +322,23 @@ export async function handleAnswer(
         if (suggestedReads.length >= 5) break;
       }
     }
+  }
+
+  if (input.compact) {
+    // Compact mode: strip full symbol lists, keep only file paths + top symbol names + suggestedReads
+    const compactFiles = relevantFiles.map((f) => ({
+      path: f.path,
+      why: f.why,
+      topSymbols: f.symbols.slice(0, 5).map((s) => `${s.name} (${s.kind}, L${s.lineStart}-${s.lineEnd})`),
+    }));
+    return {
+      question: input.question,
+      relevantFiles: compactFiles,
+      callChains,
+      concepts,
+      workflows,
+      suggestedReads,
+    } as any;
   }
 
   return {

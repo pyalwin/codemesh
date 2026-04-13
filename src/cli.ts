@@ -8,6 +8,7 @@ import { handleContext } from "./tools/context.js";
 import { handleTrace } from "./tools/trace.js";
 import { handleImpact } from "./tools/impact.js";
 import { handleAnswer } from "./tools/answer.js";
+import { handleReadSymbol } from "./tools/read-symbol.js";
 import { semanticSearch } from "./indexer/embeddings.js";
 import { join } from "path";
 import { mkdirSync, rmSync, existsSync } from "fs";
@@ -31,6 +32,7 @@ Usage:
   codemesh explore trace <symbol> [--depth N]    Trace a call chain from a symbol
   codemesh explore impact <path> [--symbol S]    Find reverse dependencies
   codemesh explore answer <question>             One-call context assembly for a question
+  codemesh explore read <symbol>                 Read source code for a specific symbol
   codemesh explore semantic <query>              Semantic vector search (requires --with-embeddings)
   codemesh help                                  Show this help message
 
@@ -185,12 +187,13 @@ async function runExplore(): Promise<void> {
       case "trace": {
         const symbol = args[2];
         if (!symbol) {
-          console.error("Usage: codemesh explore trace <symbol> [--depth N]");
+          console.error("Usage: codemesh explore trace <symbol> [--depth N] [--compact]");
           process.exit(1);
         }
         const depthStr = parseFlag(args, "--depth");
         const depth = depthStr ? parseInt(depthStr, 10) : 5;
-        result = await handleTrace(storage, { symbol, depth }, projectRoot);
+        const compact = args.includes("--compact");
+        result = await handleTrace(storage, { symbol, depth, compact }, projectRoot);
         break;
       }
       case "impact": {
@@ -206,10 +209,20 @@ async function runExplore(): Promise<void> {
       case "answer": {
         const question = args.slice(2).filter((a) => !a.startsWith("--")).join(" ");
         if (!question) {
-          console.error("Usage: codemesh explore answer <question>");
+          console.error("Usage: codemesh explore answer <question> [--compact]");
           process.exit(1);
         }
-        result = await handleAnswer(storage, { question }, projectRoot);
+        const answerCompact = args.includes("--compact");
+        result = await handleAnswer(storage, { question, compact: answerCompact }, projectRoot);
+        break;
+      }
+      case "read": {
+        const readSymbol = args[2];
+        if (!readSymbol) {
+          console.error("Usage: codemesh explore read <symbol>");
+          process.exit(1);
+        }
+        result = await handleReadSymbol(storage, { symbol: readSymbol }, projectRoot);
         break;
       }
       case "semantic": {
