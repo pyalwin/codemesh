@@ -51,7 +51,7 @@ describe("handleQuery", () => {
   it("finds symbols by name", async () => {
     const result = await handleQuery(storage, { query: "add" });
     expect(result.total).toBeGreaterThanOrEqual(1);
-    expect(result.results.some((r) => r.node.name === "add")).toBe(true);
+    expect(result.results.some((r) => r.name === "add")).toBe(true);
   });
 
   it("finds symbols by name with symbols scope", async () => {
@@ -60,7 +60,7 @@ describe("handleQuery", () => {
       scope: "symbols",
     });
     expect(result.total).toBeGreaterThanOrEqual(1);
-    expect(result.results.every((r) => r.node.type === "symbol")).toBe(true);
+    expect(result.results.every((r) => r.type === "symbol")).toBe(true);
   });
 
   it("returns empty for files scope when only symbol matches", async () => {

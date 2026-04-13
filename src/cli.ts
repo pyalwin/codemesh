@@ -214,11 +214,10 @@ async function runExplore(): Promise<void> {
       case "answer": {
         const question = args.slice(2).filter((a) => !a.startsWith("--")).join(" ");
         if (!question) {
-          console.error("Usage: codemesh explore answer <question> [--compact]");
+          console.error("Usage: codemesh explore answer <question>");
           process.exit(1);
         }
-        const answerCompact = args.includes("--compact");
-        result = await handleAnswer(storage, { question, compact: answerCompact }, projectRoot);
+        result = await handleAnswer(storage, { question }, projectRoot);
         break;
       }
       case "read": {

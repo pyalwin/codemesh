@@ -32,18 +32,23 @@ CODEMESH_SYSTEM_PROMPT = """CRITICAL INSTRUCTION: You MUST use codemesh_* MCP to
 
 DO NOT use Grep or Glob to search for code. Those tools are disabled. Instead:
 
-1. ALWAYS start with codemesh_query to find relevant files and symbols.
-   Example: codemesh_query({ query: "validator" })
+1. ALWAYS start with codemesh_answer to get full context for a question.
+   Example: codemesh_answer({ question: "how does validation work" })
 
-2. Use codemesh_context to get full context for a specific file before reading it.
-   Example: codemesh_context({ path: "pydantic/main.py" })
+2. Use codemesh_map to get a summary-enriched call graph tree for any query or symbol.
+   Example: codemesh_map({ query: "validator" })
 
-3. Use codemesh_impact to check dependencies before suggesting changes.
-   Example: codemesh_impact({ path: "pydantic/fields.py" })
+3. Use codemesh_source to read the source code of a specific symbol by ID (from codemesh_map output).
+   Example: codemesh_source({ id: "symbol:pydantic/main.py:BaseModel" })
 
-4. Only use Read for targeted file reads AFTER codemesh_query tells you which files matter.
+4. Use codemesh_explore with action "search" to find things, "context" for file/symbol relations, "impact" for reverse deps.
+   Example: codemesh_explore({ action: "search", query: "validator" })
+   Example: codemesh_explore({ action: "context", path: "pydantic/main.py" })
+   Example: codemesh_explore({ action: "impact", path: "pydantic/fields.py" })
 
-5. After reading code, call codemesh_enrich to record what you learned.
+5. Only use Read for targeted file reads AFTER codemesh tools tell you which files matter.
+
+6. After reading code, call codemesh_enrich to record what you learned.
    Example: codemesh_enrich({ path: "pydantic/main.py", summary: "Defines BaseModel..." })
 
 The codemesh knowledge graph has 13,000+ pre-indexed symbols from this codebase. Use it."""
@@ -88,12 +93,14 @@ def run_claude(prompt: str, mode: str, model: str = "opus") -> dict:
         cmd.extend(["--disallowedTools", "Grep,Glob"])
         # Explicitly allow MCP tools — REQUIRED or they're blocked
         for tool in [
-            "mcp__codemesh__codemesh_query",
-            "mcp__codemesh__codemesh_context",
+            "mcp__codemesh__codemesh_answer",
+            "mcp__codemesh__codemesh_explore",
+            "mcp__codemesh__codemesh_map",
+            "mcp__codemesh__codemesh_source",
             "mcp__codemesh__codemesh_enrich",
             "mcp__codemesh__codemesh_workflow",
-            "mcp__codemesh__codemesh_impact",
             "mcp__codemesh__codemesh_status",
+            "mcp__codemesh__codemesh_trace",
         ]:
             cmd.extend(["--allowedTools", tool])
         # Also allow Read and Bash for targeted reading
@@ -118,6 +125,24 @@ def run_claude(prompt: str, mode: str, model: str = "opus") -> dict:
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
+        # Always try to parse stdout — claude --print returns valid JSON
+        # even on non-zero exit (e.g., budget exceeded exits with code 1
+        # but still has full result data in stdout)
+        stdout = result.stdout.strip()
+        if stdout:
+            try:
+                parsed = json.loads(stdout)
+                return {
+                    "result": parsed.get("result", ""),
+                    "session_id": parsed.get("session_id", ""),
+                    "cost_usd": parsed.get("cost_usd", 0) or parsed.get("total_cost_usd", 0),
+                    "num_turns": parsed.get("num_turns", 0),
+                    "duration_ms": parsed.get("duration_ms", 0) or elapsed_ms,
+                    "is_error": parsed.get("is_error", False),
+                }
+            except json.JSONDecodeError:
+                pass  # Fall through to error handling below
+
         if result.returncode != 0:
             return {
                 "error": result.stderr.strip(),
@@ -127,14 +152,12 @@ def run_claude(prompt: str, mode: str, model: str = "opus") -> dict:
                 "duration_ms": elapsed_ms,
             }
 
-        parsed = json.loads(result.stdout.strip())
         return {
-            "result": parsed.get("result", ""),
-            "session_id": parsed.get("session_id", ""),
-            "cost_usd": parsed.get("cost_usd", 0) or parsed.get("total_cost_usd", 0),
-            "num_turns": parsed.get("num_turns", 0),
-            "duration_ms": parsed.get("duration_ms", 0) or elapsed_ms,
-            "is_error": parsed.get("is_error", False),
+            "error": "empty response",
+            "result": "",
+            "cost_usd": 0,
+            "num_turns": 0,
+            "duration_ms": elapsed_ms,
         }
     except subprocess.TimeoutExpired:
         elapsed_ms = int((time.monotonic() - start) * 1000)

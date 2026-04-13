@@ -7,18 +7,53 @@
  */
 
 import type { StorageBackend } from "../graph/storage.js";
-import type { SearchResult, SymbolNode } from "../graph/types.js";
+import type { SearchResult, SymbolNode, FileNode } from "../graph/types.js";
 import { semanticSearch } from "../indexer/embeddings.js";
+
+const MAX_RESULTS = 20;
 
 export interface QueryInput {
   query: string;
   scope?: "files" | "symbols" | "workflows" | "all";
 }
 
+interface SlimResult {
+  id: string;
+  name: string;
+  type: string;
+  filePath?: string;
+  kind?: string;
+  summary?: string;
+  matchedField: string;
+  pagerankScore?: number;
+}
+
 export interface QueryOutput {
-  results: SearchResult[];
+  results: SlimResult[];
   semanticResults?: Array<{ id: string; name: string; filePath: string; score: number }>;
   total: number;
+}
+
+function slimNode(result: SearchResult): SlimResult {
+  const node = result.node;
+  const base: SlimResult = {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    matchedField: result.matchedField,
+  };
+  if (node.type === "symbol") {
+    const sym = node as SymbolNode;
+    base.filePath = sym.filePath;
+    base.kind = sym.kind;
+    base.summary = sym.summary;
+    base.pagerankScore = sym.pagerankScore;
+  } else if (node.type === "file") {
+    const file = node as FileNode;
+    base.filePath = file.path;
+    base.pagerankScore = file.pagerankScore;
+  }
+  return base;
 }
 
 export async function handleQuery(
@@ -47,6 +82,9 @@ export async function handleQuery(
     return a.rank - b.rank; // fallback to FTS rank
   });
 
+  const totalMatches = results.length;
+  results = results.slice(0, MAX_RESULTS);
+
   // Supplement with semantic search if embeddings exist
   let semanticResults: QueryOutput["semanticResults"];
   if (projectRoot) {
@@ -63,8 +101,8 @@ export async function handleQuery(
   }
 
   return {
-    results,
+    results: results.map(slimNode),
     semanticResults: semanticResults && semanticResults.length > 0 ? semanticResults : undefined,
-    total: results.length + (semanticResults?.length ?? 0),
+    total: totalMatches + (semanticResults?.length ?? 0),
   };
 }

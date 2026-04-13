@@ -14,7 +14,6 @@ import { buildMapTree, type MapNode } from "./map-tree.js";
 
 export interface AnswerInput {
   question: string;
-  compact?: boolean; // if true, return only file paths, top symbol names, and suggestedReads — skip full symbol lists
 }
 
 export interface AnswerOutput {
@@ -23,13 +22,11 @@ export interface AnswerOutput {
     path: string;
     absolutePath: string;
     why: string;
-    symbols: Array<{
+    symbolCount: number;
+    topSymbols: Array<{
       name: string;
       kind: string;
-      signature: string;
       summary?: string;
-      lineStart: number;
-      lineEnd: number;
     }>;
     hotspot?: { changeCount: number; lastChanged: string };
     coChanges: string[];
@@ -80,13 +77,11 @@ export async function handleAnswer(
   const fileMap = new Map<string, {
     node: FileNode;
     why: string;
-    symbols: Array<{
+    symbolCount: number;
+    topSymbols: Array<{
       name: string;
       kind: string;
-      signature: string;
       summary?: string;
-      lineStart: number;
-      lineEnd: number;
     }>;
   }>();
   const symbolResults: Array<{ sym: SymbolNode; rank: number; matchedField: string }> = [];
@@ -100,7 +95,8 @@ export async function handleAnswer(
         fileMap.set(fileNode.path, {
           node: fileNode,
           why: `Matched via ${result.matchedField} search (rank ${result.rank.toFixed(2)})`,
-          symbols: [],
+          symbolCount: 0,
+          topSymbols: [],
         });
       }
     } else if (node.type === "symbol") {
@@ -115,7 +111,8 @@ export async function handleAnswer(
           fileMap.set(sym.filePath, {
             node: fileNode as FileNode,
             why: `Contains matching symbol '${sym.name}'`,
-            symbols: [],
+            symbolCount: 0,
+            topSymbols: [],
           });
         }
       }
@@ -144,57 +141,52 @@ export async function handleAnswer(
         fileMap.set(sym.filePath, {
           node: fileNode as FileNode,
           why: `Semantically related (vector distance ${sr.score.toFixed(3)})`,
-          symbols: [],
+          symbolCount: 0,
+          topSymbols: [],
         });
       }
     }
   }
 
-  // Step 2: For each file result, get its symbols and imports
+  // Step 2: For each file, count symbols and pick top ones by PageRank
+  // We only store counts + top symbols — NOT full inventories
+  const matchedSymbolNames = new Set(symbolResults.map(r => r.sym.name));
+
   for (const [filePath, entry] of fileMap) {
     const containsEdges = await storage.getEdges(entry.node.id, "out", ["contains"]);
+    entry.symbolCount = containsEdges.length;
+
+    // Load all symbols, rank by: matched > high pagerank > rest
+    const allSyms: Array<{ name: string; kind: string; summary?: string; score: number }> = [];
     for (const edge of containsEdges) {
       const node = await storage.getNode(edge.toId);
       if (!node || node.type !== "symbol") continue;
       const sym = node as SymbolNode;
-      entry.symbols.push({
+      // Matched symbols get a big boost, then sort by pagerank
+      const matchBoost = matchedSymbolNames.has(sym.name) ? 1000 : 0;
+      allSyms.push({
         name: sym.name,
         kind: sym.kind,
-        signature: sym.signature,
         summary: sym.summary,
-        lineStart: sym.lineStart,
-        lineEnd: sym.lineEnd,
+        score: matchBoost + (sym.pagerankScore ?? 0),
       });
     }
+    allSyms.sort((a, b) => b.score - a.score);
+    entry.topSymbols = allSyms.slice(0, 5).map(({ name, kind, summary }) => ({ name, kind, summary }));
 
-    // Follow imports to discover more relevant files
+    // Follow imports to discover more relevant files (lightweight — no symbol enumeration)
     const importEdges = await storage.getEdges(entry.node.id, "out", ["imports"]);
     for (const edge of importEdges) {
       const target = await storage.getNode(edge.toId);
       if (target && target.type === "file" && !fileMap.has((target as FileNode).path)) {
         const importedFile = target as FileNode;
-        // Only add imported files if they are not already tracked (limit expansion)
         if (fileMap.size < 15) {
-          const containsEdgesImported = await storage.getEdges(importedFile.id, "out", ["contains"]);
-          const importedSymbols: typeof entry.symbols = [];
-          for (const ce of containsEdgesImported) {
-            const sNode = await storage.getNode(ce.toId);
-            if (sNode && sNode.type === "symbol") {
-              const s = sNode as SymbolNode;
-              importedSymbols.push({
-                name: s.name,
-                kind: s.kind,
-                signature: s.signature,
-                summary: s.summary,
-                lineStart: s.lineStart,
-                lineEnd: s.lineEnd,
-              });
-            }
-          }
+          const importedContains = await storage.getEdges(importedFile.id, "out", ["contains"]);
           fileMap.set(importedFile.path, {
             node: importedFile,
             why: `Imported by '${filePath}'`,
-            symbols: importedSymbols,
+            symbolCount: importedContains.length,
+            topSymbols: [],
           });
         }
       }
@@ -265,7 +257,8 @@ export async function handleAnswer(
       path: filePath,
       absolutePath: join(projectRoot, filePath),
       why: entry.why,
-      symbols: entry.symbols,
+      symbolCount: entry.symbolCount,
+      topSymbols: entry.topSymbols,
       hotspot: hotspotData,
       coChanges,
       pagerankScore,
@@ -300,41 +293,21 @@ export async function handleAnswer(
     });
   }
 
-  // If we have fewer than 5 suggested reads, fill from file symbols
+  // If we have fewer than 5 suggested reads, fill from remaining symbol results
   if (suggestedReads.length < 5) {
-    const suggestedPaths = new Set(suggestedReads.map(s => `${s.file}:${s.lines}`));
-    for (const [, entry] of fileMap) {
+    const suggestedIds = new Set(rankedSymbols.map(r => r.sym.id));
+    for (const { sym, matchedField } of symbolResults) {
       if (suggestedReads.length >= 5) break;
-      for (const sym of entry.symbols) {
-        const key = `${(entry.node as FileNode).path}:${sym.lineStart}-${sym.lineEnd}`;
-        if (suggestedPaths.has(key)) continue;
-        suggestedPaths.add(key);
-        suggestedReads.push({
-          file: (entry.node as FileNode).path,
-          absolutePath: join(projectRoot, (entry.node as FileNode).path),
-          lines: `${sym.lineStart}-${sym.lineEnd}`,
-          reason: `${sym.name} (${sym.kind}) — in relevant file`,
-        });
-        if (suggestedReads.length >= 5) break;
-      }
+      if (suggestedIds.has(sym.id)) continue;
+      suggestedIds.add(sym.id);
+      suggestedReads.push({
+        file: sym.filePath,
+        absolutePath: join(projectRoot, sym.filePath),
+        lines: `${sym.lineStart}-${sym.lineEnd}`,
+        reason: `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
+        summary: sym.summary,
+      });
     }
-  }
-
-  if (input.compact) {
-    // Compact mode: strip full symbol lists, keep only file paths + top symbol names + suggestedReads
-    const compactFiles = relevantFiles.map((f) => ({
-      path: f.path,
-      why: f.why,
-      topSymbols: f.symbols.slice(0, 5).map((s) => `${s.name} (${s.kind}, L${s.lineStart}-${s.lineEnd})`),
-    }));
-    return {
-      question: input.question,
-      relevantFiles: compactFiles,
-      symbolMap,
-      concepts,
-      workflows,
-      suggestedReads,
-    } as any;
   }
 
   return {
