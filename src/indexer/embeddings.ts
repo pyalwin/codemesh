@@ -59,6 +59,7 @@ export async function indexEmbeddings(
     name: string;
     signature: string;
     filePath: string;
+    summary?: string;
   }>,
 ): Promise<{ count: number; durationMs: number }> {
   const start = Date.now();
@@ -75,7 +76,9 @@ export async function indexEmbeddings(
   }> = [];
 
   for (const sym of symbols) {
-    const text = `${sym.name} ${sym.signature}`;
+    const text = sym.summary
+      ? `${sym.name} ${sym.signature} ${sym.summary}`
+      : `${sym.name} ${sym.signature}`;
     const vector = await generateEmbedding(text);
     records.push({
       id: sym.id,

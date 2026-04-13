@@ -220,7 +220,7 @@ export class SqliteBackend implements StorageBackend {
 
     switch (row.type) {
       case "file": {
-        const fileNode: any = {
+        const fileNode: FileNode = {
           ...base,
           type: "file",
           source: "static",
@@ -228,19 +228,17 @@ export class SqliteBackend implements StorageBackend {
           hash: row.hash!,
           lastIndexedAt: data.lastIndexedAt ?? base.createdAt,
         };
-        // Carry through hotspot data if present
         if (data.hotspot) {
           fileNode.hotspot = data.hotspot;
         }
-        // Carry through pagerank score if present
         if (data.pagerankScore !== undefined) {
           fileNode.pagerankScore = data.pagerankScore;
         }
-        return fileNode as FileNode;
+        return fileNode;
       }
 
       case "symbol": {
-        const symbolNode: any = {
+        const symbolNode: SymbolNode = {
           ...base,
           type: "symbol",
           source: "static",
@@ -250,11 +248,13 @@ export class SqliteBackend implements StorageBackend {
           lineEnd: data.lineEnd ?? 0,
           signature: data.signature ?? "",
         };
-        // Carry through pagerank score if present
+        if (data.summary !== undefined) {
+          symbolNode.summary = data.summary;
+        }
         if (data.pagerankScore !== undefined) {
           symbolNode.pagerankScore = data.pagerankScore;
         }
-        return symbolNode as SymbolNode;
+        return symbolNode;
       }
 
       case "concept":

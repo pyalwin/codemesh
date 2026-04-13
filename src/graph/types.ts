@@ -29,6 +29,8 @@ export interface FileNode extends BaseNode {
   path: string;
   hash: string;
   lastIndexedAt: string;
+  hotspot?: { changeCount: number; lastChanged: string };
+  pagerankScore?: number;
 }
 
 export interface SymbolNode extends BaseNode {
@@ -39,6 +41,8 @@ export interface SymbolNode extends BaseNode {
   lineStart: number;
   lineEnd: number;
   signature: string;
+  summary?: string;
+  pagerankScore?: number;
 }
 
 export interface ConceptNode extends BaseNode {

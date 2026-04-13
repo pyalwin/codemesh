@@ -41,8 +41,8 @@ export async function handleQuery(
 
   // Sort by PageRank when available (higher = more important)
   results.sort((a, b) => {
-    const aPr = (a.node as any).pagerankScore ?? 0;
-    const bPr = (b.node as any).pagerankScore ?? 0;
+    const aPr = (a.node as SymbolNode).pagerankScore ?? 0;
+    const bPr = (b.node as SymbolNode).pagerankScore ?? 0;
     if (bPr !== aPr) return bPr - aPr;
     return a.rank - b.rank; // fallback to FTS rank
   });

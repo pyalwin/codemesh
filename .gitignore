@@ -5,3 +5,4 @@ dist/
 *.db-journal
 bun.lockb
 eval/results/
+docs/superpowers/

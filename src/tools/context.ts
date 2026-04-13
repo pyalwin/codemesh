@@ -223,7 +223,7 @@ export async function handleContext(
     }
 
     // Get pagerank score from the symbol node's data
-    const symPagerankScore = (node as any).pagerankScore as number | undefined;
+    const symPagerankScore = sym.pagerankScore;
 
     symbols.push({
       name: sym.name,

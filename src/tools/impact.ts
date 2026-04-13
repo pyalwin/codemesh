@@ -3,7 +3,7 @@
  */
 
 import type { StorageBackend } from "../graph/storage.js";
-import type { GraphNode } from "../graph/types.js";
+import type { GraphNode, FileNode, SymbolNode } from "../graph/types.js";
 
 export interface ImpactInput {
   path: string;
@@ -76,8 +76,8 @@ export async function handleImpact(
 
   // Sort dependents by PageRank (most important first)
   dependents.sort((a, b) => {
-    const aPr = (a.node as any).pagerankScore ?? 0;
-    const bPr = (b.node as any).pagerankScore ?? 0;
+    const aPr = (a.node as SymbolNode).pagerankScore ?? (a.node as FileNode).pagerankScore ?? 0;
+    const bPr = (b.node as SymbolNode).pagerankScore ?? (b.node as FileNode).pagerankScore ?? 0;
     return bPr - aPr;
   });
 

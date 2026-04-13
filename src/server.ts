@@ -13,6 +13,8 @@ import { handleImpact } from "./tools/impact.js";
 import { handleStatus } from "./tools/status.js";
 import { handleTrace } from "./tools/trace.js";
 import { handleAnswer } from "./tools/answer.js";
+import { handleMap } from "./tools/map.js";
+import { handleSource } from "./tools/source.js";
 import { getLspClient } from "./tools/lsp-client.js";
 
 function textResult(data: unknown, projectRoot: string) {
@@ -134,6 +136,33 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     },
     async ({ symbol, depth }) => {
       const result = await handleTrace(storage, { symbol, depth: depth ?? 5 }, projectRoot);
+      return textResult(result, projectRoot);
+    },
+  );
+
+  // ── codemesh_map ────────────────────────────────────────────────
+  server.tool(
+    "codemesh_map",
+    "Map the call graph from a query or symbol. Returns a tree of symbols with summaries — no source code. Use codemesh_source to read the code of specific symbols you need.",
+    {
+      query: z.string().describe("Natural language query, e.g. 'how does invoice validation work'"),
+      symbol: z.string().optional().describe("Start from a specific symbol instead of searching (e.g., 'validateInvoiceLineItems')"),
+    },
+    async ({ query, symbol }) => {
+      const result = await handleMap(storage, { query, symbol }, projectRoot);
+      return textResult(result, projectRoot);
+    },
+  );
+
+  // ── codemesh_source ────────────────────────────────────────────
+  server.tool(
+    "codemesh_source",
+    "Get the source code of a specific symbol by its ID. Use after codemesh_map or codemesh_answer to read the code of symbols you need to inspect.",
+    {
+      id: z.string().describe("Symbol ID from codemesh_map or other tool output (e.g., 'symbol:src/services/gl-coding.ts:validateInvoiceLineItems')"),
+    },
+    async ({ id }) => {
+      const result = await handleSource(storage, { id }, projectRoot);
       return textResult(result, projectRoot);
     },
   );

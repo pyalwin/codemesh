@@ -133,7 +133,7 @@ export async function handleTrace(
       signature: sym.signature,
       source: input.compact ? null : readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
       calls: calleeNames,
-      pagerankScore: (node as any).pagerankScore ?? undefined,
+      pagerankScore: sym.pagerankScore,
     };
     if (input.compact && sym.lineStart != null && sym.lineEnd != null) {
       step.lines = `${sym.lineStart}-${sym.lineEnd}`;
@@ -142,7 +142,7 @@ export async function handleTrace(
   }
 
   // Sort steps by PageRank — most important symbols first
-  steps.sort((a, b) => ((b as any).pagerankScore ?? 0) - ((a as any).pagerankScore ?? 0));
+  steps.sort((a, b) => (b.pagerankScore ?? 0) - (a.pagerankScore ?? 0));
 
   return { startSymbol: input.symbol, steps, depth: maxDepth };
 }

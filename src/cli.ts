@@ -24,7 +24,7 @@ function printUsage(): void {
 codemesh — Code knowledge graph CLI
 
 Usage:
-  codemesh index [--with-embeddings]             Index the project (incremental)
+  codemesh index [--with-embeddings] [--with-summaries]  Index the project (incremental)
   codemesh status                                Show graph statistics
   codemesh rebuild                               Delete DB and re-index from scratch
   codemesh explore search <query>                Search the knowledge graph (FTS)
@@ -43,13 +43,14 @@ Environment:
 
 async function runIndex(): Promise<void> {
   const withEmbeddings = args.includes("--with-embeddings");
+  const withSummaries = args.includes("--with-summaries");
 
   mkdirSync(dbDir, { recursive: true });
   const storage = new SqliteBackend(dbPath);
   await storage.initialize();
 
   const indexer = new Indexer(storage, projectRoot);
-  const result = await indexer.index({ withEmbeddings });
+  const result = await indexer.index({ withEmbeddings, withSummaries });
 
   console.log(`Indexed ${result.filesIndexed} files`);
   console.log(`  Symbols found:  ${result.symbolsFound}`);
@@ -65,6 +66,10 @@ async function runIndex(): Promise<void> {
         console.log(`    ${id} — ${score.toFixed(6)}`);
       }
     }
+  }
+
+  if (result.summaries) {
+    console.log(`  Summaries:      ${result.summaries.generated} generated, ${result.summaries.skipped} skipped`);
   }
 
   if (result.embeddings) {

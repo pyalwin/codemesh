@@ -18,6 +18,7 @@ import { getSupportedExtensions } from "./languages.js";
 import { analyzeGitHistory } from "./git-intel.js";
 import { computePageRank } from "./pagerank.js";
 import { indexEmbeddings } from "./embeddings.js";
+import { summarizeSymbols } from "./summarizer.js";
 
 // ─── Public types ───────────────────────────────────────────────────
 
@@ -29,10 +30,12 @@ export interface IndexResult {
   durationMs: number;
   pagerankScore?: { computed: number; topNodes: Array<{ id: string; score: number }> };
   embeddings?: { count: number; durationMs: number };
+  summaries?: { generated: number; skipped: number };
 }
 
 export interface IndexOptions {
   withEmbeddings?: boolean;
+  withSummaries?: boolean;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -251,6 +254,64 @@ export class Indexer {
       throw e;
     }
 
+    // Step 5.5: Symbol summarization (opt-in) — generate LLM summaries
+    let summariesResult: IndexResult["summaries"];
+    if (options?.withSummaries) {
+      try {
+        // Collect symbols that need summaries (new/changed files or missing summary)
+        const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
+        const needsSummary = allSymbolNodes.filter((n) => {
+          const sym = n as SymbolNode;
+          // Summarize if: in a newly processed file, or has no summary yet
+          return filesToProcess.includes(sym.filePath) || !sym.summary;
+        });
+
+        if (needsSummary.length > 0) {
+          const symbolsForSummary = needsSummary.map((n) => {
+            const sym = n as SymbolNode;
+            return {
+              id: sym.id,
+              name: sym.name,
+              kind: sym.kind,
+              signature: sym.signature,
+              filePath: sym.filePath,
+              lineStart: sym.lineStart,
+              lineEnd: sym.lineEnd,
+            };
+          });
+
+          const newSummaries = await summarizeSymbols(this.projectRoot, symbolsForSummary);
+
+          if (newSummaries.size > 0) {
+            await this.storage.beginTransaction();
+            try {
+              for (const [symbolId, summary] of newSummaries) {
+                const node = await this.storage.getNode(symbolId);
+                if (!node || node.type !== "symbol") continue;
+                const updatedNode: SymbolNode = {
+                  ...(node as SymbolNode),
+                  summary,
+                  updatedAt: new Date().toISOString(),
+                };
+                await this.storage.upsertNode(updatedNode);
+              }
+              await this.storage.commitTransaction();
+            } catch (e) {
+              await this.storage.rollbackTransaction();
+            }
+          }
+
+          summariesResult = {
+            generated: newSummaries.size,
+            skipped: needsSummary.length - newSummaries.size,
+          };
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn(`Warning: symbol summarization failed — ${msg}`);
+      }
+    }
+
     // Step 6: Git intelligence — hotspots and co-change pairs
     try {
       const gitIntel = await analyzeGitHistory(this.projectRoot);
@@ -265,19 +326,15 @@ export class Indexer {
           const fileNode = await this.storage.getNode(fileId);
           if (!fileNode || fileNode.type !== "file") continue;
 
-          // Update the file node's data with hotspot info
-          const updatedNode = {
+          const updatedNode: FileNode = {
             ...fileNode,
             updatedAt: now,
-          } as FileNode & { hotspot?: { changeCount: number; lastChanged: string } };
-
-          // We use a type assertion to attach hotspot data to the node.
-          // The storage layer serializes extra fields into the JSON `data` column.
-          (updatedNode as any).hotspot = {
-            changeCount: hotspot.changeCount,
-            lastChanged: hotspot.lastChanged,
+            hotspot: {
+              changeCount: hotspot.changeCount,
+              lastChanged: hotspot.lastChanged,
+            },
           };
-          await this.storage.upsertNode(updatedNode as any);
+          await this.storage.upsertNode(updatedNode);
         }
 
         // Store co-change pairs as edges between file nodes
@@ -331,9 +388,9 @@ export class Indexer {
             const updatedNode = {
               ...node,
               updatedAt: new Date().toISOString(),
-            } as typeof node & { pagerankScore?: number };
-            (updatedNode as any).pagerankScore = score;
-            await this.storage.upsertNode(updatedNode as any);
+              pagerankScore: score,
+            };
+            await this.storage.upsertNode(updatedNode);
           }
           await this.storage.commitTransaction();
         } catch (e) {
@@ -365,6 +422,7 @@ export class Indexer {
             name: sym.name,
             signature: sym.signature,
             filePath: sym.filePath,
+            summary: sym.summary,
           };
         });
 
@@ -391,6 +449,7 @@ export class Indexer {
       durationMs,
       pagerankScore: pagerankResult,
       embeddings: embeddingsResult,
+      summaries: summariesResult,
     };
   }
 

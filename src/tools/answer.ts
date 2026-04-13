@@ -10,6 +10,7 @@ import { join } from "node:path";
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, SymbolNode, FileNode, SearchResult } from "../graph/types.js";
 import { semanticSearch } from "../indexer/embeddings.js";
+import { buildMapTree, type MapNode } from "./map-tree.js";
 
 export interface AnswerInput {
   question: string;
@@ -26,6 +27,7 @@ export interface AnswerOutput {
       name: string;
       kind: string;
       signature: string;
+      summary?: string;
       lineStart: number;
       lineEnd: number;
     }>;
@@ -33,10 +35,7 @@ export interface AnswerOutput {
     coChanges: string[];
     pagerankScore?: number;
   }>;
-  callChains: Array<{
-    from: string;
-    path: string[];
-  }>;
+  symbolMap: MapNode[];
   concepts: Array<{
     summary: string;
     file: string;
@@ -51,6 +50,7 @@ export interface AnswerOutput {
     absolutePath: string;
     lines: string;
     reason: string;
+    summary?: string;
   }>;
 }
 
@@ -84,6 +84,7 @@ export async function handleAnswer(
       name: string;
       kind: string;
       signature: string;
+      summary?: string;
       lineStart: number;
       lineEnd: number;
     }>;
@@ -160,6 +161,7 @@ export async function handleAnswer(
         name: sym.name,
         kind: sym.kind,
         signature: sym.signature,
+        summary: sym.summary,
         lineStart: sym.lineStart,
         lineEnd: sym.lineEnd,
       });
@@ -183,6 +185,7 @@ export async function handleAnswer(
                 name: s.name,
                 kind: s.kind,
                 signature: s.signature,
+                summary: s.summary,
                 lineStart: s.lineStart,
                 lineEnd: s.lineEnd,
               });
@@ -198,14 +201,9 @@ export async function handleAnswer(
     }
   }
 
-  // Step 3: For each symbol result, follow outgoing call edges (depth 3)
-  const callChains: AnswerOutput["callChains"] = [];
-  for (const { sym } of symbolResults) {
-    const chain = await buildCallChain(storage, sym.id, sym.name, 3);
-    if (chain.path.length > 0) {
-      callChains.push(chain);
-    }
-  }
+  // Step 3: Build symbol map — summary-enriched call graph tree
+  const startNodeIds = symbolResults.map(r => r.sym.id);
+  const { nodes: symbolMap } = await buildMapTree(storage, startNodeIds);
 
   // Step 4: Collect concepts for matched files
   const concepts: AnswerOutput["concepts"] = [];
@@ -247,11 +245,8 @@ export async function handleAnswer(
   // Step 6: Build relevantFiles output (with hotspot + co-change data + pagerank)
   const relevantFiles: AnswerOutput["relevantFiles"] = [];
   for (const [filePath, entry] of fileMap) {
-    // Extract hotspot from file node data
-    const hotspotData = (entry.node as any).hotspot as { changeCount: number; lastChanged: string } | undefined;
-
-    // Extract pagerank score from file node data
-    const pagerankScore = (entry.node as any).pagerankScore as number | undefined;
+    const hotspotData = entry.node.hotspot;
+    const pagerankScore = entry.node.pagerankScore;
 
     // Collect co-change pairs
     const coChanges: string[] = [];
@@ -289,8 +284,8 @@ export async function handleAnswer(
       if (Math.abs(rankDiff) > 0.01) return rankDiff;
       const aFileEntry = fileMap.get(a.sym.filePath);
       const bFileEntry = fileMap.get(b.sym.filePath);
-      const aPr = aFileEntry ? ((aFileEntry.node as any).pagerankScore ?? 0) : 0;
-      const bPr = bFileEntry ? ((bFileEntry.node as any).pagerankScore ?? 0) : 0;
+      const aPr = aFileEntry ? (aFileEntry.node.pagerankScore ?? 0) : 0;
+      const bPr = bFileEntry ? (bFileEntry.node.pagerankScore ?? 0) : 0;
       return bPr - aPr;
     })
     .slice(0, 5);
@@ -301,6 +296,7 @@ export async function handleAnswer(
       absolutePath: join(projectRoot, sym.filePath),
       lines: `${sym.lineStart}-${sym.lineEnd}`,
       reason: `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
+      summary: sym.summary,
     });
   }
 
@@ -334,7 +330,7 @@ export async function handleAnswer(
     return {
       question: input.question,
       relevantFiles: compactFiles,
-      callChains,
+      symbolMap,
       concepts,
       workflows,
       suggestedReads,
@@ -344,51 +340,9 @@ export async function handleAnswer(
   return {
     question: input.question,
     relevantFiles,
-    callChains,
+    symbolMap,
     concepts,
     workflows,
     suggestedReads,
   };
-}
-
-/**
- * Build a call chain from a starting symbol node, following outgoing "calls" edges.
- */
-async function buildCallChain(
-  storage: StorageBackend,
-  startId: string,
-  startName: string,
-  maxDepth: number,
-): Promise<{ from: string; path: string[] }> {
-  const path: string[] = [];
-  const visited = new Set<string>([startId]);
-  const queue: Array<{ id: string; depth: number }> = [];
-
-  // Seed with direct callees
-  const startEdges = await storage.getEdges(startId, "out", ["calls"]);
-  for (const edge of startEdges) {
-    queue.push({ id: edge.toId, depth: 1 });
-  }
-
-  while (queue.length > 0) {
-    const { id, depth } = queue.shift()!;
-    if (visited.has(id) || depth > maxDepth) continue;
-    visited.add(id);
-
-    const node = await storage.getNode(id);
-    if (!node) continue;
-
-    path.push(node.name);
-
-    if (depth < maxDepth) {
-      const edges = await storage.getEdges(id, "out", ["calls"]);
-      for (const edge of edges) {
-        if (!visited.has(edge.toId)) {
-          queue.push({ id: edge.toId, depth: depth + 1 });
-        }
-      }
-    }
-  }
-
-  return { from: startName, path };
 }
