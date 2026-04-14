@@ -1,0 +1,250 @@
+/**
+ * codemesh_answer — One-call context assembly.
+ *
+ * Takes a natural language question, searches the graph, follows call chains,
+ * and assembles everything into one structured response. The agent gets a
+ * complete context package in ONE call.
+ */
+import { join } from "node:path";
+import { semanticSearch } from "../indexer/embeddings.js";
+import { buildMapTree } from "./map-tree.js";
+export async function handleAnswer(storage, input, projectRoot) {
+    // Step 0: Try semantic search (LanceDB) — gracefully returns [] if not available
+    let semanticResults = [];
+    try {
+        semanticResults = await semanticSearch(projectRoot, input.question, 5);
+    }
+    catch {
+        // Semantic search unavailable — continue with FTS5 only
+    }
+    // Step 1: Search the graph with the question (FTS5 + trigram fallback)
+    const searchResults = await storage.search(input.question, "all");
+    const topResults = searchResults.slice(0, 10);
+    // Collect unique files and symbols from results
+    const fileMap = new Map();
+    const symbolResults = [];
+    for (const result of topResults) {
+        const node = result.node;
+        if (node.type === "file") {
+            const fileNode = node;
+            if (!fileMap.has(fileNode.path)) {
+                fileMap.set(fileNode.path, {
+                    node: fileNode,
+                    why: `Matched via ${result.matchedField} search (rank ${result.rank.toFixed(2)})`,
+                    symbolCount: 0,
+                    topSymbols: [],
+                });
+            }
+        }
+        else if (node.type === "symbol") {
+            const sym = node;
+            symbolResults.push({ sym, rank: result.rank, matchedField: result.matchedField });
+            // Also track the file this symbol belongs to
+            if (!fileMap.has(sym.filePath)) {
+                const fileId = `file:${sym.filePath}`;
+                const fileNode = await storage.getNode(fileId);
+                if (fileNode && fileNode.type === "file") {
+                    fileMap.set(sym.filePath, {
+                        node: fileNode,
+                        why: `Contains matching symbol '${sym.name}'`,
+                        symbolCount: 0,
+                        topSymbols: [],
+                    });
+                }
+            }
+        }
+    }
+    // Merge semantic search results — add symbols/files not already found by FTS5
+    const ftsSymbolIds = new Set(symbolResults.map((r) => r.sym.id));
+    for (const sr of semanticResults) {
+        if (ftsSymbolIds.has(sr.id))
+            continue; // already captured by FTS5
+        const node = await storage.getNode(sr.id);
+        if (!node || node.type !== "symbol")
+            continue;
+        const sym = node;
+        symbolResults.push({
+            sym,
+            rank: 1 / (1 + sr.score), // Convert distance to a relevance score (lower distance = higher rank)
+            matchedField: "semantic",
+        });
+        // Track the file this semantic result belongs to
+        if (!fileMap.has(sym.filePath)) {
+            const fileId = `file:${sym.filePath}`;
+            const fileNode = await storage.getNode(fileId);
+            if (fileNode && fileNode.type === "file") {
+                fileMap.set(sym.filePath, {
+                    node: fileNode,
+                    why: `Semantically related (vector distance ${sr.score.toFixed(3)})`,
+                    symbolCount: 0,
+                    topSymbols: [],
+                });
+            }
+        }
+    }
+    // Step 2: For each file, count symbols and pick top ones by PageRank
+    // We only store counts + top symbols — NOT full inventories
+    const matchedSymbolNames = new Set(symbolResults.map(r => r.sym.name));
+    for (const [filePath, entry] of fileMap) {
+        const containsEdges = await storage.getEdges(entry.node.id, "out", ["contains"]);
+        entry.symbolCount = containsEdges.length;
+        // Load all symbols, rank by: matched > high pagerank > rest
+        const allSyms = [];
+        for (const edge of containsEdges) {
+            const node = await storage.getNode(edge.toId);
+            if (!node || node.type !== "symbol")
+                continue;
+            const sym = node;
+            // Matched symbols get a big boost, then sort by pagerank
+            const matchBoost = matchedSymbolNames.has(sym.name) ? 1000 : 0;
+            allSyms.push({
+                name: sym.name,
+                kind: sym.kind,
+                summary: sym.summary,
+                score: matchBoost + (sym.pagerankScore ?? 0),
+            });
+        }
+        allSyms.sort((a, b) => b.score - a.score);
+        entry.topSymbols = allSyms.slice(0, 5).map(({ name, kind, summary }) => ({ name, kind, summary }));
+        // Follow imports to discover more relevant files (lightweight — no symbol enumeration)
+        const importEdges = await storage.getEdges(entry.node.id, "out", ["imports"]);
+        for (const edge of importEdges) {
+            const target = await storage.getNode(edge.toId);
+            if (target && target.type === "file" && !fileMap.has(target.path)) {
+                const importedFile = target;
+                if (fileMap.size < 15) {
+                    const importedContains = await storage.getEdges(importedFile.id, "out", ["contains"]);
+                    fileMap.set(importedFile.path, {
+                        node: importedFile,
+                        why: `Imported by '${filePath}'`,
+                        symbolCount: importedContains.length,
+                        topSymbols: [],
+                    });
+                }
+            }
+        }
+    }
+    // Step 3: Build symbol map — summary-enriched call graph tree
+    const startNodeIds = symbolResults.map(r => r.sym.id);
+    const { nodes: symbolMap } = await buildMapTree(storage, startNodeIds);
+    // Step 4: Collect concepts for matched files
+    const concepts = [];
+    const seenConcepts = new Set();
+    for (const [filePath, entry] of fileMap) {
+        const incomingEdges = await storage.getEdges(entry.node.id, "in", ["describes"]);
+        for (const edge of incomingEdges) {
+            if (seenConcepts.has(edge.fromId))
+                continue;
+            seenConcepts.add(edge.fromId);
+            const conceptNode = await storage.getNode(edge.fromId);
+            if (conceptNode && conceptNode.type === "concept") {
+                concepts.push({
+                    summary: conceptNode.summary ?? "",
+                    file: filePath,
+                });
+            }
+        }
+    }
+    // Step 5: Collect workflows that traverse matched files
+    const workflows = [];
+    const seenWorkflows = new Set();
+    for (const [, entry] of fileMap) {
+        const incomingEdges = await storage.getEdges(entry.node.id, "in", ["traverses"]);
+        for (const edge of incomingEdges) {
+            if (seenWorkflows.has(edge.fromId))
+                continue;
+            seenWorkflows.add(edge.fromId);
+            const wfNode = await storage.getNode(edge.fromId);
+            if (wfNode && wfNode.type === "workflow") {
+                workflows.push({
+                    name: wfNode.name,
+                    description: wfNode.description ?? "",
+                    files: wfNode.fileSequence ?? [],
+                });
+            }
+        }
+    }
+    // Step 6: Build relevantFiles output (with hotspot + co-change data + pagerank)
+    const relevantFiles = [];
+    for (const [filePath, entry] of fileMap) {
+        const hotspotData = entry.node.hotspot;
+        const pagerankScore = entry.node.pagerankScore;
+        // Collect co-change pairs
+        const coChanges = [];
+        const coChangeEdgesOut = await storage.getEdges(entry.node.id, "out", ["co_changes"]);
+        for (const edge of coChangeEdgesOut) {
+            const target = await storage.getNode(edge.toId);
+            if (target && "path" in target)
+                coChanges.push(target.path);
+        }
+        const coChangeEdgesIn = await storage.getEdges(entry.node.id, "in", ["co_changes"]);
+        for (const edge of coChangeEdgesIn) {
+            const source = await storage.getNode(edge.fromId);
+            if (source && "path" in source)
+                coChanges.push(source.path);
+        }
+        relevantFiles.push({
+            path: filePath,
+            absolutePath: join(projectRoot, filePath),
+            why: entry.why,
+            symbolCount: entry.symbolCount,
+            topSymbols: entry.topSymbols,
+            hotspot: hotspotData,
+            coChanges,
+            pagerankScore,
+        });
+    }
+    // Sort relevantFiles by pagerank score (higher = more important = first)
+    relevantFiles.sort((a, b) => (b.pagerankScore ?? 0) - (a.pagerankScore ?? 0));
+    // Step 7: Build suggestedReads — top 5 most relevant symbols by search rank + pagerank boost
+    const suggestedReads = [];
+    const rankedSymbols = symbolResults
+        .sort((a, b) => {
+        // Primary sort: search rank; secondary: pagerank of the containing file
+        const rankDiff = b.rank - a.rank;
+        if (Math.abs(rankDiff) > 0.01)
+            return rankDiff;
+        const aFileEntry = fileMap.get(a.sym.filePath);
+        const bFileEntry = fileMap.get(b.sym.filePath);
+        const aPr = aFileEntry ? (aFileEntry.node.pagerankScore ?? 0) : 0;
+        const bPr = bFileEntry ? (bFileEntry.node.pagerankScore ?? 0) : 0;
+        return bPr - aPr;
+    })
+        .slice(0, 5);
+    for (const { sym, matchedField } of rankedSymbols) {
+        suggestedReads.push({
+            file: sym.filePath,
+            absolutePath: join(projectRoot, sym.filePath),
+            lines: `${sym.lineStart}-${sym.lineEnd}`,
+            reason: `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
+            summary: sym.summary,
+        });
+    }
+    // If we have fewer than 5 suggested reads, fill from remaining symbol results
+    if (suggestedReads.length < 5) {
+        const suggestedIds = new Set(rankedSymbols.map(r => r.sym.id));
+        for (const { sym, matchedField } of symbolResults) {
+            if (suggestedReads.length >= 5)
+                break;
+            if (suggestedIds.has(sym.id))
+                continue;
+            suggestedIds.add(sym.id);
+            suggestedReads.push({
+                file: sym.filePath,
+                absolutePath: join(projectRoot, sym.filePath),
+                lines: `${sym.lineStart}-${sym.lineEnd}`,
+                reason: `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
+                summary: sym.summary,
+            });
+        }
+    }
+    return {
+        question: input.question,
+        relevantFiles,
+        symbolMap,
+        concepts,
+        workflows,
+        suggestedReads,
+    };
+}
+//# sourceMappingURL=answer.js.map
