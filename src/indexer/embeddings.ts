@@ -8,6 +8,7 @@
  * Zero API cost — all inference runs locally.
  */
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // ── Model loading (lazy) ────────────────────────────────────────────
@@ -36,6 +37,52 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
 let db: any = null;
 
+/**
+ * Build the text to embed for a symbol node.
+ * Richer text → better semantic alignment with natural-language queries.
+ *
+ * Format: [module: {filePath}]\n{name} {signature}\n{summary OR sourceLines}
+ * Summary is preferred over source because it's denser signal.
+ */
+export function buildEmbeddingText(sym: {
+  name: string;
+  signature: string;
+  filePath: string;
+  summary?: string;
+  sourceLines?: string;
+}): string {
+  const nameSig = sym.signature ? `${sym.name} ${sym.signature}` : sym.name;
+  const parts: string[] = [`[module: ${sym.filePath}]`, nameSig];
+  if (sym.summary) {
+    parts.push(sym.summary);
+  } else if (sym.sourceLines) {
+    parts.push(sym.sourceLines);
+  }
+  return parts.join("\n");
+}
+
+/**
+ * Read up to maxLines source lines for a symbol from disk.
+ * Returns empty string if the file is unreadable.
+ */
+function readSourceLines(
+  projectRoot: string,
+  filePath: string,
+  lineStart: number,
+  lineEnd: number,
+  maxLines = 30,
+): string {
+  try {
+    const abs = join(projectRoot, filePath);
+    const content = readFileSync(abs, "utf-8");
+    const lines = content.split("\n");
+    const end = Math.min(lineEnd, lineStart + maxLines - 1);
+    return lines.slice(lineStart - 1, end).join("\n");
+  } catch {
+    return "";
+  }
+}
+
 async function getLanceDb(projectRoot: string) {
   if (!db) {
     const lancedb = await import("@lancedb/lancedb");
@@ -59,6 +106,8 @@ export async function indexEmbeddings(
     name: string;
     signature: string;
     filePath: string;
+    lineStart?: number;
+    lineEnd?: number;
     summary?: string;
   }>,
 ): Promise<{ count: number; durationMs: number }> {
@@ -76,9 +125,17 @@ export async function indexEmbeddings(
   }> = [];
 
   for (const sym of symbols) {
-    const text = sym.summary
-      ? `${sym.name} ${sym.signature} ${sym.summary}`
-      : `${sym.name} ${sym.signature}`;
+    const sourceLines =
+      !sym.summary && sym.lineStart && sym.lineEnd
+        ? readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd)
+        : undefined;
+    const text = buildEmbeddingText({
+      name: sym.name,
+      signature: sym.signature,
+      filePath: sym.filePath,
+      summary: sym.summary,
+      sourceLines,
+    });
     const vector = await generateEmbedding(text);
     records.push({
       id: sym.id,
