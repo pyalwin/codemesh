@@ -39,7 +39,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     "One-call context assembly. Takes a question, searches the graph, follows call chains, and returns ALL relevant files, symbols, concepts, workflows, and suggested reads in a single response. Use this FIRST before any other exploration.",
     { question: z.string().describe("Natural language question about the codebase") },
     async ({ question }) => {
-      const version = (await storage.getStats()).lastIndexedAt ?? "0";
+      const version = await storage.getStats().then(s => s.lastIndexedAt ?? "0").catch(() => "0");
       const cached = cache.get("answer", version, question);
       if (cached) return cached;
       const result = await handleAnswer(storage, { question }, projectRoot);
@@ -158,7 +158,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
     },
     async ({ query, symbol }) => {
       const cacheKey = symbol ? `${query}::symbol:${symbol}` : query;
-      const version = (await storage.getStats()).lastIndexedAt ?? "0";
+      const version = await storage.getStats().then(s => s.lastIndexedAt ?? "0").catch(() => "0");
       const cached = cache.get("map", version, cacheKey);
       if (cached) return cached;
       const result = await handleMap(storage, { query, symbol }, projectRoot);
