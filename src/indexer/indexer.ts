@@ -411,7 +411,7 @@ export class Indexer {
 
     // Step 8: Embeddings (opt-in) — generate vector embeddings for semantic search
     let embeddingsResult: IndexResult["embeddings"];
-    if (options?.withEmbeddings) {
+    if (options?.withEmbeddings !== false) {
       try {
         // Collect all symbol nodes for embedding
         const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
@@ -422,6 +422,8 @@ export class Indexer {
             name: sym.name,
             signature: sym.signature,
             filePath: sym.filePath,
+            lineStart: sym.lineStart,
+            lineEnd: sym.lineEnd,
             summary: sym.summary,
           };
         });
