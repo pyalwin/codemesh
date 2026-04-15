@@ -9,7 +9,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, isAbsolute } from "node:path";
 
 // ── Model loading (lazy) ────────────────────────────────────────────
 
@@ -63,7 +63,9 @@ export function buildEmbeddingText(sym: {
 
 /**
  * Read up to maxLines source lines for a symbol from disk.
- * Returns empty string if the file is unreadable.
+ * Returns empty string if: the file is unreadable, filePath is absolute,
+ * lineStart is out of range, or lineEnd < lineStart.
+ * filePath must be relative to projectRoot.
  */
 function readSourceLines(
   projectRoot: string,
@@ -72,6 +74,8 @@ function readSourceLines(
   lineEnd: number,
   maxLines = 30,
 ): string {
+  // filePath must be relative to projectRoot — absolute paths produce wrong joins
+  if (isAbsolute(filePath)) return "";
   try {
     const abs = join(projectRoot, filePath);
     const content = readFileSync(abs, "utf-8");

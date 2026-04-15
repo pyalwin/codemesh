@@ -53,4 +53,28 @@ describe("buildEmbeddingText", () => {
     expect(text).toContain("[module: src/models/my-class.ts]");
     expect(text).toContain("MyClass");
   });
+
+  it("module path appears before name+signature in output", () => {
+    const text = buildEmbeddingText({
+      name: "myFn",
+      signature: "(x: number): void",
+      filePath: "src/utils.ts",
+    });
+    const moduleIndex = text.indexOf("[module: src/utils.ts]");
+    const nameIndex = text.indexOf("myFn (x: number): void");
+    expect(moduleIndex).toBeGreaterThanOrEqual(0);
+    expect(nameIndex).toBeGreaterThan(moduleIndex);
+  });
+
+  it("returns two-line output when no summary or sourceLines", () => {
+    const text = buildEmbeddingText({
+      name: "bareFunction",
+      signature: "(): void",
+      filePath: "src/bare.ts",
+    });
+    const lines = text.split("\n");
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toBe("[module: src/bare.ts]");
+    expect(lines[1]).toBe("bareFunction (): void");
+  });
 });
