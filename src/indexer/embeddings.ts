@@ -20,7 +20,7 @@ async function getEmbedder() {
     // Dynamic import to avoid loading the heavy transformers module
     // unless embeddings are explicitly requested
     const { pipeline } = await import("@huggingface/transformers");
-    embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+    embedder = await pipeline("feature-extraction", "Xenova/jina-embeddings-v2-base-code", {
       dtype: "fp32",
     });
   }
@@ -101,6 +101,13 @@ async function getLanceDb(projectRoot: string) {
  */
 export function resetLanceDb(): void {
   db = null;
+}
+
+/**
+ * Reset the cached embedder (useful for tests or model switching).
+ */
+export function resetEmbedder(): void {
+  embedder = null;
 }
 
 export async function indexEmbeddings(
