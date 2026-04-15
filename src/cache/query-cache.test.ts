@@ -77,4 +77,19 @@ describe("QueryCache", () => {
     expect(cache.size).toBe(0);
     expect(cache.get("t", "v1", "a")).toBeUndefined();
   });
+
+  it("updating an existing key replaces value without changing size", () => {
+    const cache = new QueryCache<string>();
+    cache.set("t", "v1", "a", "A");
+    cache.set("t", "v1", "a", "A2");
+    expect(cache.get("t", "v1", "a")).toBe("A2");
+    expect(cache.size).toBe(1);
+  });
+
+  it("maxEntries=0 is clamped to 1 — cache still holds one entry", () => {
+    const cache = new QueryCache<string>(0);
+    cache.set("t", "v1", "a", "A");
+    expect(cache.get("t", "v1", "a")).toBe("A");
+    expect(cache.size).toBe(1);
+  });
 });

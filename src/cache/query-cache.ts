@@ -15,7 +15,7 @@ export class QueryCache<T> {
   private readonly maxEntries: number;
 
   constructor(maxEntries = DEFAULT_MAX_ENTRIES) {
-    this.maxEntries = maxEntries;
+    this.maxEntries = Math.max(1, maxEntries);
   }
 
   private buildKey(tool: string, version: string, query: string): string {
@@ -35,6 +35,7 @@ export class QueryCache<T> {
   set(tool: string, version: string, query: string, value: T): void {
     const key = this.buildKey(tool, version, query);
     if (this.cache.has(key)) {
+      // Existing key: delete before re-inserting at end (size stays same, no eviction needed)
       this.cache.delete(key);
     } else if (this.cache.size >= this.maxEntries) {
       // Evict least recently used (first key in insertion-order Map)
