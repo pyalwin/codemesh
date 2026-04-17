@@ -56,30 +56,16 @@ def write_codegraph_mcp_config(project_root: str) -> Path:
 
 # ── System Prompts ──────────────────────────────────────────────────
 
-CODEMESH_PROMPT = """You MUST use codemesh_* MCP tools. Grep and Glob are disabled. LSP is available.
+# Load the live skill file so the benchmark tests the shipped agent-facing rules.
+# (Prior versions hardcoded a MANDATORY WORKFLOW prompt that no longer matches
+# the current skill — drifted prompts silently skew results.)
+_SKILL_PATH = PROJECT_DIR / "skills" / "codemesh.md"
+try:
+    _SKILL_TEXT = _SKILL_PATH.read_text()
+except FileNotFoundError:
+    _SKILL_TEXT = ""
 
-YOUR PRIMARY TOOL IS codemesh_answer. It takes a question and returns ALL relevant files, symbols, call chains, concepts, hotspots, co-change relationships, and suggested reads in ONE call. Start with this ALWAYS.
-
-Other tools for follow-up:
-- codemesh_explore — search, context (multi-target), impact
-- codemesh_trace — follow specific call chains
-- LSP — go-to-definition, find-references for exact navigation
-
-MANDATORY WORKFLOW:
-
-STEP 1 — ASK: Call codemesh_answer with your question. This returns the complete context in one call — relevant files ranked by PageRank, call chains, git hotspots, co-changes, and specific lines to read.
-
-STEP 2 — READ: Based on codemesh_answer's suggestedReads, Read ONLY the specific files/lines it recommends. Use LSP for go-to-definition if you need to resolve a symbol precisely.
-
-STEP 3 — VERIFY & ENRICH: Check completeness. Call codemesh_enrich for each key file you understood.
-
-STEP 3 — VERIFY & ENRICH: Go through your decomposition checklist. Is every sub-topic covered? If ANY item is unchecked, go back to Step 2. Then ENRICH the graph — for each key file you explored, call codemesh_enrich with a summary of what you learned. This is MANDATORY, not optional. It makes future sessions faster.
-
-STEP 4 — WRITE: Structure your final answer with these sections:
-1. Overview (2-3 sentences)
-2. One section PER sub-topic from your decomposition, with file names and key functions
-3. File reference table listing EVERY file involved and its role
-Your answer must be COMPLETE — cover every sub-topic fully. Do not abbreviate or truncate."""
+CODEMESH_PROMPT = _SKILL_TEXT + "\n\nNote: Grep and Glob are disabled. LSP is available."
 
 CODEGRAPH_PROMPT = """You MUST use codegraph_* MCP tools. Grep and Glob are disabled.
 
@@ -97,29 +83,7 @@ CODEMESH_TOOLS = [
     "mcp__codemesh__codemesh_status",
 ]
 
-CODEMESH_CLI_PROMPT = """You have a CLI tool called 'codemesh'. Use it via Bash. Grep and Glob are disabled. LSP is available.
-
-YOUR PRIMARY COMMAND IS `codemesh explore answer "your question"`. It returns ALL relevant files, symbols, call chains, hotspots, co-changes, and suggested reads in ONE call.
-
-Other commands for follow-up:
-- `codemesh explore context file1 file2` — multi-file context in one call
-- `codemesh explore trace symbolName --depth 5` — follow call chains
-- LSP — go-to-definition, find-references
-
-MANDATORY WORKFLOW:
-
-STEP 1 — ASK: `codemesh explore answer "your question"` — get complete context in one call.
-
-STEP 2 — READ: Based on the suggestedReads from the answer, Read ONLY the specific files/lines recommended. Use LSP for precise symbol resolution.
-
-STEP 2.5 — LSP NAVIGATE: When codemesh gives you a symbol name, use LSP BEFORE Read:
-- LSP go-to-definition → exact file and line (faster than Read + search)
-- LSP find-references → all callers across the codebase
-Use LSP to resolve each key symbol, then Read only the specific lines you need.
-
-STEP 3 — VERIFY: Check your checklist. If gaps, explore more.
-
-STEP 4 — WRITE: Complete answer with one section per sub-topic + file reference table."""
+CODEMESH_CLI_PROMPT = _SKILL_TEXT + "\n\nNote: Grep and Glob are disabled. LSP is available. In CLI mode, invoke codemesh via Bash (e.g. `codemesh explore answer \"question\"`)."
 
 CODEGRAPH_TOOLS = [
     "mcp__codegraph__codegraph_search",
@@ -403,9 +367,11 @@ def main() -> None:
         print(f"  Indexing...")
         env = os.environ.copy()
         env["CODEMESH_PROJECT_ROOT"] = local_path
+        # Large repos (Swift compiler, VS Code) can take 15–30 min to index on
+        # first pass — generous timeout to accommodate.
         subprocess.run(
             ["node", str(PROJECT_DIR / "dist" / "cli.js"), "index"],
-            capture_output=True, env=env, timeout=120,
+            capture_output=True, env=env, timeout=3600,
         )
 
         modes = {

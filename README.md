@@ -4,10 +4,10 @@
 
 **Intelligent code knowledge graph for AI coding agents**
 
-Reduces cost by up to 44%, speeds up exploration by up to 57%,\
-and boosts quality for smaller models to match Opus — all from a single `codemesh index`.
+**71% cheaper, 72% faster, 82% fewer tool calls** vs baseline Grep+Read\
+on 6 real-world repos (Sonnet 4.6) — from a single `codemesh index`.
 
-[![Tests](https://img.shields.io/badge/tests-102%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)]()
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple)]()
@@ -39,36 +39,59 @@ Benchmarked on 6 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Com
 
 Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmark-results.md`](docs/benchmark-results.md) | [Early pydantic evals](docs/experiments/pydantic-eval-results.md)
 
-### Quality (1-10, LLM-as-judge)
-
-| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | pydantic-validators | pydantic-basemodel | **Avg** |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Baseline | 9 | 9 | 8.7 | 7 | 1 | 9 | 7.3 |
-| **Codemesh MCP** | 8 | 8.5 | 8 | **9** | **8** | **9** | **8.6** |
-| Codemesh CLI | 9 | 8.8 | 8 | **9** | **8** | **9** | 8.5 |
-
 ### Cost
 
-| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler | pydantic-validators | pydantic-basemodel | **Avg** |
+| Mode | Alamofire | Excalidraw | VS Code | Swift Compiler[^swift] | pydantic-validators | pydantic-basemodel | **Avg** |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Baseline | $0.64 | $0.66 | $1.05 | $0.73 | $0.98 | $0.31 | $0.73 |
-| **Codemesh MCP** | $0.29 | $0.81 | $0.93 | $0.47 | $0.20 | $0.47 | **$0.53** |
-| Codemesh CLI | $0.60 | $0.76 | $1.18 | $1.34 | $0.72 | $0.27 | $0.81 |
+| Baseline | $0.54 | $0.89 | $0.21 | $0.83 | $1.32 | $0.78 | $0.76 |
+| **Codemesh MCP** | **$0.25** | **$0.21** | **$0.16** | **$0.23** | **$0.33** | **$0.13** | **$0.22** |
+| Codemesh CLI | $0.67 | $0.51 | $0.16 | $0.83 | $1.00 | $0.18 | $0.56 |
+| Codegraph | $0.37 | $0.56 | $0.57 | $0.74 | $0.29 | $0.19 | $0.45 |
 
-### Cost Savings: Codemesh MCP vs Baseline
+### Time
 
-| Repo | Baseline | Codemesh MCP | **Saved** | **Time Saved** |
+| Mode | Alamofire | Excalidraw | VS Code | Swift[^swift] | pydantic-v | pydantic-b | **Avg** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline | 180s | 191s | 87s | 199s | 352s | 232s | 207s |
+| **Codemesh MCP** | **78s** | **45s** | **35s** | **87s** | **72s** | **32s** | **58s** |
+| Codemesh CLI | 226s | 177s | 62s | 227s | 235s | 51s | 163s |
+| Codegraph | 134s | 180s | 192s | 199s | 75s | 60s | 140s |
+
+### Tool calls (agent turns)
+
+| Mode | Alamofire | Excalidraw | VS Code | Swift[^swift] | pydantic-v | pydantic-b | **Avg** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline | 31 | 48 | 12 | 29 | 84 | 65 | 45 |
+| **Codemesh MCP** | **9** | **5** | **3** | **14** | **14** | **3** | **8** |
+| Codemesh CLI | 30 | 32 | 12 | 56 | 64 | 9 | 34 |
+| Codegraph | 31 | 35 | 44 | 44 | 20 | 12 | 31 |
+
+### Quality (1–10, LLM-as-judge)
+
+| Mode | Alamofire[^alamo] | Excalidraw | VS Code | Swift Compiler | pydantic-validators | pydantic-basemodel | **Avg** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Baseline | n/a | 9 | 8 | 7 | 2 | 9 | 7.0 |
+| **Codemesh MCP** | 9 | 9 | 7 | 8 | 7 | 7.8 | **7.9** |
+| Codemesh CLI | 9 | 7 | 7 | 9 | 1 | 8.4 | 6.9 |
+| Codegraph | 8 | 9 | 8.7 | 8 | 8 | 9 | **8.4** |
+
+### Cost savings: Codemesh MCP vs Baseline
+
+| Repo | Baseline | Codemesh MCP | **Cost saved** | **Time saved** |
 |---|---:|---:|---:|---:|
-| Alamofire | $0.64 | $0.29 | **-55%** | **-52%** (198s → 95s) |
-| Excalidraw | $0.66 | $0.81 | +23% | +4% |
-| VS Code | $1.05 | $0.93 | **-11%** | +3% |
-| Swift Compiler | $0.73 | $0.47 | **-36%** | **-42%** (215s → 125s) |
-| pydantic-validators | $0.98 | $0.20 | **-80%** | **-82%** (278s → 51s) |
-| pydantic-basemodel | $0.31 | $0.47 | +52% | +44% |
-| **Average** | **$0.73** | **$0.53** | **-27%** | |
+| Alamofire | $0.54 | $0.25 | **−54%** | **−57%** (180s → 78s) |
+| Excalidraw | $0.89 | $0.21 | **−76%** | **−76%** (191s → 45s) |
+| VS Code | $0.21 | $0.16 | **−24%** | **−60%** (87s → 35s) |
+| Swift Compiler[^swift] | $0.83 | $0.23 | **−72%** | **−56%** (199s → 87s) |
+| pydantic-validators | $1.32 | $0.33 | **−75%** | **−79%** (352s → 72s) |
+| pydantic-basemodel | $0.78 | $0.13 | **−83%** | **−86%** (232s → 32s) |
+| **Average** | **$0.76** | **$0.22** | **−71%** | **−72%** |
 
 > [!NOTE]
-> **Codemesh MCP** achieves **8.6/10 avg quality** (+18% over baseline's 7.3) while saving **27% on cost** ($0.53 vs $0.73 avg). On pydantic-validators, Codemesh MCP used 87% fewer calls, was 82% faster, and 80% cheaper — while baseline scored just 1/10. Savings are strongest on trace and discovery tasks; comprehension tasks on very large repos (VS Code) can cost more due to tool call overhead.
+> **Codemesh MCP** achieves the lowest cost and fastest time of any mode tested — **71% cheaper and 72% faster than baseline** on average across 6 repos, using **82% fewer tool calls** (8 vs 45). Quality is comparable to baseline (7.9 vs 7.0); Codegraph edges Codemesh on quality (8.4) but at roughly double the cost ($0.45 vs $0.22). Every repo shows cost and time savings — including the comprehension-heavy queries (Excalidraw, pydantic-basemodel) that regressed in prior builds of codemesh.
+
+[^swift]: Swift Compiler's codemesh index failed to complete (indexer regression on 30k+ file codebases — see [known issues](docs/benchmark-results.md)). The codemesh numbers above reflect agent behavior with an empty retrieval graph, falling back to Read + LSP — still ahead of baseline, but unrepresentative of codemesh's capability on a properly-indexed Swift repo.
+[^alamo]: Baseline for Alamofire hit a judge error (score recorded as 0 but not meaningful); excluded from the Baseline average.
 
 ---
 
