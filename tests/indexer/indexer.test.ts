@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { SqliteBackend } from "../../src/graph/sqlite.js";
 import { Indexer } from "../../src/indexer/indexer.js";
+import { buildMapTree } from "../../src/tools/map-tree.js";
 import type { FileNode, SymbolNode, GraphEdge } from "../../src/graph/types.js";
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -141,16 +142,58 @@ describe("Indexer", () => {
     expect(targetIds).toContain("file:src/calculator.ts");
   });
 
-  it("creates calls edges for function calls", async () => {
+  it("attributes calls to the containing symbol (not the file)", async () => {
     const indexer = new Indexer(storage, SAMPLE_PROJECT);
     await indexer.index();
 
-    // calculator.ts calls add() and MathHelper.square()
-    const calcFileId = "file:src/calculator.ts";
-    const callEdges = await storage.getEdges(calcFileId, "out", ["calls"]);
+    // Calculator.add() calls add() from math.ts — edge should go from the METHOD,
+    // not from the file. buildMapTree/codemesh_trace traverse from symbol IDs.
+    const methodId = "symbol:src/calculator.ts:Calculator.add";
+    const methodCallEdges = await storage.getEdges(methodId, "out", ["calls"]);
+    const methodCalleeIds = methodCallEdges.map((e) => e.toId);
+    expect(methodCalleeIds).toContain("symbol:src/math.ts:add");
 
-    const calleeIds = callEdges.map((e) => e.toId);
-    expect(calleeIds).toContain("symbol:src/math.ts:add");
+    // MathHelper.square() calls multiply() — method → function
+    const squareId = "symbol:src/math.ts:MathHelper.square";
+    const squareCallEdges = await storage.getEdges(squareId, "out", ["calls"]);
+    const squareCalleeIds = squareCallEdges.map((e) => e.toId);
+    expect(squareCalleeIds).toContain("symbol:src/math.ts:multiply");
+
+    // Reverse lookup: who calls add()? Should include Calculator.add
+    const addId = "symbol:src/math.ts:add";
+    const callersOfAdd = await storage.getEdges(addId, "in", ["calls"]);
+    const callerIds = callersOfAdd.map((e) => e.fromId);
+    expect(callerIds).toContain("symbol:src/calculator.ts:Calculator.add");
+  });
+
+  it("does not emit file-level call edges for code inside methods", async () => {
+    const indexer = new Indexer(storage, SAMPLE_PROJECT);
+    await indexer.index();
+
+    // calculator.ts: all calls happen inside Calculator's methods. After the fix,
+    // they should attribute to the method symbols, leaving no file-level calls edges.
+    const fileCallEdges = await storage.getEdges("file:src/calculator.ts", "out", ["calls"]);
+    expect(fileCallEdges.length).toBe(0);
+  });
+
+  it("buildMapTree exposes immediate callers as calledBy on each node", async () => {
+    const indexer = new Indexer(storage, SAMPLE_PROJECT);
+    await indexer.index();
+
+    // add() is called by Calculator.add — the tree root should expose that caller
+    const { nodes } = await buildMapTree(storage, ["symbol:src/math.ts:add"]);
+    expect(nodes).toHaveLength(1);
+    const addNode = nodes[0];
+    expect(addNode.calledBy).toBeDefined();
+    const callerNames = (addNode.calledBy ?? []).map((c) => c.symbol);
+    expect(callerNames).toContain("Calculator.add");
+
+    // multiply() is called by MathHelper.square
+    const { nodes: multNodes } = await buildMapTree(storage, [
+      "symbol:src/math.ts:multiply",
+    ]);
+    const multCallerNames = (multNodes[0].calledBy ?? []).map((c) => c.symbol);
+    expect(multCallerNames).toContain("MathHelper.square");
   });
 
   it("creates correct edge IDs following the convention", async () => {
@@ -382,6 +425,12 @@ describe("Indexer", () => {
 
     // Clean up
     fs.rmSync(tempProject, { recursive: true, force: true });
+  });
+
+  it("skips embedding generation when withEmbeddings: false", async () => {
+    const indexer = new Indexer(storage, SAMPLE_PROJECT);
+    const result = await indexer.index({ withEmbeddings: false });
+    expect(result.embeddings).toBeUndefined();
   });
 
   it("only processes files with supported extensions", async () => {

@@ -20,7 +20,7 @@ async function getEmbedder() {
     // Dynamic import to avoid loading the heavy transformers module
     // unless embeddings are explicitly requested
     const { pipeline } = await import("@huggingface/transformers");
-    embedder = await pipeline("feature-extraction", "Xenova/jina-embeddings-v2-base-code", {
+    embedder = await pipeline("feature-extraction", "jinaai/jina-embeddings-v2-base-code", {
       dtype: "fp32",
     });
   }
@@ -81,6 +81,7 @@ function readSourceLines(
     const content = readFileSync(abs, "utf-8");
     const lines = content.split("\n");
     const end = Math.min(lineEnd, lineStart + maxLines - 1);
+    // lineStart is 1-based (tree-sitter convention); convert to 0-based array index
     return lines.slice(lineStart - 1, end).join("\n");
   } catch {
     return "";

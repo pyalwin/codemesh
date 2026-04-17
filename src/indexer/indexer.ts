@@ -34,6 +34,7 @@ export interface IndexResult {
 }
 
 export interface IndexOptions {
+  /** Run semantic embedding generation. Defaults to true; set to false to skip. */
   withEmbeddings?: boolean;
   withSummaries?: boolean;
 }
@@ -69,7 +70,7 @@ export class Indexer {
    * 4. Remove deleted file nodes
    * 5. Git intelligence
    * 6. PageRank scoring
-   * 7. Embeddings (opt-in via options.withEmbeddings)
+   * 7. Embeddings (on by default; pass withEmbeddings: false to skip)
    */
   async index(options?: IndexOptions): Promise<IndexResult> {
     const startTime = Date.now();
@@ -126,8 +127,17 @@ export class Indexer {
       }> = [];
       const callEdges: Array<{
         fromFileId: string;
+        fromFilePath: string;
         callee: string;
+        lineNumber: number;
       }> = [];
+      // Per-file symbol ranges for attributing calls to their containing symbol.
+      // Populated during pass 1 from freshly-parsed files.
+      const fileSymbolRanges = new Map<
+        string,
+        Array<{ id: string; kind: string; lineStart: number; lineEnd: number }>
+      >();
+      const CALLABLE_KINDS = new Set(["function", "method", "const", "class"]);
 
       for (const relPath of filesToProcess) {
         const absPath = join(this.projectRoot, relPath);
@@ -172,6 +182,17 @@ export class Indexer {
           allSymbolIds.add(symbolId);
           symbolNameMap.set(sym.name, symbolId);
 
+          // Record range for containing-symbol attribution in pass 3
+          if (!fileSymbolRanges.has(relPath)) {
+            fileSymbolRanges.set(relPath, []);
+          }
+          fileSymbolRanges.get(relPath)!.push({
+            id: symbolId,
+            kind: sym.kind,
+            lineStart: sym.lineStart,
+            lineEnd: sym.lineEnd,
+          });
+
           // Create contains edge: file -> symbol
           const containsEdge: GraphEdge = {
             id: `edge:contains:${fileId}:${symbolId}`,
@@ -195,11 +216,13 @@ export class Indexer {
           });
         }
 
-        // Collect calls for second pass
+        // Collect calls for third pass (attribution happens there)
         for (const call of parseResult.calls) {
           callEdges.push({
             fromFileId: fileId,
+            fromFilePath: relPath,
             callee: call.callee,
+            lineNumber: call.lineNumber,
           });
         }
       }
@@ -229,23 +252,48 @@ export class Indexer {
         }
       }
 
-      // Third pass: create call edges matching callee names to symbols
-      for (const { fromFileId, callee } of callEdges) {
-        // Try exact match first, then try without object prefix (e.g., "MathHelper.square" -> "MathHelper.square")
+      // Third pass: create call edges, attributed to the innermost containing
+      // symbol (function/method/const/class) of the call site. Module-level
+      // calls with no enclosing symbol fall back to a file-level edge.
+      for (const {
+        fromFileId,
+        fromFilePath,
+        callee,
+        lineNumber,
+      } of callEdges) {
         const symbolId = symbolNameMap.get(callee);
-        if (symbolId) {
-          const edgeId = `edge:calls:${fromFileId}:${symbolId}`;
-          const callEdge: GraphEdge = {
-            id: edgeId,
-            type: "calls",
-            source: "static",
-            fromId: fromFileId,
-            toId: symbolId,
-            createdAt: now,
-          };
-          await this.storage.upsertEdge(callEdge);
-          edgesCreated++;
+        if (!symbolId) continue;
+
+        const ranges = fileSymbolRanges.get(fromFilePath) ?? [];
+        let containingId: string | null = null;
+        let smallestRangeSize = Number.POSITIVE_INFINITY;
+        for (const r of ranges) {
+          if (!CALLABLE_KINDS.has(r.kind)) continue;
+          // Skip single-line consts — they're usually `const x = someCall()`,
+          // not a function body containing calls. The enclosing function should
+          // own those calls instead.
+          if (r.kind === "const" && r.lineEnd === r.lineStart) continue;
+          if (r.lineStart <= lineNumber && lineNumber <= r.lineEnd) {
+            const size = r.lineEnd - r.lineStart;
+            if (size < smallestRangeSize) {
+              smallestRangeSize = size;
+              containingId = r.id;
+            }
+          }
         }
+
+        const fromId = containingId ?? fromFileId;
+        const edgeId = `edge:calls:${fromId}:${symbolId}`;
+        const callEdge: GraphEdge = {
+          id: edgeId,
+          type: "calls",
+          source: "static",
+          fromId,
+          toId: symbolId,
+          createdAt: now,
+        };
+        await this.storage.upsertEdge(callEdge);
+        edgesCreated++;
       }
 
       await this.storage.commitTransaction();

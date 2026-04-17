@@ -36,7 +36,7 @@ export function createServer(storage: StorageBackend, projectRoot: string): McpS
   // ── codemesh_answer ─────────────────────────────────────────────
   server.tool(
     "codemesh_answer",
-    "One-call context assembly. Takes a question, searches the graph, follows call chains, and returns ALL relevant files, symbols, concepts, workflows, and suggested reads in a single response. Use this FIRST before any other exploration.",
+    "One-call context assembly. Returns ranked files, inline source snippets (full symbol body when truncated=false), suggested reads, concepts, workflows, and call graph in a single response. USE THIS FIRST for any code question. The response's `_usage` field tells you whether a follow-up Read is needed: if every snippet has `truncated: false`, Do NOT call Read — you have the full source. Do NOT chain this with codemesh_explore/codemesh_trace by default; reach for those only when `codemesh_answer` left a specific, nameable gap.",
     { question: z.string().describe("Natural language question about the codebase") },
     async ({ question }) => {
       const version = await storage.getStats().then(s => s.lastIndexedAt ?? "0").catch(() => "0");
