@@ -26,6 +26,7 @@ export interface IndexResult {
     };
 }
 export interface IndexOptions {
+    /** Run semantic embedding generation. Defaults to true; set to false to skip. */
     withEmbeddings?: boolean;
     withSummaries?: boolean;
 }
@@ -41,7 +42,7 @@ export declare class Indexer {
      * 4. Remove deleted file nodes
      * 5. Git intelligence
      * 6. PageRank scoring
-     * 7. Embeddings (opt-in via options.withEmbeddings)
+     * 7. Embeddings (on by default; pass withEmbeddings: false to skip)
      */
     index(options?: IndexOptions): Promise<IndexResult>;
     /**

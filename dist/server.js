@@ -14,6 +14,7 @@ import { handleAnswer } from "./tools/answer.js";
 import { handleMap } from "./tools/map.js";
 import { handleSource } from "./tools/source.js";
 import { getLspClient } from "./tools/lsp-client.js";
+import { QueryCache } from "./cache/query-cache.js";
 function textResult(data, projectRoot) {
     const payload = typeof data === "object" && data !== null ? { projectRoot, ...data } : data;
     return {
@@ -25,10 +26,17 @@ export function createServer(storage, projectRoot) {
         name: "codemesh",
         version: "0.1.0",
     });
+    const cache = new QueryCache();
     // ── codemesh_answer ─────────────────────────────────────────────
-    server.tool("codemesh_answer", "One-call context assembly. Takes a question, searches the graph, follows call chains, and returns ALL relevant files, symbols, concepts, workflows, and suggested reads in a single response. Use this FIRST before any other exploration.", { question: z.string().describe("Natural language question about the codebase") }, async ({ question }) => {
+    server.tool("codemesh_answer", "One-call context assembly. Returns ranked files, inline source snippets (full symbol body when truncated=false), suggested reads, concepts, workflows, and call graph in a single response. USE THIS FIRST for any code question. The response's `_usage` field tells you whether a follow-up Read is needed: if every snippet has `truncated: false`, Do NOT call Read — you have the full source. Do NOT chain this with codemesh_explore/codemesh_trace by default; reach for those only when `codemesh_answer` left a specific, nameable gap.", { question: z.string().describe("Natural language question about the codebase") }, async ({ question }) => {
+        const version = await storage.getStats().then(s => s.lastIndexedAt ?? "0").catch(() => "0");
+        const cached = cache.get("answer", version, question);
+        if (cached)
+            return cached;
         const result = await handleAnswer(storage, { question }, projectRoot);
-        return textResult(result, projectRoot);
+        const response = textResult(result, projectRoot);
+        cache.set("answer", version, question, response);
+        return response;
     });
     // ── codemesh_explore ────────────────────────────────────────────
     server.tool("codemesh_explore", "Omni-tool for exploring the codebase. Use 'search' to find things by text, 'context' to see relations of a specific file/symbol, and 'impact' to find reverse dependencies (trace).", {
@@ -110,8 +118,15 @@ export function createServer(storage, projectRoot) {
         query: z.string().describe("Natural language query, e.g. 'how does invoice validation work'"),
         symbol: z.string().optional().describe("Start from a specific symbol instead of searching (e.g., 'validateInvoiceLineItems')"),
     }, async ({ query, symbol }) => {
+        const cacheKey = symbol ? `${query}::symbol:${symbol}` : query;
+        const version = await storage.getStats().then(s => s.lastIndexedAt ?? "0").catch(() => "0");
+        const cached = cache.get("map", version, cacheKey);
+        if (cached)
+            return cached;
         const result = await handleMap(storage, { query, symbol }, projectRoot);
-        return textResult(result, projectRoot);
+        const response = textResult(result, projectRoot);
+        cache.set("map", version, cacheKey, response);
+        return response;
     });
     // ── codemesh_source ────────────────────────────────────────────
     server.tool("codemesh_source", "Get the source code of a specific symbol by its ID. Use after codemesh_map or codemesh_answer to read the code of symbols you need to inspect.", {

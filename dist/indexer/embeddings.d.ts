@@ -9,14 +9,34 @@
  */
 export declare function generateEmbedding(text: string): Promise<number[]>;
 /**
+ * Build the text to embed for a symbol node.
+ * Richer text → better semantic alignment with natural-language queries.
+ *
+ * Format: [module: {filePath}]\n{name} {signature}\n{summary OR sourceLines}
+ * Summary is preferred over source because it's denser signal.
+ */
+export declare function buildEmbeddingText(sym: {
+    name: string;
+    signature: string;
+    filePath: string;
+    summary?: string;
+    sourceLines?: string;
+}): string;
+/**
  * Reset the cached LanceDB connection (useful for tests or re-initialization).
  */
 export declare function resetLanceDb(): void;
+/**
+ * Reset the cached embedder (useful for tests or model switching).
+ */
+export declare function resetEmbedder(): void;
 export declare function indexEmbeddings(projectRoot: string, symbols: Array<{
     id: string;
     name: string;
     signature: string;
     filePath: string;
+    lineStart?: number;
+    lineEnd?: number;
     summary?: string;
 }>): Promise<{
     count: number;

@@ -8,7 +8,8 @@
  * Zero API cost — all inference runs locally.
  */
 
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join, isAbsolute } from "node:path";
 
 // ── Model loading (lazy) ────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ async function getEmbedder() {
     // Dynamic import to avoid loading the heavy transformers module
     // unless embeddings are explicitly requested
     const { pipeline } = await import("@huggingface/transformers");
-    embedder = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+    embedder = await pipeline("feature-extraction", "jinaai/jina-embeddings-v2-base-code", {
       dtype: "fp32",
     });
   }
@@ -35,6 +36,57 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 // ── LanceDB storage ─────────────────────────────────────────────────
 
 let db: any = null;
+
+/**
+ * Build the text to embed for a symbol node.
+ * Richer text → better semantic alignment with natural-language queries.
+ *
+ * Format: [module: {filePath}]\n{name} {signature}\n{summary OR sourceLines}
+ * Summary is preferred over source because it's denser signal.
+ */
+export function buildEmbeddingText(sym: {
+  name: string;
+  signature: string;
+  filePath: string;
+  summary?: string;
+  sourceLines?: string;
+}): string {
+  const nameSig = sym.signature ? `${sym.name} ${sym.signature}` : sym.name;
+  const parts: string[] = [`[module: ${sym.filePath}]`, nameSig];
+  if (sym.summary) {
+    parts.push(sym.summary);
+  } else if (sym.sourceLines) {
+    parts.push(sym.sourceLines);
+  }
+  return parts.join("\n");
+}
+
+/**
+ * Read up to maxLines source lines for a symbol from disk.
+ * Returns empty string if: the file is unreadable, filePath is absolute,
+ * lineStart is out of range, or lineEnd < lineStart.
+ * filePath must be relative to projectRoot.
+ */
+function readSourceLines(
+  projectRoot: string,
+  filePath: string,
+  lineStart: number,
+  lineEnd: number,
+  maxLines = 30,
+): string {
+  // filePath must be relative to projectRoot — absolute paths produce wrong joins
+  if (isAbsolute(filePath)) return "";
+  try {
+    const abs = join(projectRoot, filePath);
+    const content = readFileSync(abs, "utf-8");
+    const lines = content.split("\n");
+    const end = Math.min(lineEnd, lineStart + maxLines - 1);
+    // lineStart is 1-based (tree-sitter convention); convert to 0-based array index
+    return lines.slice(lineStart - 1, end).join("\n");
+  } catch {
+    return "";
+  }
+}
 
 async function getLanceDb(projectRoot: string) {
   if (!db) {
@@ -52,6 +104,13 @@ export function resetLanceDb(): void {
   db = null;
 }
 
+/**
+ * Reset the cached embedder (useful for tests or model switching).
+ */
+export function resetEmbedder(): void {
+  embedder = null;
+}
+
 export async function indexEmbeddings(
   projectRoot: string,
   symbols: Array<{
@@ -59,6 +118,8 @@ export async function indexEmbeddings(
     name: string;
     signature: string;
     filePath: string;
+    lineStart?: number;
+    lineEnd?: number;
     summary?: string;
   }>,
 ): Promise<{ count: number; durationMs: number }> {
@@ -76,9 +137,17 @@ export async function indexEmbeddings(
   }> = [];
 
   for (const sym of symbols) {
-    const text = sym.summary
-      ? `${sym.name} ${sym.signature} ${sym.summary}`
-      : `${sym.name} ${sym.signature}`;
+    const sourceLines =
+      !sym.summary && sym.lineStart && sym.lineEnd
+        ? readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd)
+        : undefined;
+    const text = buildEmbeddingText({
+      name: sym.name,
+      signature: sym.signature,
+      filePath: sym.filePath,
+      summary: sym.summary,
+      sourceLines,
+    });
     const vector = await generateEmbedding(text);
     records.push({
       id: sym.id,

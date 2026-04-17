@@ -1,209 +1,107 @@
 ---
 name: codemesh
-description: Query the code knowledge graph before reading code. Use structured workflows for complete, accurate code exploration — decompose first, then trace or explore breadth-first depending on question type.
+description: Query the code knowledge graph before reading code. One-call context assembly via codemesh_answer returns inline source snippets; default tool habits (Read after search) waste the savings. Follow the rules below.
 ---
 
-# Codemesh: Code Knowledge Graph
+# Codemesh: three rules that override default tool habits
 
-You have access to a persistent code knowledge graph, plus LSP for exact navigation. Codemesh works in two modes — detect which one is available:
+Codemesh returns a knowledge graph with inline source snippets. Treating it like a search index and Reading files after every query is the main way to lose the 30-60% time savings it provides — the snippets already contain the code you'd otherwise Read.
 
-**MCP mode** — if you have `codemesh_explore`, `codemesh_trace` etc. as MCP tools, use them directly.
+1. **Start with `codemesh_answer` for any code question.** Not explore, not trace, not Grep or Read.
 
-**CLI mode** — if no MCP tools are available but `codemesh` is on PATH, call it via Bash:
-```bash
-codemesh explore search "query"
-codemesh explore context path/to/file.ts --symbol functionName
-codemesh explore trace symbolName --depth 5
-codemesh explore impact path/to/file.ts
-```
+2. **When `suggestedReads[i].truncated: false`, the snippet contains the full symbol body.** Cite `file:lineStart-lineEnd` from the snippet and answer. Read is for the `truncated: true` case (use a targeted `offset`/`limit`), or when you need imports/types not in the snippet.
 
-Both modes return the same data. Use whichever is available.
+3. **Each follow-up tool call needs a specific gap to fill.** "Verifying" a complete snippet by reading the file again isn't a gap. Broad thoroughness isn't a gap. If you can't name what's missing from the `codemesh_answer` response, you don't need another tool.
 
-## Two-Tier Navigation
+---
 
-### Tier 1 — Codemesh (global discovery: "where is everything?")
+# How it works
 
-**Explore** (search, context, impact):
+Codemesh runs in two modes — detect which is available:
 
-| Action | MCP | CLI |
-|---|---|---|
-| Search | `codemesh_explore({ action: "search", query: "..." })` | `codemesh explore search "..."` |
-| Context | `codemesh_explore({ action: "context", path: "..." })` | `codemesh explore context path/to/file` |
-| Impact | `codemesh_explore({ action: "impact", path: "..." })` | `codemesh explore impact path/to/file` |
+- **MCP mode** — tools like `codemesh_answer`, `codemesh_explore`, etc. are callable directly.
+- **CLI mode** — no MCP tools, but `codemesh` is on PATH:
+  ```bash
+  codemesh explore answer "question"
+  codemesh explore search "query"
+  codemesh explore trace symbolName --depth 5
+  codemesh explore context path/to/file.ts
+  codemesh explore impact path/to/file.ts
+  ```
 
-**Trace** (follow call chains with source code):
+Both return the same JSON.
 
-| MCP | CLI |
+---
+
+# What `codemesh_answer` returns
+
+- `_usage` — **read this first**; it tells you whether Read is needed
+- `relevantFiles` — ranked files with top symbols (name, kind, signature, lineStart/End), hotspot/co-change info, PageRank
+- `suggestedReads` — top 5 symbols with **inline source snippets up to 30 lines**, plus `signature` and `truncated` flag
+- `concepts` — agent-written summaries from prior sessions (file- and symbol-level)
+- `workflows` — multi-file flows previously walked
+- `symbolMap` — call graph rooted at matched symbols, with `children` (callees) and `calledBy` (callers)
+
+---
+
+# When to reach for other tools (only after `codemesh_answer` with a specific gap)
+
+| Gap | Tool |
 |---|---|
-| `codemesh_trace({ symbol: "name", depth: 5 })` | `codemesh explore trace name --depth 5` |
-
-**Enrich** (write back what you learned — makes future sessions faster):
-
-| MCP | CLI |
-|---|---|
-| `codemesh_enrich({ path: "...", summary: "...", sessionId: "..." })` | `codemesh enrich --path "..." --summary "..."` |
-
-### Tier 2 — LSP (exact navigation: "what exactly is this?")
-
-Use LSP when codemesh gives you a symbol but you need surgical precision:
-- **Go to definition** — when you know a function name but need its exact file and line
-- **Find references** — see every caller of a specific function across the codebase
-- **Resolve ambiguity** — if codemesh returns 5 `save()` methods, LSP tells you which one a specific call resolves to
-
-### How they work together
-
-Codemesh gives you the **map** — the big picture of what exists, how files connect, what workflows have been traced before. LSP gives you the **GPS** — exact navigation within the territory codemesh mapped.
-
-```
-codemesh_explore(search) → "auth logic is in src/auth/, src/middleware/, src/models/user.ts"
-LSP(go-to-definition) → "this specific validateToken() call resolves to src/auth/jwt.ts:45"
-Read(src/auth/jwt.ts, lines 45-80) → the actual code you need
-```
+| Need more than 30 lines of a truncated symbol | `Read(file, offset=lineStart, limit=N)` — targeted range |
+| Need a reverse-caller list deeper than 1 hop | `codemesh_trace({ symbol, depth })` |
+| Need impact analysis ("what breaks if I change X") | `codemesh_explore({ action: "impact", path })` |
+| `codemesh_answer` returned `_usage: No suggestedReads` | `codemesh_explore({ action: "search", query })` with different keywords |
+| Need full symbol inventory of one file | `codemesh_explore({ action: "context", path })` |
+| Need where a specific call resolves (overloaded name) | LSP `go-to-definition` |
+| Need imports/types not shown in the snippet | `Read` with a targeted range (not whole file) |
 
 ---
 
-## Before You Explore: DECOMPOSE
+# Writing back (enrich, workflow)
 
-**This step is mandatory for every exploration task.**
+Enrich when you've learned something non-obvious that survives the session and helps future agents:
+- "This function silently has a side-effect: ..." (hidden behavior)
+- "The real entry point is Y, despite the naming suggesting Z" (misleading names)
+- "This module is load-bearing for the X flow because ..." (hidden invariant)
 
-Before making any tool calls, break the question into sub-topics. Write them out explicitly.
-
-Example — "How does collaborative editing work?":
-```
-Sub-topics I need to cover:
-1. Transport layer — how are messages sent? (WebSocket, HTTP polling?)
-2. State synchronization — how are changes shared between clients?
-3. Conflict resolution — what happens with concurrent edits?
-4. Session management — joining, leaving, reconnecting
-5. Data model — what is the shared state structure?
-```
-
-Example — "Trace request flow from Session.request() to URLSession":
-```
-Sub-topics I need to cover:
-1. Entry point — Session.request() public API
-2. Request construction — how is the URLRequest built?
-3. Task creation — how is URLSessionTask created?
-4. Delegation — how does URLSession report results back?
-5. Response handling — how does the response get back to the caller?
-```
-
-**This list is your checklist. You are not done until every sub-topic is covered.**
-
----
-
-## Detect Question Type, Then Follow the Right Workflow
-
-### Type A: TRACE questions
-
-Questions that ask you to follow a specific execution path from A to B.
-
-Signals: "trace", "flow", "how does X call Y", "what happens when", "step by step"
-
-**Workflow: Decompose → Search → Trace → LSP Navigate → Verify**
-
-1. **DECOMPOSE** — list the steps you expect in the path
-2. **SEARCH** — `codemesh_explore(action='search')` to find the entry point
-3. **TRACE** — `codemesh_trace(symbol, depth=5)` to follow the call chain
-4. **LSP NAVIGATE** — when the trace gives you a symbol name, use LSP go-to-definition to find its exact location. Use LSP find-references to see all callers. This is faster and more precise than Read + grep.
-5. **Read** only the specific lines you need after LSP tells you exactly where they are
-6. If the trace doesn't reach the end, use LSP go-to-definition on the last symbol to find what it calls next
-7. **VERIFY** — check your decomposition list. Did you cover every step? If not, go back.
-
-### Type B: COMPREHENSION questions
-
-Questions that ask you to understand how a feature/system/module works.
-
-Signals: "how does X work", "explain the architecture", "what are the key components"
-
-**Workflow: Decompose → Broad Search → LSP Navigate → Deep Dive → Verify**
-
-1. **DECOMPOSE** — list all aspects/sub-systems the answer needs to cover
-2. **BROAD SEARCH** — search for EACH sub-topic separately:
-   ```
-   codemesh_explore(action='search', query='collab transport websocket')
-   codemesh_explore(action='search', query='conflict resolution reconcile')
-   codemesh_explore(action='search', query='session management portal')
-   ```
-   Do NOT stop at one search. Search for every sub-topic in your decomposition.
-3. **LSP NAVIGATE** — for each key symbol codemesh found, use LSP to resolve it precisely:
-   - LSP go-to-definition to find the exact file and line
-   - LSP find-references to see all callers/usages across the codebase
-   - This replaces multiple Read calls with single, precise LSP lookups
-3. **DEEP DIVE** — for each relevant file found, get context:
-   ```
-   codemesh_explore(action='context', path='src/collab/Portal.tsx')
-   ```
-4. **CROSS-REFERENCE** — check how the modules connect. Use `action='impact'` or `action='context'` to see imports/dependencies between the files you found.
-5. **VERIFY** — go through your decomposition checklist:
-   - [ ] Transport layer — covered? Which files?
-   - [ ] Conflict resolution — covered? Which mechanism?
-   - [ ] Session management — covered? Which files?
-   
-   **If any sub-topic is unchecked, search for it specifically and explore those files.** Do NOT write your answer until every sub-topic has at least one file/mechanism identified.
-
----
-
-## Phase: VERIFY & ENRICH (applies to both types)
-
-Before writing your answer, do BOTH of these:
-
-### Verify completeness
-
-1. **Decomposition coverage** — is every sub-topic from your initial decomposition covered?
-2. **File coverage** — have you identified every key file involved?
-3. **Completeness** — for traces: did you reach the leaf node? For comprehension: did you cover all aspects?
-4. **Gaps** — are there any connections you assumed without verifying?
-
-**If any check fails, go back and explore more.**
-
-### Enrich the graph (MANDATORY)
-
-**This is not optional.** For each key file you explored, write back what you learned:
+NOT enrich candidates (skip):
+- Anything derivable from reading the code
+- Restating what a function name already says
+- Task-specific notes ("fixed a bug here" belongs in the commit)
 
 ```
 codemesh_enrich({
-  path: "src/collab/Portal.tsx",
-  summary: "WebSocket connection manager for real-time collab. Handles room join/leave, broadcasts scene updates via Socket.IO. Reconnects on disconnect.",
-  sessionId: "session-1"
+  path: "src/auth/session.ts",
+  summary: "Session tokens are stored in Redis with 24h TTL but re-issued on every request — effectively sliding expiry. Load-bearing for the mobile flow.",
 })
 ```
 
-For multi-file flows you traced, record the workflow:
-
-```
-codemesh_workflow({
-  name: "collaborative editing sync",
-  description: "Real-time sync flow from user action to other clients",
-  files: ["src/collab/Portal.tsx", "src/collab/reconciliation.ts", "src/scene/Scene.ts"]
-})
-```
-
-**Why this matters:** Your enrichments make the NEXT session faster. The graph starts with structural data only — your summaries add the semantic understanding that helps future agents skip the exploration you just did.
+For multi-file flows you walked end-to-end, `codemesh_workflow` records the sequence.
 
 ---
 
-## Writing Your Answer
+# Complex questions (optional decomposition)
 
-Structure your response with:
+For broad comprehension questions ("explain the entire architecture", "walk me through feature X"), a single `codemesh_answer` may miss sub-topics. Then:
 
-1. **Overview** — 2-3 sentence summary
-2. **One section per sub-topic** from your decomposition — each with file names and key functions/classes
-3. **File reference table** — list EVERY file involved and its role
+1. List the sub-topics
+2. Call `codemesh_answer` per sub-topic with a targeted question
+3. Aggregate responses
 
-Your answer must be **COMPLETE**. Cover every sub-topic from your decomposition fully. Do not abbreviate, truncate, or skip sections.
+Do NOT decompose targeted questions. "How does X work?" is targeted — one call.
 
 ---
 
-## When to Fall Back to Grep/Read
+# Fall back to Grep/Read when
 
-- `codemesh_explore(action='search')` returns nothing relevant
-- Graph data is stale
-- Line-level debugging
-- Trace ends at a boundary and you need to see what's inside
+- `codemesh_answer` returned empty or unrelated results on multiple rewordings
+- The file was just created and isn't indexed yet
+- You're doing line-level debugging and know exactly what to look for
+- The user asked you to read a specific file
 
-## When to Skip Codemesh
+---
 
-- Simple one-file edits where you know the file
-- User explicitly asks to read a specific file
-- File was just created and hasn't been indexed
+# Writing your final answer
+
+Cite files and line ranges from `suggestedReads` directly — `file:lineStart-lineEnd`. If `codemesh_answer` gave you enough, say so; don't invent extra exploration you didn't do.
