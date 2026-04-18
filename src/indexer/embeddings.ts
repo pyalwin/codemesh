@@ -111,6 +111,14 @@ export function resetEmbedder(): void {
   embedder = null;
 }
 
+/**
+ * Stream-index symbol embeddings into LanceDB.
+ *
+ * Inference is serial per-call (one tensor set in flight at a time); `batchSize`
+ * only controls the SQLite-write batch size and the disk-I/O fan-out for reading
+ * source lines, not the inference fan-out. This caps peak RSS independent of
+ * batchSize.
+ */
 export async function indexEmbeddings(
   projectRoot: string,
   symbols: Array<{
@@ -145,7 +153,9 @@ export async function indexEmbeddings(
   let processed = 0;
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
-    const records = await Promise.all(
+
+    // Pass 1: overlap disk I/O for readSourceLines across the batch.
+    const prepared = await Promise.all(
       batch.map(async (sym) => {
         const sourceLines =
           !sym.summary && sym.lineStart && sym.lineEnd
@@ -163,17 +173,25 @@ export async function indexEmbeddings(
           summary: sym.summary,
           sourceLines,
         });
-        const vector = await generateEmbedding(text);
-        return {
-          id: sym.id,
-          name: sym.name,
-          signature: sym.signature,
-          filePath: sym.filePath,
-          text,
-          vector,
-        };
+        return { sym, text };
       }),
     );
+
+    // Pass 2: run inference strictly one-at-a-time so the embedder holds
+    // at most one set of tensor buffers concurrently. This caps peak RSS
+    // regardless of batchSize.
+    const records = [];
+    for (const { sym, text } of prepared) {
+      const vector = await generateEmbedding(text);
+      records.push({
+        id: sym.id,
+        name: sym.name,
+        signature: sym.signature,
+        filePath: sym.filePath,
+        text,
+        vector,
+      });
+    }
 
     if (!table) {
       table = await ldb.createTable("symbols", records);
