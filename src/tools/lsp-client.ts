@@ -13,6 +13,16 @@ import { readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+// ── Idle Reap Config ──────────────────────────────────────────────
+
+function getIdleThresholdMs(): number {
+  return Number(process.env.CODEMESH_LSP_IDLE_MS ?? 900_000);
+}
+
+function getHeartbeatMs(): number {
+  return Number(process.env.CODEMESH_LSP_HEARTBEAT_MS ?? 60_000);
+}
+
 // ── Public Interface ──────────────────────────────────────────────
 
 export interface LspLocation {
@@ -319,6 +329,8 @@ class LspClientImpl implements LspClient {
   }
 
   async shutdown(): Promise<void> {
+    if (this.reaped) return;
+    this.reaped = true;
     try {
       await this.transport.sendRequest("shutdown", null);
       this.transport.sendNotification("exit", null);
@@ -388,6 +400,44 @@ function parseLspLocations(result: unknown): LspLocation[] {
 /** Cache: projectRoot -> serverBinary -> LspClient */
 const clientCache = new Map<string, Map<string, LspClient>>();
 
+let heartbeatTimer: NodeJS.Timeout | null = null;
+
+function startHeartbeatIfNeeded(): void {
+  if (heartbeatTimer) return;
+  heartbeatTimer = setInterval(reapIdle, getHeartbeatMs());
+  // Don't keep the process alive just for this timer (important for CLI use).
+  heartbeatTimer.unref?.();
+}
+
+function stopHeartbeat(): void {
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+}
+
+async function reapIdle(): Promise<void> {
+  const now = Date.now();
+  const idleThreshold = getIdleThresholdMs();
+  const reapPromises: Promise<void>[] = [];
+  for (const [root, byCmd] of clientCache) {
+    for (const [cmdKey, client] of byCmd) {
+      if (!(client instanceof LspClientImpl)) continue;
+      if (client.getIdleMs(now) >= idleThreshold) {
+        byCmd.delete(cmdKey);
+        reapPromises.push(client.shutdown());
+      }
+    }
+    if (byCmd.size === 0) {
+      clientCache.delete(root);
+    }
+  }
+  if (clientCache.size === 0) {
+    stopHeartbeat();
+  }
+  await Promise.allSettled(reapPromises);
+}
+
 /**
  * Get or create an LSP client for the given file and project root.
  * Returns null silently if no language server is available.
@@ -409,6 +459,7 @@ export async function getLspClient(filePath: string, projectRoot: string): Promi
   try {
     const client = await LspClientImpl.create(command, projectRoot);
     projectClients.set(cacheKey, client);
+    startHeartbeatIfNeeded();
     return client;
   } catch {
     // Server failed to start — return null, don't cache the failure
@@ -428,4 +479,14 @@ export async function shutdownAllLspClients(): Promise<void> {
   }
   await Promise.allSettled(shutdowns);
   clientCache.clear();
+}
+
+/** Test hook: force a reap pass synchronously. */
+export async function __test_reapIdle(): Promise<void> {
+  await reapIdle();
+}
+
+/** Test hook: stop the heartbeat timer (used in afterEach). */
+export function __test_stopHeartbeat(): void {
+  stopHeartbeat();
 }
