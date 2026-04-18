@@ -196,3 +196,46 @@ export async function semanticSearch(
     return [];
   }
 }
+
+/**
+ * Delete embedding rows whose id matches any value in `ids`.
+ * Returns the number of rows deleted. If the table does not exist
+ * (e.g., embeddings never enabled for this project), returns 0 silently.
+ * Throws if the table exists but the delete itself fails (bad predicate / IO).
+ *
+ * Inputs are chunked to keep predicate strings bounded — LanceDB's SQL layer
+ * degrades on very large IN lists.
+ */
+export async function deleteEmbeddings(
+  projectRoot: string,
+  ids: string[],
+): Promise<number> {
+  if (ids.length === 0) return 0;
+
+  const ldb = await getLanceDb(projectRoot);
+
+  let table;
+  try {
+    table = await ldb.openTable("symbols");
+  } catch {
+    return 0; // no table yet
+  }
+
+  const CHUNK = 5000;
+  let removed = 0;
+  const unique = Array.from(new Set(ids));
+
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const batch = unique.slice(i, i + CHUNK);
+    // LanceDB SQL requires quoted string literals; escape stray single-quotes
+    // by doubling them (standard SQL literal rule). IDs in codemesh come from
+    // filesystem paths + identifier names, so no backslash escaping is needed.
+    const literals = batch
+      .map((id) => `'${id.replace(/'/g, "''")}'`)
+      .join(", ");
+    const result = await table.delete(`id IN (${literals})`);
+    removed += result.numDeletedRows;
+  }
+
+  return removed;
+}
