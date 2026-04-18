@@ -369,6 +369,28 @@ export class SqliteBackend implements StorageBackend {
     return rows.map((r) => this.deserializeNode(r));
   }
 
+  async queryNodesByFilePaths(filePaths: string[]): Promise<GraphNode[]> {
+    if (filePaths.length === 0) return [];
+
+    const db = this.getDb();
+    const placeholders = filePaths.map((_, i) => `@p${i}`).join(", ");
+    const params: Record<string, string> = {};
+    filePaths.forEach((p, i) => {
+      params[`p${i}`] = p;
+    });
+
+    const sql = `
+      SELECT * FROM nodes
+      WHERE type = 'symbol'
+        AND json_extract(data, '$.filePath') IN (${placeholders})
+    `;
+
+    const rows = db.prepare(sql).all(params) as Parameters<
+      typeof this.deserializeNode
+    >[0][];
+    return rows.map((r) => this.deserializeNode(r));
+  }
+
   async deleteNode(id: string): Promise<void> {
     const db = this.getDb();
     // Remove trigrams for this node
