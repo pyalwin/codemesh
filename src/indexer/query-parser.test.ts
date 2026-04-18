@@ -103,3 +103,42 @@ describe("QueryParser — Go", () => {
     expect(callees).toContain("greet");
   });
 });
+
+describe("QueryParser — Rust", () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), "codemesh-rust-")); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  it("extracts structs, impls, functions, traits, and uses", async () => {
+    const file = join(tmp, "lib.rs");
+    writeFileSync(
+      file,
+      [
+        "use std::collections::HashMap;",
+        "",
+        "pub struct Account { balance: i64 }",
+        "",
+        "impl Account {",
+        "    pub fn deposit(&mut self, amount: i64) { self.balance += amount; }",
+        "    pub fn balance(&self) -> i64 { self.balance }",
+        "}",
+        "",
+        "pub trait Greet { fn hello(&self); }",
+        "",
+        "pub fn main_entry() { let a = Account { balance: 0 }; a.balance(); }",
+      ].join("\n"),
+    );
+
+    const result = await parseFile(file, "lib.rs");
+    const kinds = result.symbols.map((s) => `${s.kind}:${s.name}`).sort();
+    expect(kinds).toContain("class:Account"); // struct => class
+    expect(kinds).toContain("method:deposit");
+    expect(kinds).toContain("method:balance");
+    expect(kinds).toContain("interface:Greet"); // trait => interface
+    expect(kinds).toContain("function:main_entry");
+
+    // use std::collections::HashMap — capture at least `std` as the top-level module.
+    const joined = result.imports.join("\n");
+    expect(joined).toMatch(/std/);
+  });
+});

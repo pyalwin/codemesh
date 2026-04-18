@@ -36,6 +36,7 @@ const LANGUAGE_CONFIGS: LanguageConfig[] = [
     name: "rust",
     extensions: [".rs"],
     grammarPackage: "tree-sitter-rust",
+    queryFile: "rust.scm",
   },
   {
     name: "java",
