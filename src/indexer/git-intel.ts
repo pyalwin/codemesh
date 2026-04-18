@@ -5,7 +5,7 @@
  * - Co-change pairs: files that frequently change together in the same commits
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 export interface GitIntelResult {
   hotspots: Array<{
@@ -33,8 +33,15 @@ export async function analyzeGitHistory(
 ): Promise<GitIntelResult> {
   let logOutput: string;
   try {
-    logOutput = execSync(
-      `git log --name-only --pretty=format:'---COMMIT---%ai' -n ${maxCommits}`,
+    logOutput = execFileSync(
+      "git",
+      [
+        "log",
+        "--name-only",
+        "--pretty=format:---COMMIT---%ai",
+        "-n",
+        String(maxCommits),
+      ],
       {
         cwd: projectRoot,
         encoding: "utf-8",
