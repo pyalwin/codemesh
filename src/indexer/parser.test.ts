@@ -49,6 +49,21 @@ describe("parser — scopePath", () => {
     expect(methods.map((m) => m.name)).toEqual(["foo", "foo"]);
     expect(methods.map((m) => m.scopePath)).toEqual([["A"], ["B"]]);
   });
+
+  it("emits symbols only for named top-level consts, not anonymous expressions", async () => {
+    const file = join(tmp, "anon.ts");
+    writeFileSync(
+      file,
+      [
+        "const namedArrow = (x: number) => x + 1;",
+        "const plain = 42;",
+        "(() => {})();",
+      ].join("\n"),
+    );
+    const result = await parseFile(file, "anon.ts");
+    const names = result.symbols.map((s) => s.name).sort();
+    expect(names).toEqual(["namedArrow", "plain"]);
+  });
 });
 
 describe("parser — scopePath on calls", () => {
