@@ -211,6 +211,8 @@ class LspClientImpl implements LspClient {
   private transport: LspTransport;
   private projectRoot: string;
   private openedFiles = new Set<string>();
+  private lastRequestAt: number = Date.now();
+  private reaped = false;
 
   constructor(transport: LspTransport, projectRoot: string) {
     this.transport = transport;
@@ -270,6 +272,7 @@ class LspClientImpl implements LspClient {
   }
 
   async getDefinition(filePath: string, line: number, character: number): Promise<LspLocation | null> {
+    this.lastRequestAt = Date.now();
     try {
       this.ensureFileOpen(filePath);
 
@@ -288,6 +291,7 @@ class LspClientImpl implements LspClient {
   }
 
   async getReferences(filePath: string, line: number, character: number): Promise<LspLocation[]> {
+    this.lastRequestAt = Date.now();
     try {
       this.ensureFileOpen(filePath);
 
@@ -304,6 +308,14 @@ class LspClientImpl implements LspClient {
     } catch {
       return [];
     }
+  }
+
+  getIdleMs(now: number = Date.now()): number {
+    return now - this.lastRequestAt;
+  }
+
+  isReaped(): boolean {
+    return this.reaped;
   }
 
   async shutdown(): Promise<void> {
