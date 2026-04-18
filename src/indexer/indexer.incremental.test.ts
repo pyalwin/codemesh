@@ -85,3 +85,40 @@ describe("Indexer — incremental embeddings", () => {
     expect(results.map((r) => r.id)).not.toContain("symbol:b.ts:beta");
   }, 180_000);
 });
+
+describe("Indexer — transaction chunking", () => {
+  let projectRoot: string;
+  let backend: SqliteBackend;
+
+  beforeEach(async () => {
+    projectRoot = mkdtempSync(join(tmpdir(), "codemesh-tx-"));
+    mkdirSync(join(projectRoot, ".codemesh"), { recursive: true });
+    backend = new SqliteBackend(join(projectRoot, ".codemesh", "codemesh.db"));
+    await backend.initialize();
+    resetLanceDb();
+  });
+
+  afterEach(async () => {
+    await backend.close();
+    rmSync(projectRoot, { recursive: true, force: true });
+    resetLanceDb();
+  });
+
+  it("indexes successfully across multiple file batches", async () => {
+    // Create enough files to span more than one transaction batch
+    // (FILE_BATCH_SIZE is 500 in the refactored indexer). We generate
+    // 50 files — fast to parse, and enough to exercise the batch loop.
+    for (let i = 0; i < 50; i++) {
+      writeFileSync(
+        join(projectRoot, `mod${i}.ts`),
+        `export const value${i} = ${i};\n`,
+      );
+    }
+
+    const indexer = new Indexer(backend, projectRoot);
+    const result = await indexer.index({ withEmbeddings: false });
+
+    expect(result.filesIndexed).toBe(50);
+    expect(result.symbolsFound).toBe(50);
+  }, 60_000);
+});

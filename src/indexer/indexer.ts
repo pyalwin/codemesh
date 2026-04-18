@@ -92,10 +92,15 @@ export class Indexer {
 
     const filesToProcess = [...changed, ...added];
 
-    // Wrap all DB mutations in a single transaction for performance
+    // Chunk DB mutations across three transactions (plus a batched middle
+    // loop) to bound WAL pressure and let other readers see progress on
+    // large repos.
     let symbolsFound = 0;
     let edgesCreated = 0;
 
+    const FILE_BATCH_SIZE = 500;
+
+    // Transaction A: concept staleness + purge (fast, small)
     await this.storage.beginTransaction();
     try {
       // Step 3: Mark agent concepts as stale for changed files
@@ -109,127 +114,163 @@ export class Indexer {
         await this.storage.purgeFileNodes(filesToPurge);
       }
 
-      // Step 5: Parse and index new/changed files
+      await this.storage.commitTransaction();
+    } catch (e) {
+      await this.storage.rollbackTransaction();
+      throw e;
+    }
 
-      // First pass: create file and symbol nodes, collect import info
-      const allSymbolIds = new Set<string>();
-      const symbolNameMap = new Map<string, string>(); // symbolName -> symbolNodeId
+    // Step 5: Parse and index new/changed files
 
-      // We need existing symbols too (from files not being re-indexed)
-      const existingSymbols = await this.storage.queryNodes({ type: "symbol" });
-      for (const sym of existingSymbols) {
-        const symbolNode = sym as SymbolNode;
-        allSymbolIds.add(symbolNode.id);
-        symbolNameMap.set(symbolNode.name, symbolNode.id);
+    // First pass: create file and symbol nodes, collect import info
+    const allSymbolIds = new Set<string>();
+    const symbolNameMap = new Map<string, string>(); // symbolName -> symbolNodeId
+
+    // Seed existing-symbol lookup from already-stored symbols in files we are
+    // NOT re-indexing. Use the narrower query to avoid loading all symbols
+    // (which could be millions on large repos).
+    const unchangedFilePaths: string[] = [];
+    {
+      const fileNodes = await this.storage.queryNodes({ type: "file" });
+      const processSet = new Set(filesToProcess);
+      for (const n of fileNodes) {
+        const path = (n as FileNode).path;
+        if (!processSet.has(path)) {
+          unchangedFilePaths.push(path);
+        }
       }
+    }
+    if (unchangedFilePaths.length > 0) {
+      const existingSymbols = (await this.storage.queryNodesByFilePaths(
+        unchangedFilePaths,
+      )) as SymbolNode[];
+      for (const sym of existingSymbols) {
+        allSymbolIds.add(sym.id);
+        symbolNameMap.set(sym.name, sym.id);
+      }
+    }
 
-      const importEdges: Array<{
-        fromFileId: string;
-        importPath: string;
-        fromRelPath: string;
-      }> = [];
-      const callEdges: Array<{
-        fromFileId: string;
-        fromFilePath: string;
-        callee: string;
-        lineNumber: number;
-      }> = [];
-      // Per-file symbol ranges for attributing calls to their containing symbol.
-      // Populated during pass 1 from freshly-parsed files.
-      const fileSymbolRanges = new Map<
-        string,
-        Array<{ id: string; kind: string; lineStart: number; lineEnd: number }>
-      >();
-      const CALLABLE_KINDS = new Set(["function", "method", "const", "class"]);
+    const importEdges: Array<{
+      fromFileId: string;
+      importPath: string;
+      fromRelPath: string;
+    }> = [];
+    const callEdges: Array<{
+      fromFileId: string;
+      fromFilePath: string;
+      callee: string;
+      lineNumber: number;
+    }> = [];
+    // Per-file symbol ranges for attributing calls to their containing symbol.
+    // Populated during pass 1 from freshly-parsed files.
+    const fileSymbolRanges = new Map<
+      string,
+      Array<{ id: string; kind: string; lineStart: number; lineEnd: number }>
+    >();
+    const CALLABLE_KINDS = new Set(["function", "method", "const", "class"]);
 
-      for (const relPath of filesToProcess) {
-        const absPath = join(this.projectRoot, relPath);
-        const hash = fileHashes.get(relPath)!;
-        const now = new Date().toISOString();
+    // Transaction B (chunked): parse + upsert files in batches
+    for (let i = 0; i < filesToProcess.length; i += FILE_BATCH_SIZE) {
+      const batch = filesToProcess.slice(i, i + FILE_BATCH_SIZE);
+      await this.storage.beginTransaction();
+      try {
+        for (const relPath of batch) {
+          const absPath = join(this.projectRoot, relPath);
+          const hash = fileHashes.get(relPath)!;
+          const now = new Date().toISOString();
 
-        // Create file node
-        const fileId = `file:${relPath}`;
-        const fileNode: FileNode = {
-          id: fileId,
-          type: "file",
-          source: "static",
-          name: relPath.split("/").pop() || relPath,
-          path: relPath,
-          hash,
-          lastIndexedAt: now,
-          createdAt: now,
-          updatedAt: now,
-        };
-        await this.storage.upsertNode(fileNode);
-
-        // Parse the file
-        const parseResult = await parseFile(absPath, relPath);
-
-        // Create symbol nodes and contains edges
-        for (const sym of parseResult.symbols) {
-          const symbolId = `symbol:${relPath}:${sym.name}`;
-          const symbolNode: SymbolNode = {
-            id: symbolId,
-            type: "symbol",
+          // Create file node
+          const fileId = `file:${relPath}`;
+          const fileNode: FileNode = {
+            id: fileId,
+            type: "file",
             source: "static",
-            name: sym.name,
-            kind: sym.kind,
-            filePath: relPath,
-            lineStart: sym.lineStart,
-            lineEnd: sym.lineEnd,
-            signature: sym.signature,
+            name: relPath.split("/").pop() || relPath,
+            path: relPath,
+            hash,
+            lastIndexedAt: now,
             createdAt: now,
             updatedAt: now,
           };
-          await this.storage.upsertNode(symbolNode);
-          allSymbolIds.add(symbolId);
-          symbolNameMap.set(sym.name, symbolId);
+          await this.storage.upsertNode(fileNode);
 
-          // Record range for containing-symbol attribution in pass 3
-          if (!fileSymbolRanges.has(relPath)) {
-            fileSymbolRanges.set(relPath, []);
+          // Parse the file
+          const parseResult = await parseFile(absPath, relPath);
+
+          // Create symbol nodes and contains edges
+          for (const sym of parseResult.symbols) {
+            const symbolId = `symbol:${relPath}:${sym.name}`;
+            const symbolNode: SymbolNode = {
+              id: symbolId,
+              type: "symbol",
+              source: "static",
+              name: sym.name,
+              kind: sym.kind,
+              filePath: relPath,
+              lineStart: sym.lineStart,
+              lineEnd: sym.lineEnd,
+              signature: sym.signature,
+              createdAt: now,
+              updatedAt: now,
+            };
+            await this.storage.upsertNode(symbolNode);
+            allSymbolIds.add(symbolId);
+            symbolNameMap.set(sym.name, symbolId);
+
+            // Record range for containing-symbol attribution in pass 3
+            if (!fileSymbolRanges.has(relPath)) {
+              fileSymbolRanges.set(relPath, []);
+            }
+            fileSymbolRanges.get(relPath)!.push({
+              id: symbolId,
+              kind: sym.kind,
+              lineStart: sym.lineStart,
+              lineEnd: sym.lineEnd,
+            });
+
+            // Create contains edge: file -> symbol
+            const containsEdge: GraphEdge = {
+              id: `edge:contains:${fileId}:${symbolId}`,
+              type: "contains",
+              source: "static",
+              fromId: fileId,
+              toId: symbolId,
+              createdAt: now,
+            };
+            await this.storage.upsertEdge(containsEdge);
+            edgesCreated++;
+            symbolsFound++;
           }
-          fileSymbolRanges.get(relPath)!.push({
-            id: symbolId,
-            kind: sym.kind,
-            lineStart: sym.lineStart,
-            lineEnd: sym.lineEnd,
-          });
 
-          // Create contains edge: file -> symbol
-          const containsEdge: GraphEdge = {
-            id: `edge:contains:${fileId}:${symbolId}`,
-            type: "contains",
-            source: "static",
-            fromId: fileId,
-            toId: symbolId,
-            createdAt: now,
-          };
-          await this.storage.upsertEdge(containsEdge);
-          edgesCreated++;
-          symbolsFound++;
-        }
+          // Collect imports for second pass
+          for (const imp of parseResult.imports) {
+            importEdges.push({
+              fromFileId: fileId,
+              importPath: imp,
+              fromRelPath: relPath,
+            });
+          }
 
-        // Collect imports for second pass
-        for (const imp of parseResult.imports) {
-          importEdges.push({
-            fromFileId: fileId,
-            importPath: imp,
-            fromRelPath: relPath,
-          });
+          // Collect calls for third pass (attribution happens there)
+          for (const call of parseResult.calls) {
+            callEdges.push({
+              fromFileId: fileId,
+              fromFilePath: relPath,
+              callee: call.callee,
+              lineNumber: call.lineNumber,
+            });
+          }
         }
-
-        // Collect calls for third pass (attribution happens there)
-        for (const call of parseResult.calls) {
-          callEdges.push({
-            fromFileId: fileId,
-            fromFilePath: relPath,
-            callee: call.callee,
-            lineNumber: call.lineNumber,
-          });
-        }
+        await this.storage.commitTransaction();
+      } catch (e) {
+        await this.storage.rollbackTransaction();
+        throw e;
       }
+    }
 
+    // Transaction C: resolution passes (imports + calls)
+    await this.storage.beginTransaction();
+    try {
       // Second pass: create import edges between file nodes
       const now = new Date().toISOString();
 
