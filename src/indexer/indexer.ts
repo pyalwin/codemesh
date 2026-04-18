@@ -48,7 +48,11 @@ export interface IndexProgress {
     | "embeddings";
   completed: number;
   total: number;
-  /** Elapsed ms in this phase. */
+  /**
+   * Elapsed ms since the phase started. For per-batch phases like
+   * `parse` and `embeddings` this is cumulative across batches, not
+   * per-batch — i.e. it monotonically grows over the course of the phase.
+   */
   elapsedMs: number;
 }
 
@@ -104,10 +108,13 @@ export class Indexer {
     // reporter must never abort the index run.
     const report = (progress: IndexProgress): void => {
       if (!options?.onProgress) return;
+      // Suppress pure no-op ticks — these are interstitial-work counters
+      // with nothing to report (e.g. purge on a first-run with no deletions).
+      if (progress.completed === 0 && progress.total === 0) return;
       try {
         options.onProgress(progress);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
         console.warn(`Warning: onProgress reporter threw — ${msg}`);
       }
     };
