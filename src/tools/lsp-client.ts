@@ -471,6 +471,7 @@ export async function getLspClient(filePath: string, projectRoot: string): Promi
  * Shutdown all cached LSP clients. Call on server exit.
  */
 export async function shutdownAllLspClients(): Promise<void> {
+  stopHeartbeat();
   const shutdowns: Promise<void>[] = [];
   for (const [, projectClients] of clientCache) {
     for (const [, client] of projectClients) {
