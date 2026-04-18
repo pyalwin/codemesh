@@ -201,7 +201,16 @@ export class Indexer {
       )) as SymbolNode[];
       for (const sym of existingSymbols) {
         allSymbolIds.add(sym.id);
+        // After Task 2, sym.name is the qualified name (e.g. "A.foo"). Register
+        // the qualified key as canonical. Also register a bare-name fallback so
+        // cross-file call resolution can still match `foo()` → first-registered.
         symbolNameMap.set(sym.name, sym.id);
+        const bare = sym.name.includes(".")
+          ? sym.name.split(".").pop()!
+          : sym.name;
+        if (!symbolNameMap.has(bare)) {
+          symbolNameMap.set(bare, sym.id);
+        }
       }
     }
 
@@ -253,14 +262,47 @@ export class Indexer {
           // Parse the file
           const parseResult = await parseFile(absPath, relPath);
 
-          // Create symbol nodes and contains edges
-          for (const sym of parseResult.symbols) {
-            const symbolId = `symbol:${relPath}:${sym.name}`;
+          // Create symbol nodes and contains edges.
+          //
+          // Namespace-aware IDs: the base ID is
+          //   symbol:<relPath>:<qualifiedName>
+          // where qualifiedName = [...scopePath, name].join(".").
+          // If two symbols in the same file collapse to the same base ID
+          // (e.g. two top-level `dup()` functions), disambiguate by suffixing
+          // `@L<lineStart>` to each colliding entry.
+          const qualifiedNameOf = (s: {
+            name: string;
+            scopePath: string[];
+          }) => [...s.scopePath, s.name].join(".");
+
+          const baseIds = parseResult.symbols.map((sym) => ({
+            sym,
+            qualified: qualifiedNameOf(sym),
+            baseId: `symbol:${relPath}:${qualifiedNameOf(sym)}`,
+          }));
+
+          // Count occurrences of each base ID to detect collisions.
+          const idCounts = new Map<string, number>();
+          for (const entry of baseIds) {
+            idCounts.set(entry.baseId, (idCounts.get(entry.baseId) ?? 0) + 1);
+          }
+
+          const finalEntries = baseIds.map((entry) => {
+            const finalId =
+              (idCounts.get(entry.baseId) ?? 0) > 1
+                ? `${entry.baseId}@L${entry.sym.lineStart}`
+                : entry.baseId;
+            return { ...entry, finalId };
+          });
+
+          for (const { sym, qualified, finalId } of finalEntries) {
             const symbolNode: SymbolNode = {
-              id: symbolId,
+              id: finalId,
               type: "symbol",
               source: "static",
-              name: sym.name,
+              // Store the qualified name so external tools (codemesh_source,
+              // mapTree's calledBy) render the namespace-qualified label.
+              name: qualified,
               kind: sym.kind,
               filePath: relPath,
               lineStart: sym.lineStart,
@@ -270,15 +312,24 @@ export class Indexer {
               updatedAt: now,
             };
             await this.storage.upsertNode(symbolNode);
-            allSymbolIds.add(symbolId);
-            symbolNameMap.set(sym.name, symbolId);
+            allSymbolIds.add(finalId);
+
+            // Register under qualified name — this is the canonical key for
+            // call resolution across files.
+            symbolNameMap.set(qualified, finalId);
+            // Also register under bare name if not already claimed — preserves
+            // today's best-effort behaviour where calls to `foo()` resolve to
+            // some `foo` when the caller doesn't know which class owns it.
+            if (!symbolNameMap.has(sym.name)) {
+              symbolNameMap.set(sym.name, finalId);
+            }
 
             // Record range for containing-symbol attribution in pass 3
             if (!fileSymbolRanges.has(relPath)) {
               fileSymbolRanges.set(relPath, []);
             }
             fileSymbolRanges.get(relPath)!.push({
-              id: symbolId,
+              id: finalId,
               kind: sym.kind,
               lineStart: sym.lineStart,
               lineEnd: sym.lineEnd,
@@ -286,11 +337,11 @@ export class Indexer {
 
             // Create contains edge: file -> symbol
             const containsEdge: GraphEdge = {
-              id: `edge:contains:${fileId}:${symbolId}`,
+              id: `edge:contains:${fileId}:${finalId}`,
               type: "contains",
               source: "static",
               fromId: fileId,
-              toId: symbolId,
+              toId: finalId,
               createdAt: now,
             };
             await this.storage.upsertEdge(containsEdge);
