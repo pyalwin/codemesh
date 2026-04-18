@@ -17,7 +17,10 @@ import { parseFile } from "./parser.js";
 import { getSupportedExtensions } from "./languages.js";
 import { analyzeGitHistory } from "./git-intel.js";
 import { computePageRank } from "./pagerank.js";
-import { indexEmbeddings } from "./embeddings.js";
+import {
+  indexEmbeddings,
+  deleteEmbeddingsByFilePaths,
+} from "./embeddings.js";
 import { summarizeSymbols } from "./summarizer.js";
 
 // ─── Public types ───────────────────────────────────────────────────
@@ -457,33 +460,45 @@ export class Indexer {
       // PageRank computation is non-critical — skip silently
     }
 
-    // Step 8: Embeddings (opt-in) — generate vector embeddings for semantic search
+    // Step 8: Embeddings (opt-in) — incremental semantic index update
     let embeddingsResult: IndexResult["embeddings"];
     if (options?.withEmbeddings !== false) {
       try {
-        // Collect all symbol nodes for embedding
-        const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
-        const symbolsForEmbedding = allSymbolNodes.map((n) => {
-          const sym = n as SymbolNode;
-          return {
-            id: sym.id,
-            name: sym.name,
-            signature: sym.signature,
-            filePath: sym.filePath,
-            lineStart: sym.lineStart,
-            lineEnd: sym.lineEnd,
-            summary: sym.summary,
-          };
-        });
+        // 8a. Delete embeddings for purged files (changed or deleted).
+        //     The corresponding symbol nodes were already removed in step 4.
+        const purgedFiles = [...changed, ...deleted];
+        if (purgedFiles.length > 0) {
+          await deleteEmbeddingsByFilePaths(this.projectRoot, purgedFiles);
+        }
 
-        if (symbolsForEmbedding.length > 0) {
-          embeddingsResult = await indexEmbeddings(
-            this.projectRoot,
-            symbolsForEmbedding,
-          );
+        // 8b. Embed only symbols in files we just processed.
+        if (filesToProcess.length > 0) {
+          const freshSymbols = (await this.storage.queryNodesByFilePaths(
+            filesToProcess,
+          )) as SymbolNode[];
+
+          if (freshSymbols.length > 0) {
+            const symbolsForEmbedding = freshSymbols.map((sym) => ({
+              id: sym.id,
+              name: sym.name,
+              signature: sym.signature,
+              filePath: sym.filePath,
+              lineStart: sym.lineStart,
+              lineEnd: sym.lineEnd,
+              summary: sym.summary,
+            }));
+
+            embeddingsResult = await indexEmbeddings(
+              this.projectRoot,
+              symbolsForEmbedding,
+            );
+          } else {
+            embeddingsResult = { count: 0, durationMs: 0 };
+          }
+        } else {
+          embeddingsResult = { count: 0, durationMs: 0 };
         }
       } catch (e) {
-        // Embedding generation is non-critical — log and continue
         const msg = e instanceof Error ? e.message : String(e);
         console.warn(`Warning: embedding generation failed — ${msg}`);
       }

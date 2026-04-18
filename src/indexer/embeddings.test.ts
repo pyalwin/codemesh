@@ -137,6 +137,34 @@ describe("deleteEmbeddings", () => {
   });
 });
 
+describe("deleteEmbeddingsByFilePaths", () => {
+  let projectRoot: string;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), "codemesh-emb-"));
+    resetLanceDb();
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+    resetLanceDb();
+  });
+
+  it("deletes all rows whose filePath is in the list", async () => {
+    const { indexEmbeddings, deleteEmbeddingsByFilePaths } = await import(
+      "./embeddings.js"
+    );
+    await indexEmbeddings(projectRoot, [
+      { id: "symbol:a.ts:one", name: "one", signature: "()", filePath: "a.ts" },
+      { id: "symbol:a.ts:two", name: "two", signature: "()", filePath: "a.ts" },
+      { id: "symbol:b.ts:three", name: "three", signature: "()", filePath: "b.ts" },
+    ]);
+
+    const removed = await deleteEmbeddingsByFilePaths(projectRoot, ["a.ts"]);
+    expect(removed).toBe(2);
+  }, 120_000);
+});
+
 describe("indexEmbeddings — incremental behaviour", () => {
   let projectRoot: string;
 

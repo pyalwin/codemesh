@@ -277,3 +277,44 @@ export async function deleteEmbeddings(
 
   return removed;
 }
+
+/**
+ * Delete all embedding rows whose filePath matches one of the given paths.
+ * Used by the indexer when a file is changed or deleted.
+ *
+ * Chunks input to keep predicate strings bounded — LanceDB's SQL layer
+ * degrades on very large IN lists.
+ * Throws if the table exists but the delete itself fails (bad predicate / IO).
+ */
+export async function deleteEmbeddingsByFilePaths(
+  projectRoot: string,
+  filePaths: string[],
+): Promise<number> {
+  if (filePaths.length === 0) return 0;
+
+  const ldb = await getLanceDb(projectRoot);
+
+  let table;
+  try {
+    table = await ldb.openTable("symbols");
+  } catch {
+    return 0;
+  }
+
+  const CHUNK = 5000;
+  let removed = 0;
+  const unique = Array.from(new Set(filePaths));
+
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const batch = unique.slice(i, i + CHUNK);
+    // Safe quote-escape: filePaths come from project-relative filesystem
+    // scans, so single-quote is the only SQL metacharacter realistic here.
+    const literals = batch
+      .map((p) => `'${p.replace(/'/g, "''")}'`)
+      .join(", ");
+    const result = await table.delete(`filePath IN (${literals})`);
+    removed += result.numDeletedRows;
+  }
+
+  return removed;
+}
