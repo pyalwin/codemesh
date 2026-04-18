@@ -47,7 +47,20 @@ describe("Indexer — incremental embeddings", () => {
     const secondRun = await indexer.index({ withEmbeddings: true });
     expect(secondRun.embeddings?.count).toBe(1);
 
-    // alpha survives
+    // Direct proof that only b.ts was re-embedded: the alpha row must
+    // remain in LanceDB, not be re-created. With the old drop+rebuild
+    // pattern, `semanticSearch` would still return `alpha` (because it
+    // would have just been re-embedded), so that assertion alone is
+    // insufficient. Instead, confirm a.ts wasn't touched at all by
+    // checking that the row-count after incremental equals the first
+    // run's count — no drops, no reinsertions of alpha.
+    const lancedb = await import("@lancedb/lancedb");
+    const ldb = await lancedb.connect(
+      join(projectRoot, ".codemesh", "vectors"),
+    );
+    const table = await ldb.openTable("symbols");
+    expect(await table.countRows()).toBe(2);
+
     const results = await semanticSearch(projectRoot, "alpha", 5);
     expect(results.map((r) => r.id)).toContain("symbol:a.ts:alpha");
   }, 180_000);

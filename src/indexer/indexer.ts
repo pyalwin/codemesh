@@ -463,15 +463,21 @@ export class Indexer {
     // Step 8: Embeddings (opt-in) — incremental semantic index update
     let embeddingsResult: IndexResult["embeddings"];
     if (options?.withEmbeddings !== false) {
-      try {
-        // 8a. Delete embeddings for purged files (changed or deleted).
-        //     The corresponding symbol nodes were already removed in step 4.
-        const purgedFiles = [...changed, ...deleted];
-        if (purgedFiles.length > 0) {
+      // 8a. Delete embeddings for purged files (changed or deleted).
+      //     Non-fatal: if cleanup fails, the stale rows remain but we
+      //     still proceed to 8b so new symbols get embedded.
+      const purgedFiles = [...changed, ...deleted];
+      if (purgedFiles.length > 0) {
+        try {
           await deleteEmbeddingsByFilePaths(this.projectRoot, purgedFiles);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn(`Warning: embedding cleanup failed — ${msg}`);
         }
+      }
 
-        // 8b. Embed only symbols in files we just processed.
+      // 8b. Embed only symbols in files we just processed.
+      try {
         if (filesToProcess.length > 0) {
           const freshSymbols = (await this.storage.queryNodesByFilePaths(
             filesToProcess,
