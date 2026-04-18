@@ -8,7 +8,7 @@
  * If no language server is available, everything falls back gracefully.
  */
 
-import { spawn, execSync, type ChildProcess } from "node:child_process";
+import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -41,7 +41,7 @@ export interface LspCommand {
 
 function isOnPath(cmd: string): boolean {
   try {
-    execSync(`which ${cmd}`, { stdio: "ignore" });
+    execFileSync("which", [cmd], { stdio: "ignore" });
     return true;
   } catch {
     return false;
