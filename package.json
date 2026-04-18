@@ -8,7 +8,7 @@
     "codemesh": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').cpSync('src/indexer/queries','dist/indexer/queries',{recursive:true})\"",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",

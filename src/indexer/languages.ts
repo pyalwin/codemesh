@@ -6,6 +6,8 @@ export interface LanguageConfig {
   name: string;
   extensions: string[];
   grammarPackage: string;
+  /** Relative to src/indexer/queries/, e.g. "swift.scm". Absent = use walker. */
+  queryFile?: string;
 }
 
 const LANGUAGE_CONFIGS: LanguageConfig[] = [
@@ -43,6 +45,7 @@ const LANGUAGE_CONFIGS: LanguageConfig[] = [
     name: "swift",
     extensions: [".swift"],
     grammarPackage: "tree-sitter-swift",
+    queryFile: "swift.scm",
   },
   {
     name: "c",

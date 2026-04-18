@@ -115,6 +115,18 @@ export async function parseFile(
     walkTS(tree.rootNode, symbols, imports, calls, source);
   } else if (config.name === "python") {
     walkPython(tree.rootNode, symbols, imports, calls, source);
+  } else if (config.queryFile) {
+    const { parseWithQuery } = await import("./query-parser.js");
+    const res = parseWithQuery(
+      tree,
+      grammar,
+      config.name,
+      config.queryFile,
+      source,
+    );
+    symbols.push(...res.symbols);
+    imports.push(...res.imports);
+    calls.push(...res.calls);
   } else {
     // For languages without a dedicated walker, do a generic walk
     walkGeneric(tree.rootNode, symbols, imports, calls, source);
