@@ -36,10 +36,32 @@ export interface IndexResult {
   summaries?: { generated: number; skipped: number };
 }
 
+export interface IndexProgress {
+  phase:
+    | "scan"
+    | "purge"
+    | "parse"
+    | "resolve"
+    | "git"
+    | "pagerank"
+    | "summaries"
+    | "embeddings";
+  completed: number;
+  total: number;
+  /** Elapsed ms in this phase. */
+  elapsedMs: number;
+}
+
 export interface IndexOptions {
   /** Run semantic embedding generation. Defaults to true; set to false to skip. */
   withEmbeddings?: boolean;
   withSummaries?: boolean;
+  /**
+   * Optional reporter invoked at phase boundaries so callers can surface
+   * progress on long-running index runs. Exceptions thrown by the reporter
+   * are caught and logged to stderr — they will not abort the index.
+   */
+  onProgress?: (p: IndexProgress) => void;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -78,13 +100,32 @@ export class Indexer {
   async index(options?: IndexOptions): Promise<IndexResult> {
     const startTime = Date.now();
 
+    // Defensive wrapper around the caller's progress reporter. A throwing
+    // reporter must never abort the index run.
+    const report = (progress: IndexProgress): void => {
+      if (!options?.onProgress) return;
+      try {
+        options.onProgress(progress);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`Warning: onProgress reporter threw — ${msg}`);
+      }
+    };
+
     const supportedExts = new Set(getSupportedExtensions());
 
     // Step 1: Walk directory and collect files with their hashes
     const ig = this.loadIgnoreRules();
     const fileHashes = new Map<string, string>();
 
+    let phaseStart = Date.now();
     this.walkDirectory(this.projectRoot, ig, supportedExts, fileHashes);
+    report({
+      phase: "scan",
+      completed: fileHashes.size,
+      total: fileHashes.size,
+      elapsedMs: Date.now() - phaseStart,
+    });
 
     // Step 2: Identify changed, new, and deleted files
     const { changed, deleted, added } =
@@ -101,6 +142,8 @@ export class Indexer {
     const FILE_BATCH_SIZE = 500;
 
     // Transaction A: concept staleness + purge (fast, small)
+    phaseStart = Date.now();
+    const filesToPurge = [...changed, ...deleted];
     await this.storage.beginTransaction();
     try {
       // Step 3: Mark agent concepts as stale for changed files
@@ -109,7 +152,6 @@ export class Indexer {
       }
 
       // Step 4: Purge old nodes for changed and deleted files
-      const filesToPurge = [...changed, ...deleted];
       if (filesToPurge.length > 0) {
         await this.storage.purgeFileNodes(filesToPurge);
       }
@@ -119,6 +161,12 @@ export class Indexer {
       await this.storage.rollbackTransaction();
       throw e;
     }
+    report({
+      phase: "purge",
+      completed: filesToPurge.length,
+      total: filesToPurge.length,
+      elapsedMs: Date.now() - phaseStart,
+    });
 
     // Step 5: Parse and index new/changed files
 
@@ -170,6 +218,7 @@ export class Indexer {
     const CALLABLE_KINDS = new Set(["function", "method", "const", "class"]);
 
     // Transaction B (chunked): parse + upsert files in batches
+    phaseStart = Date.now();
     for (let i = 0; i < filesToProcess.length; i += FILE_BATCH_SIZE) {
       const batch = filesToProcess.slice(i, i + FILE_BATCH_SIZE);
       await this.storage.beginTransaction();
@@ -274,9 +323,16 @@ export class Indexer {
         );
         throw e;
       }
+      report({
+        phase: "parse",
+        completed: Math.min(i + FILE_BATCH_SIZE, filesToProcess.length),
+        total: filesToProcess.length,
+        elapsedMs: Date.now() - phaseStart,
+      });
     }
 
     // Transaction C: resolution passes (imports + calls)
+    phaseStart = Date.now();
     await this.storage.beginTransaction();
     try {
       // Second pass: create import edges between file nodes
@@ -353,10 +409,17 @@ export class Indexer {
       await this.storage.rollbackTransaction();
       throw e;
     }
+    report({
+      phase: "resolve",
+      completed: importEdges.length + callEdges.length,
+      total: importEdges.length + callEdges.length,
+      elapsedMs: Date.now() - phaseStart,
+    });
 
     // Step 5.5: Symbol summarization (opt-in) — generate LLM summaries
     let summariesResult: IndexResult["summaries"];
     if (options?.withSummaries) {
+      const summariesPhaseStart = Date.now();
       try {
         // Collect symbols that need summaries (new/changed files or missing summary)
         const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
@@ -405,6 +468,12 @@ export class Indexer {
             generated: newSummaries.size,
             skipped: needsSummary.length - newSummaries.size,
           };
+          report({
+            phase: "summaries",
+            completed: newSummaries.size,
+            total: needsSummary.length,
+            elapsedMs: Date.now() - summariesPhaseStart,
+          });
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -413,6 +482,7 @@ export class Indexer {
     }
 
     // Step 6: Git intelligence — hotspots and co-change pairs
+    const gitPhaseStart = Date.now();
     try {
       const gitIntel = await analyzeGitHistory(this.projectRoot);
 
@@ -465,6 +535,12 @@ export class Indexer {
         }
 
         await this.storage.commitTransaction();
+        report({
+          phase: "git",
+          completed: gitIntel.hotspots.length,
+          total: gitIntel.hotspots.length,
+          elapsedMs: Date.now() - gitPhaseStart,
+        });
       } catch (e) {
         await this.storage.rollbackTransaction();
         // Git intelligence is non-critical — don't fail the entire index
@@ -475,6 +551,7 @@ export class Indexer {
 
     // Step 7: PageRank — compute centrality scores for all nodes
     let pagerankResult: IndexResult["pagerankScore"];
+    const pagerankPhaseStart = Date.now();
     try {
       const ranks = await computePageRank(this.storage);
 
@@ -493,6 +570,12 @@ export class Indexer {
             await this.storage.upsertNode(updatedNode);
           }
           await this.storage.commitTransaction();
+          report({
+            phase: "pagerank",
+            completed: ranks.size,
+            total: ranks.size,
+            elapsedMs: Date.now() - pagerankPhaseStart,
+          });
         } catch (e) {
           await this.storage.rollbackTransaction();
           // PageRank storage is non-critical — don't fail the entire index
@@ -543,9 +626,20 @@ export class Indexer {
               summary: sym.summary,
             }));
 
+            const embedPhaseStart = Date.now();
             embeddingsResult = await indexEmbeddings(
               this.projectRoot,
               symbolsForEmbedding,
+              {
+                onBatch: (completed, total) => {
+                  report({
+                    phase: "embeddings",
+                    completed,
+                    total,
+                    elapsedMs: Date.now() - embedPhaseStart,
+                  });
+                },
+              },
             );
           } else {
             embeddingsResult = { count: 0, durationMs: 0 };
