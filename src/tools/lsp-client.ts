@@ -32,6 +32,11 @@ export interface LspClient {
   shutdown(): Promise<void>;
 }
 
+export interface LspCommand {
+  binary: string;
+  args: string[];
+}
+
 // ── Language Server Detection ─────────────────────────────────────
 
 function isOnPath(cmd: string): boolean {
@@ -43,18 +48,26 @@ function isOnPath(cmd: string): boolean {
   }
 }
 
-function detectLanguageServer(filePath: string): string | null {
+export function detectLanguageServer(filePath: string): LspCommand | null {
   const ext = extname(filePath);
 
   if ([".ts", ".tsx", ".js", ".jsx"].includes(ext)) {
-    if (isOnPath("typescript-language-server")) return "typescript-language-server --stdio";
+    if (isOnPath("typescript-language-server")) {
+      return { binary: "typescript-language-server", args: ["--stdio"] };
+    }
   }
   if (ext === ".py") {
-    if (isOnPath("pyright-langserver")) return "pyright-langserver --stdio";
-    if (isOnPath("pylsp")) return "pylsp";
+    if (isOnPath("pyright-langserver")) {
+      return { binary: "pyright-langserver", args: ["--stdio"] };
+    }
+    if (isOnPath("pylsp")) {
+      return { binary: "pylsp", args: [] };
+    }
   }
   if (ext === ".swift") {
-    if (isOnPath("sourcekit-lsp")) return "sourcekit-lsp";
+    if (isOnPath("sourcekit-lsp")) {
+      return { binary: "sourcekit-lsp", args: [] };
+    }
   }
   return null;
 }
@@ -87,9 +100,8 @@ class LspTransport {
   private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   private buffer = "";
 
-  constructor(command: string) {
-    const parts = command.split(/\s+/);
-    this.process = spawn(parts[0], parts.slice(1), {
+  constructor(command: LspCommand) {
+    this.process = spawn(command.binary, command.args, {
       stdio: ["pipe", "pipe", "pipe"],
     });
 
@@ -205,7 +217,7 @@ class LspClientImpl implements LspClient {
     this.projectRoot = projectRoot;
   }
 
-  static async create(command: string, projectRoot: string): Promise<LspClientImpl> {
+  static async create(command: LspCommand, projectRoot: string): Promise<LspClientImpl> {
     const transport = new LspTransport(command);
     const client = new LspClientImpl(transport, projectRoot);
     await client.initialize();
@@ -361,7 +373,7 @@ function parseLspLocations(result: unknown): LspLocation[] {
 
 // ── Factory — Session-Cached Client ──────────────────────────────
 
-/** Cache: projectRoot -> serverCommand -> LspClient */
+/** Cache: projectRoot -> serverBinary -> LspClient */
 const clientCache = new Map<string, Map<string, LspClient>>();
 
 /**
@@ -378,12 +390,13 @@ export async function getLspClient(filePath: string, projectRoot: string): Promi
     clientCache.set(projectRoot, projectClients);
   }
 
-  const existing = projectClients.get(command);
+  const cacheKey = command.binary;
+  const existing = projectClients.get(cacheKey);
   if (existing) return existing;
 
   try {
     const client = await LspClientImpl.create(command, projectRoot);
-    projectClients.set(command, client);
+    projectClients.set(cacheKey, client);
     return client;
   } catch {
     // Server failed to start — return null, don't cache the failure
