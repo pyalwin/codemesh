@@ -50,3 +50,33 @@ describe("parser — scopePath", () => {
     expect(methods.map((m) => m.scopePath)).toEqual([["A"], ["B"]]);
   });
 });
+
+describe("parser — scopePath on calls", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), "codemesh-parse-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("records the enclosing class/method in the call's scopePath", async () => {
+    const file = join(tmp, "scope.ts");
+    writeFileSync(
+      file,
+      [
+        "export class A {",
+        "  foo() { return 1; }",
+        "  bar() { return this.foo(); }",
+        "}",
+      ].join("\n"),
+    );
+    const result = await parseFile(file, "scope.ts");
+    const fooCall = result.calls.find((c) => c.callee === "this.foo");
+    expect(fooCall).toBeDefined();
+    // The call happens inside method A.bar — scopePath reflects that.
+    expect(fooCall!.scopePath).toEqual(["A"]);
+  });
+});

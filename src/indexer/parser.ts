@@ -25,6 +25,7 @@ export interface ParsedSymbol {
 export interface CallReference {
   callee: string;
   lineNumber: number;
+  scopePath: string[];
 }
 
 export interface ParseResult {
@@ -317,6 +318,7 @@ function walkTSNode(
           calls.push({
             callee,
             lineNumber: node.startPosition.row + 1,
+            scopePath: [...scopeStack],
           });
         }
       }
@@ -333,6 +335,7 @@ function walkTSNode(
           calls.push({
             callee: `new ${child.text}`,
             lineNumber: node.startPosition.row + 1,
+            scopePath: [...scopeStack],
           });
           break;
         }
@@ -514,6 +517,7 @@ function walkPythonNode(
           calls.push({
             callee,
             lineNumber: node.startPosition.row + 1,
+            scopePath: [...scopeStack],
           });
         }
       }

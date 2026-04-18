@@ -72,4 +72,29 @@ describe("Indexer — namespace-aware IDs", () => {
       expect(id).toMatch(/@L\d+$/);
     }
   });
+
+  it("resolves in-class calls to the class's own method, not another class's method", async () => {
+    writeFileSync(
+      join(root, "scope.ts"),
+      [
+        "export class A {",
+        "  foo() { return 1; }",
+        "  bar() {",
+        "    return this.foo();",
+        "  }",
+        "}",
+        "export class B {",
+        "  foo() { return 2; }",
+        "}",
+      ].join("\n"),
+    );
+    const indexer = new Indexer(backend, root);
+    await indexer.index({ withEmbeddings: false });
+
+    const barId = "symbol:scope.ts:A.bar";
+    const edges = await backend.getEdges(barId, "out", ["calls"]);
+    const targets = edges.map((e) => e.toId);
+    expect(targets).toContain("symbol:scope.ts:A.foo");
+    expect(targets).not.toContain("symbol:scope.ts:B.foo");
+  });
 });

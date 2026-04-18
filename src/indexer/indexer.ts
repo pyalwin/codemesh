@@ -224,6 +224,7 @@ export class Indexer {
       fromFilePath: string;
       callee: string;
       lineNumber: number;
+      scopePath: string[];
     }> = [];
     // Per-file symbol ranges for attributing calls to their containing symbol.
     // Populated during pass 1 from freshly-parsed files.
@@ -365,6 +366,7 @@ export class Indexer {
               fromFilePath: relPath,
               callee: call.callee,
               lineNumber: call.lineNumber,
+              scopePath: call.scopePath,
             });
           }
         }
@@ -388,6 +390,35 @@ export class Indexer {
         elapsedMs: Date.now() - phaseStart,
       });
     }
+
+    // Scope-aware callee resolution. Walks outward from the call site's
+    // scope, trying progressively shorter prefixes to find the most-specific
+    // qualified match. Falls back to a bare-name lookup so cross-file calls
+    // still resolve when the caller doesn't know the enclosing class.
+    //
+    // Only `this.<name>` triggers in-scope walking — bare names like `add()`
+    // inside a method are treated as lexical references (imports/top-level),
+    // not sibling-method calls. Otherwise a class method named `add` would
+    // always shadow an imported `add` function.
+    const resolveCallee = (
+      callSiteScope: string[],
+      callee: string,
+    ): string | null => {
+      if (callee.startsWith("this.")) {
+        const effectiveCallee = callee.slice("this.".length);
+        // Try progressively shorter prefixes of the caller's scope.
+        for (let i = callSiteScope.length; i >= 0; i--) {
+          const prefix = callSiteScope.slice(0, i);
+          const candidate =
+            prefix.length > 0
+              ? `${prefix.join(".")}.${effectiveCallee}`
+              : effectiveCallee;
+          const hit = symbolNameMap.get(candidate);
+          if (hit) return hit;
+        }
+      }
+      return symbolNameMap.get(callee) ?? null;
+    };
 
     // Transaction C: resolution passes (imports + calls)
     phaseStart = Date.now();
@@ -426,8 +457,9 @@ export class Indexer {
         fromFilePath,
         callee,
         lineNumber,
+        scopePath,
       } of callEdges) {
-        const symbolId = symbolNameMap.get(callee);
+        const symbolId = resolveCallee(scopePath, callee);
         if (!symbolId) continue;
 
         const ranges = fileSymbolRanges.get(fromFilePath) ?? [];
