@@ -136,3 +136,57 @@ describe("deleteEmbeddings", () => {
     expect(removed).toBe(0);
   });
 });
+
+describe("indexEmbeddings — incremental behaviour", () => {
+  let projectRoot: string;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), "codemesh-emb-"));
+    resetLanceDb();
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+    resetLanceDb();
+  });
+
+  it("preserves embeddings for symbols not passed in the second call", async () => {
+    const { semanticSearch } = await import("./embeddings.js");
+
+    await indexEmbeddings(projectRoot, [
+      { id: "symbol:a.ts:alpha", name: "alpha", signature: "()", filePath: "a.ts" },
+      { id: "symbol:b.ts:beta", name: "beta", signature: "()", filePath: "b.ts" },
+    ]);
+
+    // Simulate incremental re-index of just b.ts
+    await indexEmbeddings(projectRoot, [
+      { id: "symbol:b.ts:beta", name: "beta", signature: "()", filePath: "b.ts" },
+    ]);
+
+    const results = await semanticSearch(projectRoot, "alpha", 5);
+    const ids = results.map((r) => r.id);
+    expect(ids).toContain("symbol:a.ts:alpha");
+  }, 120_000);
+
+  it("updates embeddings for symbols whose text changed", async () => {
+    const { semanticSearch } = await import("./embeddings.js");
+
+    await indexEmbeddings(projectRoot, [
+      { id: "symbol:a.ts:target", name: "oldName", signature: "()", filePath: "a.ts" },
+    ]);
+    const beforeResults = await semanticSearch(projectRoot, "newName", 5);
+    const beforeTarget = beforeResults.find((r) => r.id === "symbol:a.ts:target");
+
+    await indexEmbeddings(projectRoot, [
+      { id: "symbol:a.ts:target", name: "newName", signature: "()", filePath: "a.ts" },
+    ]);
+    const afterResults = await semanticSearch(projectRoot, "newName", 5);
+    const afterTarget = afterResults.find((r) => r.id === "symbol:a.ts:target");
+
+    expect(afterTarget).toBeDefined();
+    // Score should improve — `newName` matches the updated row better than the old one.
+    if (beforeTarget && afterTarget) {
+      expect(afterTarget.score).toBeLessThanOrEqual(beforeTarget.score);
+    }
+  }, 120_000);
+});

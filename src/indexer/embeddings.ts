@@ -122,54 +122,74 @@ export async function indexEmbeddings(
     lineEnd?: number;
     summary?: string;
   }>,
+  options?: {
+    batchSize?: number;
+    onBatch?: (completed: number, total: number) => void;
+  },
 ): Promise<{ count: number; durationMs: number }> {
   const start = Date.now();
+  if (symbols.length === 0) {
+    return { count: 0, durationMs: Date.now() - start };
+  }
+
+  const batchSize = options?.batchSize ?? 256;
   const ldb = await getLanceDb(projectRoot);
 
-  // Generate embeddings for each symbol
-  const records: Array<{
-    id: string;
-    name: string;
-    signature: string;
-    filePath: string;
-    text: string;
-    vector: number[];
-  }> = [];
-
-  for (const sym of symbols) {
-    const sourceLines =
-      !sym.summary && sym.lineStart && sym.lineEnd
-        ? readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd)
-        : undefined;
-    const text = buildEmbeddingText({
-      name: sym.name,
-      signature: sym.signature,
-      filePath: sym.filePath,
-      summary: sym.summary,
-      sourceLines,
-    });
-    const vector = await generateEmbedding(text);
-    records.push({
-      id: sym.id,
-      name: sym.name,
-      signature: sym.signature,
-      filePath: sym.filePath,
-      text,
-      vector,
-    });
+  let table: any;
+  try {
+    table = await ldb.openTable("symbols");
+  } catch {
+    table = null; // will create on first batch
   }
 
-  if (records.length > 0) {
-    // Create or overwrite table
-    try {
-      await ldb.dropTable("symbols");
-    } catch {
-      // Table may not exist yet — that's fine
+  let processed = 0;
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
+    const records = await Promise.all(
+      batch.map(async (sym) => {
+        const sourceLines =
+          !sym.summary && sym.lineStart && sym.lineEnd
+            ? readSourceLines(
+                projectRoot,
+                sym.filePath,
+                sym.lineStart,
+                sym.lineEnd,
+              )
+            : undefined;
+        const text = buildEmbeddingText({
+          name: sym.name,
+          signature: sym.signature,
+          filePath: sym.filePath,
+          summary: sym.summary,
+          sourceLines,
+        });
+        const vector = await generateEmbedding(text);
+        return {
+          id: sym.id,
+          name: sym.name,
+          signature: sym.signature,
+          filePath: sym.filePath,
+          text,
+          vector,
+        };
+      }),
+    );
+
+    if (!table) {
+      table = await ldb.createTable("symbols", records);
+    } else {
+      await table
+        .mergeInsert("id")
+        .whenMatchedUpdateAll()
+        .whenNotMatchedInsertAll()
+        .execute(records);
     }
-    await ldb.createTable("symbols", records);
+
+    processed += records.length;
+    options?.onBatch?.(processed, symbols.length);
   }
 
-  return { count: records.length, durationMs: Date.now() - start };
+  return { count: processed, durationMs: Date.now() - start };
 }
 
 export async function semanticSearch(
