@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["check-integrity.ts"],
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "noEmit": false
+  }
+}
