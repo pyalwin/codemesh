@@ -76,11 +76,13 @@ describe("parseFile — TypeScript", () => {
       "src/math.ts",
     );
 
+    // Methods now emit the bare name; scopePath carries enclosing class.
     const methodSymbol = result.symbols.find(
-      (s) => s.name === "MathHelper.square",
+      (s) => s.name === "square" && s.kind === "method",
     );
     expect(methodSymbol).toBeDefined();
     expect(methodSymbol!.kind).toBe("method");
+    expect(methodSymbol!.scopePath).toEqual(["MathHelper"]);
   });
 
   it("extracts imports from a TypeScript file", async () => {
@@ -164,11 +166,15 @@ describe("parseFile — Python", () => {
       "utils.py",
     );
 
-    const methodNames = result.symbols
-      .filter((s) => s.kind === "method")
-      .map((s) => s.name);
-    expect(methodNames).toContain("Logger.__init__");
-    expect(methodNames).toContain("Logger.log");
+    // Methods now emit the bare name; scopePath carries enclosing class.
+    const methods = result.symbols.filter((s) => s.kind === "method");
+    const methodNames = methods.map((s) => s.name);
+    expect(methodNames).toContain("__init__");
+    expect(methodNames).toContain("log");
+    const initMethod = methods.find((s) => s.name === "__init__");
+    const logMethod = methods.find((s) => s.name === "log");
+    expect(initMethod!.scopePath).toEqual(["Logger"]);
+    expect(logMethod!.scopePath).toEqual(["Logger"]);
   });
 
   it("extracts imports from a Python file", async () => {

@@ -19,6 +19,7 @@ export interface ParsedSymbol {
   lineStart: number;
   lineEnd: number;
   signature: string;
+  scopePath: string[];
 }
 
 export interface CallReference {
@@ -130,7 +131,7 @@ function walkTS(
   calls: CallReference[],
   _source: string,
 ): void {
-  walkTSNode(node, symbols, imports, calls, null);
+  walkTSNode(node, symbols, imports, calls, []);
 }
 
 function walkTSNode(
@@ -138,7 +139,7 @@ function walkTSNode(
   symbols: ParsedSymbol[],
   imports: string[],
   calls: CallReference[],
-  enclosingClass: string | null,
+  scopeStack: string[],
 ): void {
   switch (node.type) {
     // ── Exports wrap the real declaration ──
@@ -153,7 +154,7 @@ function walkTSNode(
           child.type === "type_alias_declaration" ||
           child.type === "enum_declaration"
         ) {
-          walkTSNode(child, symbols, imports, calls, enclosingClass);
+          walkTSNode(child, symbols, imports, calls, scopeStack);
         }
       }
       return; // Don't recurse into children again
@@ -169,10 +170,11 @@ function walkTSNode(
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
           signature: extractTSFunctionSignature(node),
+          scopePath: [...scopeStack],
         });
       }
       // Walk body for calls
-      walkTSChildren(node, symbols, imports, calls, enclosingClass);
+      walkTSChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -187,11 +189,15 @@ function walkTSNode(
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
           signature: `class ${className}`,
+          scopePath: [...scopeStack],
         });
-        // Walk body with enclosingClass context
+        // Walk body with class pushed onto scope stack
         const body = node.childForFieldName("body");
         if (body) {
-          walkTSChildren(body, symbols, imports, calls, className);
+          walkTSChildren(body, symbols, imports, calls, [
+            ...scopeStack,
+            className,
+          ]);
         }
       }
       return;
@@ -203,16 +209,19 @@ function walkTSNode(
       if (nameNode) {
         const methodName = nameNode.text;
         symbols.push({
-          name: enclosingClass
-            ? `${enclosingClass}.${methodName}`
-            : methodName,
+          // Emit the bare name; scopePath carries enclosing class(es).
+          name: methodName,
           kind: "method",
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
-          signature: extractTSMethodSignature(node, enclosingClass),
+          signature: extractTSMethodSignature(
+            node,
+            scopeStack[scopeStack.length - 1] ?? null,
+          ),
+          scopePath: [...scopeStack],
         });
       }
-      walkTSChildren(node, symbols, imports, calls, enclosingClass);
+      walkTSChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -226,6 +235,7 @@ function walkTSNode(
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
           signature: `interface ${nameNode.text}`,
+          scopePath: [...scopeStack],
         });
       }
       return;
@@ -241,6 +251,7 @@ function walkTSNode(
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
           signature: `type ${nameNode.text}`,
+          scopePath: [...scopeStack],
         });
       }
       return;
@@ -256,6 +267,7 @@ function walkTSNode(
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
           signature: `enum ${nameNode.text}`,
+          scopePath: [...scopeStack],
         });
       }
       return;
@@ -274,12 +286,13 @@ function walkTSNode(
               lineStart: node.startPosition.row + 1,
               lineEnd: node.endPosition.row + 1,
               signature: `const ${nameNode.text}`,
+              scopePath: [...scopeStack],
             });
           }
         }
       }
       // Walk value expressions for calls
-      walkTSChildren(node, symbols, imports, calls, enclosingClass);
+      walkTSChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -308,7 +321,7 @@ function walkTSNode(
         }
       }
       // Also walk arguments for nested calls
-      walkTSChildren(node, symbols, imports, calls, enclosingClass);
+      walkTSChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -324,7 +337,7 @@ function walkTSNode(
           break;
         }
       }
-      walkTSChildren(node, symbols, imports, calls, enclosingClass);
+      walkTSChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -333,7 +346,7 @@ function walkTSNode(
   }
 
   // Default: recurse into children
-  walkTSChildren(node, symbols, imports, calls, enclosingClass);
+  walkTSChildren(node, symbols, imports, calls, scopeStack);
 }
 
 function walkTSChildren(
@@ -341,10 +354,10 @@ function walkTSChildren(
   symbols: ParsedSymbol[],
   imports: string[],
   calls: CallReference[],
-  enclosingClass: string | null,
+  scopeStack: string[],
 ): void {
   for (const child of node.children) {
-    walkTSNode(child, symbols, imports, calls, enclosingClass);
+    walkTSNode(child, symbols, imports, calls, scopeStack);
   }
 }
 
@@ -395,7 +408,7 @@ function walkPython(
   calls: CallReference[],
   _source: string,
 ): void {
-  walkPythonNode(node, symbols, imports, calls, null);
+  walkPythonNode(node, symbols, imports, calls, []);
 }
 
 function walkPythonNode(
@@ -403,7 +416,7 @@ function walkPythonNode(
   symbols: ParsedSymbol[],
   imports: string[],
   calls: CallReference[],
-  enclosingClass: string | null,
+  scopeStack: string[],
 ): void {
   switch (node.type) {
     // ── Function definitions ──
@@ -411,23 +424,24 @@ function walkPythonNode(
       const nameNode = node.childForFieldName("name");
       if (nameNode) {
         const funcName = nameNode.text;
-        const isMethod = enclosingClass !== null;
+        const isMethod = scopeStack.length > 0;
         const kind: SymbolKind = isMethod ? "method" : "function";
-        const displayName =
-          isMethod && enclosingClass
-            ? `${enclosingClass}.${funcName}`
-            : funcName;
 
         symbols.push({
-          name: displayName,
+          // Emit the bare name; scopePath carries enclosing class(es).
+          name: funcName,
           kind,
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
-          signature: extractPythonFuncSignature(node, enclosingClass),
+          signature: extractPythonFuncSignature(
+            node,
+            scopeStack[scopeStack.length - 1] ?? null,
+          ),
+          scopePath: [...scopeStack],
         });
       }
       // Walk body for calls
-      walkPythonChildren(node, symbols, imports, calls, enclosingClass);
+      walkPythonChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -442,11 +456,15 @@ function walkPythonNode(
           lineStart: node.startPosition.row + 1,
           lineEnd: node.endPosition.row + 1,
           signature: `class ${className}`,
+          scopePath: [...scopeStack],
         });
-        // Walk body with class context
+        // Walk body with class pushed onto scope stack
         const body = node.childForFieldName("body");
         if (body) {
-          walkPythonChildren(body, symbols, imports, calls, className);
+          walkPythonChildren(body, symbols, imports, calls, [
+            ...scopeStack,
+            className,
+          ]);
         }
       }
       return;
@@ -500,7 +518,7 @@ function walkPythonNode(
         }
       }
       // Walk arguments for nested calls
-      walkPythonChildren(node, symbols, imports, calls, enclosingClass);
+      walkPythonChildren(node, symbols, imports, calls, scopeStack);
       return;
     }
 
@@ -508,7 +526,7 @@ function walkPythonNode(
       break;
   }
 
-  walkPythonChildren(node, symbols, imports, calls, enclosingClass);
+  walkPythonChildren(node, symbols, imports, calls, scopeStack);
 }
 
 function walkPythonChildren(
@@ -516,10 +534,10 @@ function walkPythonChildren(
   symbols: ParsedSymbol[],
   imports: string[],
   calls: CallReference[],
-  enclosingClass: string | null,
+  scopeStack: string[],
 ): void {
   for (const child of node.children) {
-    walkPythonNode(child, symbols, imports, calls, enclosingClass);
+    walkPythonNode(child, symbols, imports, calls, scopeStack);
   }
 }
 
@@ -583,6 +601,7 @@ function walkGenericNode(
         lineStart: node.startPosition.row + 1,
         lineEnd: node.endPosition.row + 1,
         signature: nameNode.text,
+        scopePath: [],
       });
     }
   }
@@ -601,6 +620,7 @@ function walkGenericNode(
         lineStart: node.startPosition.row + 1,
         lineEnd: node.endPosition.row + 1,
         signature: nameNode.text,
+        scopePath: [],
       });
     }
   }
