@@ -30,6 +30,7 @@ const LANGUAGE_CONFIGS: LanguageConfig[] = [
     name: "go",
     extensions: [".go"],
     grammarPackage: "tree-sitter-go",
+    queryFile: "go.scm",
   },
   {
     name: "rust",

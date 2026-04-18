@@ -61,3 +61,45 @@ describe("QueryParser — Swift", () => {
     // print may also appear, but require at least `hello`
   });
 });
+
+describe("QueryParser — Go", () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), "codemesh-go-")); });
+  afterEach(() => rmSync(tmp, { recursive: true, force: true }));
+
+  it("extracts structs, methods, functions, and imports", async () => {
+    const file = join(tmp, "main.go");
+    writeFileSync(
+      file,
+      [
+        "package main",
+        "",
+        "import (",
+        "    \"fmt\"",
+        "    \"strings\"",
+        ")",
+        "",
+        "type Account struct { Balance int }",
+        "",
+        "func (a *Account) Deposit(amount int) { a.Balance += amount }",
+        "",
+        "func greet(name string) { fmt.Println(\"hi \" + name) }",
+        "",
+        "func main() { greet(strings.ToUpper(\"world\")) }",
+      ].join("\n"),
+    );
+
+    const result = await parseFile(file, "main.go");
+    const kinds = result.symbols.map((s) => `${s.kind}:${s.name}`).sort();
+    expect(kinds).toContain("class:Account"); // struct mapped to class
+    expect(kinds).toContain("method:Deposit");
+    expect(kinds).toContain("function:greet");
+    expect(kinds).toContain("function:main");
+
+    expect(result.imports).toContain("fmt");
+    expect(result.imports).toContain("strings");
+
+    const callees = result.calls.map((c) => c.callee);
+    expect(callees).toContain("greet");
+  });
+});
