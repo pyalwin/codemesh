@@ -264,6 +264,14 @@ export class Indexer {
         await this.storage.commitTransaction();
       } catch (e) {
         await this.storage.rollbackTransaction();
+        const msg = e instanceof Error ? e.message : String(e);
+        const batchIdx = Math.floor(i / FILE_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(filesToProcess.length / FILE_BATCH_SIZE);
+        console.warn(
+          `Warning: index aborted during batch ${batchIdx}/${totalBatches} (${msg}). ` +
+            `${i} file(s) were committed in earlier batches but have no import/call edges. ` +
+            `Re-run \`codemesh index\` to complete the graph.`,
+        );
         throw e;
       }
     }

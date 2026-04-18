@@ -105,10 +105,11 @@ describe("Indexer — transaction chunking", () => {
   });
 
   it("indexes successfully across multiple file batches", async () => {
-    // Create enough files to span more than one transaction batch
-    // (FILE_BATCH_SIZE is 500 in the refactored indexer). We generate
-    // 50 files — fast to parse, and enough to exercise the batch loop.
-    for (let i = 0; i < 50; i++) {
+    // Generate 600 files to force at least two batches through the
+    // FILE_BATCH_SIZE=500 commit loop. Anything under 500 would never
+    // exercise the multi-batch path and leaves the chunking invariant
+    // untested.
+    for (let i = 0; i < 600; i++) {
       writeFileSync(
         join(projectRoot, `mod${i}.ts`),
         `export const value${i} = ${i};\n`,
@@ -118,7 +119,7 @@ describe("Indexer — transaction chunking", () => {
     const indexer = new Indexer(backend, projectRoot);
     const result = await indexer.index({ withEmbeddings: false });
 
-    expect(result.filesIndexed).toBe(50);
-    expect(result.symbolsFound).toBe(50);
-  }, 60_000);
+    expect(result.filesIndexed).toBe(600);
+    expect(result.symbolsFound).toBe(600);
+  }, 120_000);
 });
