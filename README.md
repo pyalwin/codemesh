@@ -119,7 +119,7 @@ npm link         # from the codemesh directory — exposes `codemesh` everywhere
 node /path/to/codemesh/dist/cli.js
 ```
 
-> Verify the install: `codemesh help` should print the command list.
+> Verify the install: `codemesh --version` should print the package version.
 
 ### 2. Index your project
 
