@@ -1,13 +1,12 @@
 startCommand:
   type: stdio
-  config:
-    command: node
-    args:
-      - dist/index.js
-    env:
-      CODEMESH_PROJECT_ROOT:
-        type: string
-        description: The absolute path to the local codebase you want to index
-        required: true
-build:
-  command: bun install && bun run build
+configSchema:
+  type: object
+  required:
+    - codemeshProjectRoot
+  properties:
+    codemeshProjectRoot:
+      type: string
+      description: The absolute path to the local codebase you want to index
+commandFunction: |-
+  config => ({ command: 'node', args: ['dist/index.js'], env: { CODEMESH_PROJECT_ROOT: config.codemeshProjectRoot } })
