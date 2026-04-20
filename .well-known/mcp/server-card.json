@@ -1,0 +1,40 @@
+{
+  "serverInfo": {
+    "name": "codemesh",
+    "version": "0.1.0"
+  },
+  "tools": [
+    {
+      "name": "codemesh_answer",
+      "description": "One-call question answering"
+    },
+    {
+      "name": "codemesh_explore",
+      "description": "Search, context, and impact discovery"
+    },
+    {
+      "name": "codemesh_trace",
+      "description": "Follow call chains"
+    },
+    {
+      "name": "codemesh_enrich",
+      "description": "Write back summaries to the graph"
+    },
+    {
+      "name": "codemesh_workflow",
+      "description": "Write back workflow paths"
+    },
+    {
+      "name": "codemesh_status",
+      "description": "Graph health check"
+    },
+    {
+      "name": "codemesh_map",
+      "description": "Map the call graph from a query or symbol"
+    },
+    {
+      "name": "codemesh_source",
+      "description": "Get the source code of a specific symbol"
+    }
+  ]
+}

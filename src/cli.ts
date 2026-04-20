@@ -16,7 +16,7 @@ import { mkdirSync, readFileSync, rmSync, existsSync } from "fs";
 
 const args = process.argv.slice(2);
 const command = args[0];
-const projectRoot = process.env.CODEMESH_PROJECT_ROOT ?? process.cwd();
+const projectRoot = process.env.CODEMESH_PROJECT_ROOT || process.cwd();
 const dbDir = join(projectRoot, ".codemesh");
 const dbPath = join(dbDir, "codemesh.db");
 
