@@ -9,13 +9,14 @@
  */
 import { readFileSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
+const runtimeImport = new Function("specifier", "return import(specifier)");
 // ── Model loading (lazy) ────────────────────────────────────────────
 let embedder = null;
 async function getEmbedder() {
     if (!embedder) {
         // Dynamic import to avoid loading the heavy transformers module
         // unless embeddings are explicitly requested
-        const { pipeline } = await import("@huggingface/transformers");
+        const { pipeline } = await runtimeImport("@huggingface/transformers");
         embedder = await pipeline("feature-extraction", "jinaai/jina-embeddings-v2-base-code", {
             dtype: "fp32",
         });
@@ -71,7 +72,7 @@ function readSourceLines(projectRoot, filePath, lineStart, lineEnd, maxLines = 3
 }
 async function getLanceDb(projectRoot) {
     if (!db) {
-        const lancedb = await import("@lancedb/lancedb");
+        const lancedb = await runtimeImport("@lancedb/lancedb");
         const dbPath = join(projectRoot, ".codemesh", "vectors");
         db = await lancedb.connect(dbPath);
     }

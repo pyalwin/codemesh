@@ -7,12 +7,13 @@
 **71% cheaper, 72% faster, 82% fewer tool calls** vs baseline Grep+Read\
 on 6 real-world repos (Sonnet 4.6) — from a single `codemesh index`.
 
+[![npm](https://img.shields.io/npm/v/@pyalwin/codemesh)](https://www.npmjs.com/package/@pyalwin/codemesh)
 [![Tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)]()
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple)]()
 
-[Benchmarks](#benchmarks) &middot; [Quick Start](#quick-start) &middot; [How It Works](#how-it-works) &middot; [API Reference](#mcp-tools) &middot; [Full Results](docs/benchmark-results.md)
+[Benchmarks](#benchmarks) &middot; [Quick Start](#quick-start) &middot; [Integrations](#client-integrations) &middot; [Write-Back](#agent-write-back-the-graph-that-gets-smarter) &middot; [How It Works](#how-it-works) &middot; [API Reference](#mcp-tools) &middot; [Full Results](docs/benchmark-results.md)
 
 </div>
 
@@ -99,20 +100,29 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 
 ### 1. Install
 
-The package isn't published to npm yet. Clone and build from source:
+```bash
+npm install -g @pyalwin/codemesh
+```
+
+Or run directly without installing:
+
+```bash
+npx -y @pyalwin/codemesh --help
+```
+
+<details>
+<summary>Build from source</summary>
 
 ```bash
 git clone https://github.com/pyalwin/codemesh.git
 cd codemesh
-bun install
-bun run build
+npm install && npm run build
+npm link
 ```
 
-Then add the binary to your PATH or use it directly:
+</details>
 
-```bash
-node /path/to/codemesh/dist/cli.js
-```
+> Verify the install: `codemesh --version` should print the package version.
 
 ### 2. Index your project
 
@@ -143,8 +153,8 @@ Add to your Claude Code MCP config (`~/.claude/mcp-servers.json` or project `.mc
 {
   "mcpServers": {
     "codemesh": {
-      "command": "node",
-      "args": ["/path/to/codemesh/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
       "env": {
         "CODEMESH_PROJECT_ROOT": "/path/to/your/project"
       }
@@ -217,6 +227,142 @@ Agent calls: codemesh_enrich({ path: "pydantic/functional_validators.py",
                summary: "Primary V2 validator API..." })
        saves: summary for next session
 ```
+
+---
+
+## Client Integrations
+
+Codemesh speaks the Model Context Protocol, so any MCP-compatible client can use it. Paste one of the snippets below, restart the client, and the six `codemesh_*` tools show up in the agent's toolbox.
+
+<details open>
+<summary><strong>Claude Code</strong> (CLI)</summary>
+
+Add to `~/.claude/mcp-servers.json` (user-wide) or `.mcp.json` (project-local):
+
+```json
+{
+  "mcpServers": {
+    "codemesh": {
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
+      "env": {
+        "CODEMESH_PROJECT_ROOT": "/absolute/path/to/your/project"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong> (macOS / Windows app)</summary>
+
+Edit `claude_desktop_config.json`:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "codemesh": {
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
+      "env": {
+        "CODEMESH_PROJECT_ROOT": "/absolute/path/to/your/project"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. Codemesh's tools will appear in the tool picker (hammer icon).
+</details>
+
+<details>
+<summary><strong>Cursor</strong> — stop the agent from wandering your codebase</summary>
+
+Cursor reads `.cursor/mcp.json` per project (or `~/.cursor/mcp.json` for all projects):
+
+```json
+{
+  "mcpServers": {
+    "codemesh": {
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
+      "env": {
+        "CODEMESH_PROJECT_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
+```
+
+Open **Settings → MCP**, confirm `codemesh` is green, then mention it in a prompt (`@codemesh how does auth work?`) to nudge the agent toward graph queries instead of recursive Grep.
+</details>
+
+<details>
+<summary><strong>Windsurf / VS Code (Continue)</strong></summary>
+
+Add to `~/.continue/config.json` under `experimental.modelContextProtocolServers`:
+
+```json
+{
+  "experimental": {
+    "modelContextProtocolServers": [
+      {
+        "transport": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@pyalwin/codemesh"],
+          "env": {
+            "CODEMESH_PROJECT_ROOT": "/absolute/path/to/your/project"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+</details>
+
+---
+
+## Agent Write-Back: the graph that gets smarter
+
+Every other code-intelligence tool indexes your repo once and hands the agent a read-only view. Codemesh lets the agent **teach the graph** as it works — summaries, workflows, and cross-concept links persist across sessions and survive re-indexing.
+
+```ts
+// Session 1 — agent reads unfamiliar code, then writes back what it learned.
+codemesh_enrich({
+  path: "pydantic/functional_validators.py",
+  summary: "Primary V2 validator API. `@field_validator` wraps "
+         + "`_decorators.FieldValidatorDecoratorInfo`; `mode='before'|'after'` "
+         + "toggles pre/post-coercion execution. Extends BaseValidator.",
+  concepts: ["validation", "decorators", "v2-api"]
+})
+
+// Session 1 — agent traces a multi-file flow, records the path.
+codemesh_workflow({
+  name: "pydantic field validation",
+  description: "Request → BaseModel.__init__ → SchemaValidator → field_validator",
+  files: [
+    "pydantic/main.py",
+    "pydantic/_internal/_model_construction.py",
+    "pydantic/functional_validators.py"
+  ]
+})
+
+// Session 2 (days later) — same question, different agent instance.
+codemesh_answer({ question: "How does pydantic validate fields?" })
+// → returns the enriched summary AND the 3-file workflow from Session 1
+//   before the agent reads a single line. Zero rediscovery cost.
+```
+
+The graph now knows things no static analyzer could infer: why a file matters, which files move together, what a maintainer called a concept. Re-indexing rebuilds the structural layer (files, symbols, imports, calls) but **preserves every enrichment** — entries only go stale when their referenced files change.
+
+See `codemesh_enrich` and `codemesh_workflow` under [MCP Tools](#mcp-tools).
 
 ---
 
@@ -406,7 +552,7 @@ Reproducible evaluation harness with LLM-as-judge scoring:
 
 ```bash
 # Setup
-bun install -g codemesh
+npm install -g @pyalwin/codemesh
 git clone --depth 1 https://github.com/Alamofire/Alamofire.git /tmp/alamofire
 # ... clone other repos ...
 

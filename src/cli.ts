@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Commands: codemesh index | status | rebuild | explore | help
+// Commands: codemesh index | status | rebuild | explore | help | version
 
 import { SqliteBackend } from "./graph/sqlite.js";
 import { Indexer } from "./indexer/indexer.js";
@@ -10,14 +10,32 @@ import { handleImpact } from "./tools/impact.js";
 import { handleAnswer } from "./tools/answer.js";
 import { handleReadSymbol } from "./tools/read-symbol.js";
 import { semanticSearch } from "./indexer/embeddings.js";
-import { join } from "path";
-import { mkdirSync, rmSync, existsSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
+import { mkdirSync, readFileSync, rmSync, existsSync } from "fs";
 
 const args = process.argv.slice(2);
 const command = args[0];
-const projectRoot = process.env.CODEMESH_PROJECT_ROOT ?? process.cwd();
+const projectRoot = process.env.CODEMESH_PROJECT_ROOT || process.cwd();
 const dbDir = join(projectRoot, ".codemesh");
 const dbPath = join(dbDir, "codemesh.db");
+
+function readPackageVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(
+      readFileSync(join(here, "..", "package.json"), "utf8"),
+    ) as { version?: unknown };
+    if (typeof pkg.version === "string") return pkg.version;
+  } catch {
+    // fall through
+  }
+  return "unknown";
+}
+
+function printVersion(): void {
+  console.log(`codemesh ${readPackageVersion()}`);
+}
 
 function printUsage(): void {
   console.log(`
@@ -34,6 +52,7 @@ Usage:
   codemesh explore answer <question>             One-call context assembly for a question
   codemesh explore read <symbol>                 Read source code for a specific symbol
   codemesh explore semantic <query>              Semantic vector search (requires --with-embeddings)
+  codemesh version | --version | -v              Print the installed version
   codemesh help                                  Show this help message
 
 Environment:
@@ -295,6 +314,11 @@ async function main(): Promise<void> {
     case "-h":
     case undefined:
       printUsage();
+      break;
+    case "version":
+    case "--version":
+    case "-v":
+      printVersion();
       break;
     default:
       console.error(`Unknown command: ${command}`);
