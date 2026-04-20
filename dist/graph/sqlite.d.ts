@@ -24,6 +24,7 @@ export declare class SqliteBackend implements StorageBackend {
     upsertNode(node: GraphNode): Promise<string>;
     getNode(id: string): Promise<GraphNode | null>;
     queryNodes(filter: NodeFilter): Promise<GraphNode[]>;
+    queryNodesByFilePaths(filePaths: string[]): Promise<GraphNode[]>;
     deleteNode(id: string): Promise<void>;
     upsertEdge(edge: GraphEdge): Promise<string>;
     getEdges(nodeId: string, direction: "in" | "out" | "both", edgeTypes?: string[]): Promise<GraphEdge[]>;

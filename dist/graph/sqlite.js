@@ -298,6 +298,23 @@ export class SqliteBackend {
         const rows = db.prepare(sql).all(params);
         return rows.map((r) => this.deserializeNode(r));
     }
+    async queryNodesByFilePaths(filePaths) {
+        if (filePaths.length === 0)
+            return [];
+        const db = this.getDb();
+        const placeholders = filePaths.map((_, i) => `@p${i}`).join(", ");
+        const params = {};
+        filePaths.forEach((p, i) => {
+            params[`p${i}`] = p;
+        });
+        const sql = `
+      SELECT * FROM nodes
+      WHERE type = 'symbol'
+        AND json_extract(data, '$.filePath') IN (${placeholders})
+    `;
+        const rows = db.prepare(sql).all(params);
+        return rows.map((r) => this.deserializeNode(r));
+    }
     async deleteNode(id) {
         const db = this.getDb();
         // Remove trigrams for this node

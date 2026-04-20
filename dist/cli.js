@@ -44,7 +44,21 @@ async function runIndex() {
     const storage = new SqliteBackend(dbPath);
     await storage.initialize();
     const indexer = new Indexer(storage, projectRoot);
-    const result = await indexer.index({ withEmbeddings, withSummaries });
+    const lastLogByPhase = {};
+    const result = await indexer.index({
+        withEmbeddings,
+        withSummaries,
+        onProgress: (p) => {
+            const now = Date.now();
+            const last = lastLogByPhase[p.phase] ?? 0;
+            // Throttle to once per 2s per phase, but always flush the final tick.
+            // Stderr keeps stdout pipe-clean for `explore` JSON consumers.
+            if (p.completed === p.total || now - last > 2000) {
+                lastLogByPhase[p.phase] = now;
+                process.stderr.write(`  [${p.phase}] ${p.completed}/${p.total} (${p.elapsedMs}ms)\n`);
+            }
+        },
+    });
     console.log(`Indexed ${result.filesIndexed} files`);
     console.log(`  Symbols found:  ${result.symbolsFound}`);
     console.log(`  Edges created:  ${result.edgesCreated}`);

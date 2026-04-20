@@ -89,43 +89,74 @@ export function resetLanceDb() {
 export function resetEmbedder() {
     embedder = null;
 }
-export async function indexEmbeddings(projectRoot, symbols) {
+/**
+ * Stream-index symbol embeddings into LanceDB.
+ *
+ * Inference is serial per-call (one tensor set in flight at a time); `batchSize`
+ * only controls the SQLite-write batch size and the disk-I/O fan-out for reading
+ * source lines, not the inference fan-out. This caps peak RSS independent of
+ * batchSize.
+ */
+export async function indexEmbeddings(projectRoot, symbols, options) {
     const start = Date.now();
+    if (symbols.length === 0) {
+        return { count: 0, durationMs: Date.now() - start };
+    }
+    const batchSize = options?.batchSize ?? 256;
     const ldb = await getLanceDb(projectRoot);
-    // Generate embeddings for each symbol
-    const records = [];
-    for (const sym of symbols) {
-        const sourceLines = !sym.summary && sym.lineStart && sym.lineEnd
-            ? readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd)
-            : undefined;
-        const text = buildEmbeddingText({
-            name: sym.name,
-            signature: sym.signature,
-            filePath: sym.filePath,
-            summary: sym.summary,
-            sourceLines,
-        });
-        const vector = await generateEmbedding(text);
-        records.push({
-            id: sym.id,
-            name: sym.name,
-            signature: sym.signature,
-            filePath: sym.filePath,
-            text,
-            vector,
-        });
+    let table;
+    try {
+        table = await ldb.openTable("symbols");
     }
-    if (records.length > 0) {
-        // Create or overwrite table
-        try {
-            await ldb.dropTable("symbols");
-        }
-        catch {
-            // Table may not exist yet — that's fine
-        }
-        await ldb.createTable("symbols", records);
+    catch {
+        table = null; // will create on first batch
     }
-    return { count: records.length, durationMs: Date.now() - start };
+    let processed = 0;
+    for (let i = 0; i < symbols.length; i += batchSize) {
+        const batch = symbols.slice(i, i + batchSize);
+        // Pass 1: overlap disk I/O for readSourceLines across the batch.
+        const prepared = await Promise.all(batch.map(async (sym) => {
+            const sourceLines = !sym.summary && sym.lineStart && sym.lineEnd
+                ? readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd)
+                : undefined;
+            const text = buildEmbeddingText({
+                name: sym.name,
+                signature: sym.signature,
+                filePath: sym.filePath,
+                summary: sym.summary,
+                sourceLines,
+            });
+            return { sym, text };
+        }));
+        // Pass 2: run inference strictly one-at-a-time so the embedder holds
+        // at most one set of tensor buffers concurrently. This caps peak RSS
+        // regardless of batchSize.
+        const records = [];
+        for (const { sym, text } of prepared) {
+            const vector = await generateEmbedding(text);
+            records.push({
+                id: sym.id,
+                name: sym.name,
+                signature: sym.signature,
+                filePath: sym.filePath,
+                text,
+                vector,
+            });
+        }
+        if (!table) {
+            table = await ldb.createTable("symbols", records);
+        }
+        else {
+            await table
+                .mergeInsert("id")
+                .whenMatchedUpdateAll()
+                .whenNotMatchedInsertAll()
+                .execute(records);
+        }
+        processed += records.length;
+        options?.onBatch?.(processed, symbols.length);
+    }
+    return { count: processed, durationMs: Date.now() - start };
 }
 export async function semanticSearch(projectRoot, query, limit = 10) {
     const ldb = await getLanceDb(projectRoot);
@@ -144,5 +175,75 @@ export async function semanticSearch(projectRoot, query, limit = 10) {
         // Table doesn't exist or search failed — graceful fallback
         return [];
     }
+}
+/**
+ * Delete embedding rows whose id matches any value in `ids`.
+ * Returns the number of rows deleted. If the table does not exist
+ * (e.g., embeddings never enabled for this project), returns 0 silently.
+ * Throws if the table exists but the delete itself fails (bad predicate / IO).
+ *
+ * Inputs are chunked to keep predicate strings bounded — LanceDB's SQL layer
+ * degrades on very large IN lists.
+ */
+export async function deleteEmbeddings(projectRoot, ids) {
+    if (ids.length === 0)
+        return 0;
+    const ldb = await getLanceDb(projectRoot);
+    let table;
+    try {
+        table = await ldb.openTable("symbols");
+    }
+    catch {
+        return 0; // no table yet
+    }
+    const CHUNK = 5000;
+    let removed = 0;
+    const unique = Array.from(new Set(ids));
+    for (let i = 0; i < unique.length; i += CHUNK) {
+        const batch = unique.slice(i, i + CHUNK);
+        // LanceDB SQL requires quoted string literals; escape stray single-quotes
+        // by doubling them (standard SQL literal rule). IDs in codemesh come from
+        // filesystem paths + identifier names, so no backslash escaping is needed.
+        const literals = batch
+            .map((id) => `'${id.replace(/'/g, "''")}'`)
+            .join(", ");
+        const result = await table.delete(`id IN (${literals})`);
+        removed += result.numDeletedRows;
+    }
+    return removed;
+}
+/**
+ * Delete all embedding rows whose filePath matches one of the given paths.
+ * Used by the indexer when a file is changed or deleted.
+ *
+ * Chunks input to keep predicate strings bounded — LanceDB's SQL layer
+ * degrades on very large IN lists.
+ * Throws if the table exists but the delete itself fails (bad predicate / IO).
+ */
+export async function deleteEmbeddingsByFilePaths(projectRoot, filePaths) {
+    if (filePaths.length === 0)
+        return 0;
+    const ldb = await getLanceDb(projectRoot);
+    let table;
+    try {
+        table = await ldb.openTable("symbols");
+    }
+    catch {
+        return 0;
+    }
+    const CHUNK = 5000;
+    let removed = 0;
+    const unique = Array.from(new Set(filePaths));
+    for (let i = 0; i < unique.length; i += CHUNK) {
+        const batch = unique.slice(i, i + CHUNK);
+        // Safe quote-escape: filePaths come from project-relative filesystem
+        // scans, so single-quote is the only SQL metacharacter realistic here.
+        const literals = batch
+            .map((p) => `'${p.replace(/'/g, "''")}'`)
+            .join(", ");
+        const result = await table.delete(`filePath IN (${literals})`);
+        removed += result.numDeletedRows;
+    }
+    return removed;
 }
 //# sourceMappingURL=embeddings.js.map

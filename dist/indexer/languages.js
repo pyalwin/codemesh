@@ -21,11 +21,13 @@ const LANGUAGE_CONFIGS = [
         name: "go",
         extensions: [".go"],
         grammarPackage: "tree-sitter-go",
+        queryFile: "go.scm",
     },
     {
         name: "rust",
         extensions: [".rs"],
         grammarPackage: "tree-sitter-rust",
+        queryFile: "rust.scm",
     },
     {
         name: "java",
@@ -36,6 +38,7 @@ const LANGUAGE_CONFIGS = [
         name: "swift",
         extensions: [".swift"],
         grammarPackage: "tree-sitter-swift",
+        queryFile: "swift.scm",
     },
     {
         name: "c",

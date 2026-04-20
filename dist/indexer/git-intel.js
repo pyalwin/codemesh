@@ -4,7 +4,7 @@
  * - Hotspots: files with high change frequency (churn)
  * - Co-change pairs: files that frequently change together in the same commits
  */
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 /**
  * Analyze git history to extract hotspots and co-change pairs.
  *
@@ -14,7 +14,13 @@ import { execSync } from "node:child_process";
 export async function analyzeGitHistory(projectRoot, maxCommits = 200) {
     let logOutput;
     try {
-        logOutput = execSync(`git log --name-only --pretty=format:'---COMMIT---%ai' -n ${maxCommits}`, {
+        logOutput = execFileSync("git", [
+            "log",
+            "--name-only",
+            "--pretty=format:---COMMIT---%ai",
+            "-n",
+            String(maxCommits),
+        ], {
             cwd: projectRoot,
             encoding: "utf-8",
             maxBuffer: 10 * 1024 * 1024,

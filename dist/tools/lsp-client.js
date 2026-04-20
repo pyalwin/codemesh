@@ -7,35 +7,46 @@
  * The agent never sees LSP — this is an internal enhancement for context.ts.
  * If no language server is available, everything falls back gracefully.
  */
-import { spawn, execSync } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+// ── Idle Reap Config ──────────────────────────────────────────────
+function getIdleThresholdMs() {
+    return Number(process.env.CODEMESH_LSP_IDLE_MS ?? 900_000);
+}
+function getHeartbeatMs() {
+    return Number(process.env.CODEMESH_LSP_HEARTBEAT_MS ?? 60_000);
+}
 // ── Language Server Detection ─────────────────────────────────────
 function isOnPath(cmd) {
     try {
-        execSync(`which ${cmd}`, { stdio: "ignore" });
+        execFileSync("which", [cmd], { stdio: "ignore" });
         return true;
     }
     catch {
         return false;
     }
 }
-function detectLanguageServer(filePath) {
+export function detectLanguageServer(filePath) {
     const ext = extname(filePath);
     if ([".ts", ".tsx", ".js", ".jsx"].includes(ext)) {
-        if (isOnPath("typescript-language-server"))
-            return "typescript-language-server --stdio";
+        if (isOnPath("typescript-language-server")) {
+            return { binary: "typescript-language-server", args: ["--stdio"] };
+        }
     }
     if (ext === ".py") {
-        if (isOnPath("pyright-langserver"))
-            return "pyright-langserver --stdio";
-        if (isOnPath("pylsp"))
-            return "pylsp";
+        if (isOnPath("pyright-langserver")) {
+            return { binary: "pyright-langserver", args: ["--stdio"] };
+        }
+        if (isOnPath("pylsp")) {
+            return { binary: "pylsp", args: [] };
+        }
     }
     if (ext === ".swift") {
-        if (isOnPath("sourcekit-lsp"))
-            return "sourcekit-lsp";
+        if (isOnPath("sourcekit-lsp")) {
+            return { binary: "sourcekit-lsp", args: [] };
+        }
     }
     return null;
 }
@@ -45,8 +56,7 @@ class LspTransport {
     pending = new Map();
     buffer = "";
     constructor(command) {
-        const parts = command.split(/\s+/);
-        this.process = spawn(parts[0], parts.slice(1), {
+        this.process = spawn(command.binary, command.args, {
             stdio: ["pipe", "pipe", "pipe"],
         });
         this.process.stdout?.on("data", (chunk) => {
@@ -144,6 +154,8 @@ class LspClientImpl {
     transport;
     projectRoot;
     openedFiles = new Set();
+    lastRequestAt = Date.now();
+    reaped = false;
     constructor(transport, projectRoot) {
         this.transport = transport;
         this.projectRoot = projectRoot;
@@ -194,6 +206,7 @@ class LspClientImpl {
         });
     }
     async getDefinition(filePath, line, character) {
+        this.lastRequestAt = Date.now();
         try {
             this.ensureFileOpen(filePath);
             const absPath = resolve(this.projectRoot, filePath);
@@ -209,6 +222,7 @@ class LspClientImpl {
         }
     }
     async getReferences(filePath, line, character) {
+        this.lastRequestAt = Date.now();
         try {
             this.ensureFileOpen(filePath);
             const absPath = resolve(this.projectRoot, filePath);
@@ -224,7 +238,16 @@ class LspClientImpl {
             return [];
         }
     }
+    getIdleMs(now = Date.now()) {
+        return now - this.lastRequestAt;
+    }
+    isReaped() {
+        return this.reaped;
+    }
     async shutdown() {
+        if (this.reaped)
+            return;
+        this.reaped = true;
         try {
             await this.transport.sendRequest("shutdown", null);
             this.transport.sendNotification("exit", null);
@@ -285,8 +308,44 @@ function parseLspLocations(result) {
     return locations;
 }
 // ── Factory — Session-Cached Client ──────────────────────────────
-/** Cache: projectRoot -> serverCommand -> LspClient */
+/** Cache: projectRoot -> serverBinary -> LspClient */
 const clientCache = new Map();
+let heartbeatTimer = null;
+function startHeartbeatIfNeeded() {
+    if (heartbeatTimer)
+        return;
+    heartbeatTimer = setInterval(reapIdle, getHeartbeatMs());
+    // Don't keep the process alive just for this timer (important for CLI use).
+    heartbeatTimer.unref?.();
+}
+function stopHeartbeat() {
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+    }
+}
+async function reapIdle() {
+    const now = Date.now();
+    const idleThreshold = getIdleThresholdMs();
+    const reapPromises = [];
+    for (const [root, byCmd] of clientCache) {
+        for (const [cmdKey, client] of byCmd) {
+            if (!(client instanceof LspClientImpl))
+                continue;
+            if (client.getIdleMs(now) >= idleThreshold) {
+                byCmd.delete(cmdKey);
+                reapPromises.push(client.shutdown());
+            }
+        }
+        if (byCmd.size === 0) {
+            clientCache.delete(root);
+        }
+    }
+    if (clientCache.size === 0) {
+        stopHeartbeat();
+    }
+    await Promise.allSettled(reapPromises);
+}
 /**
  * Get or create an LSP client for the given file and project root.
  * Returns null silently if no language server is available.
@@ -300,12 +359,14 @@ export async function getLspClient(filePath, projectRoot) {
         projectClients = new Map();
         clientCache.set(projectRoot, projectClients);
     }
-    const existing = projectClients.get(command);
+    const cacheKey = command.binary;
+    const existing = projectClients.get(cacheKey);
     if (existing)
         return existing;
     try {
         const client = await LspClientImpl.create(command, projectRoot);
-        projectClients.set(command, client);
+        projectClients.set(cacheKey, client);
+        startHeartbeatIfNeeded();
         return client;
     }
     catch {
@@ -317,6 +378,7 @@ export async function getLspClient(filePath, projectRoot) {
  * Shutdown all cached LSP clients. Call on server exit.
  */
 export async function shutdownAllLspClients() {
+    stopHeartbeat();
     const shutdowns = [];
     for (const [, projectClients] of clientCache) {
         for (const [, client] of projectClients) {
@@ -325,5 +387,13 @@ export async function shutdownAllLspClients() {
     }
     await Promise.allSettled(shutdowns);
     clientCache.clear();
+}
+/** Test hook: force a reap pass synchronously. */
+export async function __test_reapIdle() {
+    await reapIdle();
+}
+/** Test hook: stop the heartbeat timer (used in afterEach). */
+export function __test_stopHeartbeat() {
+    stopHeartbeat();
 }
 //# sourceMappingURL=lsp-client.js.map
