@@ -83,9 +83,8 @@ async function main() {
         storage = await createInitializedStorage(projectRoot);
     }
     catch (e) {
-        // If we can't initialize storage (e.g. read-only environment during Smithery scan),
-        // we still want the server to boot so it can list tools.
-        console.error("Warning: Could not initialize storage. Tools may return empty results.", e);
+        // Silently fallback to an in-memory or empty storage for scanning purposes.
+        // Writing to stderr can cause Smithery's automated scanner to fail.
         storage = createScanStorage();
     }
     const server = createServer(storage, projectRoot);
