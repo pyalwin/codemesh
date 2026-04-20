@@ -9,7 +9,7 @@ import { parseFile } from "./parser.js";
 import { getSupportedExtensions } from "./languages.js";
 import { analyzeGitHistory } from "./git-intel.js";
 import { computePageRank } from "./pagerank.js";
-import { indexEmbeddings } from "./embeddings.js";
+import { indexEmbeddings, deleteEmbeddingsByFilePaths, } from "./embeddings.js";
 import { summarizeSymbols } from "./summarizer.js";
 // ─── Constants ──────────────────────────────────────────────────────
 /** Directories that are always ignored regardless of .gitignore */
@@ -41,17 +41,47 @@ export class Indexer {
      */
     async index(options) {
         const startTime = Date.now();
+        // Defensive wrapper around the caller's progress reporter. A throwing
+        // reporter must never abort the index run.
+        const report = (progress) => {
+            if (!options?.onProgress)
+                return;
+            // Suppress pure no-op ticks — these are interstitial-work counters
+            // with nothing to report (e.g. purge on a first-run with no deletions).
+            if (progress.completed === 0 && progress.total === 0)
+                return;
+            try {
+                options.onProgress(progress);
+            }
+            catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                console.warn(`Warning: onProgress reporter threw — ${msg}`);
+            }
+        };
         const supportedExts = new Set(getSupportedExtensions());
         // Step 1: Walk directory and collect files with their hashes
         const ig = this.loadIgnoreRules();
         const fileHashes = new Map();
+        let phaseStart = Date.now();
         this.walkDirectory(this.projectRoot, ig, supportedExts, fileHashes);
+        report({
+            phase: "scan",
+            completed: fileHashes.size,
+            total: fileHashes.size,
+            elapsedMs: Date.now() - phaseStart,
+        });
         // Step 2: Identify changed, new, and deleted files
         const { changed, deleted, added } = await this.storage.getStaleFiles(fileHashes);
         const filesToProcess = [...changed, ...added];
-        // Wrap all DB mutations in a single transaction for performance
+        // Chunk DB mutations across three transactions (plus a batched middle
+        // loop) to bound WAL pressure and let other readers see progress on
+        // large repos.
         let symbolsFound = 0;
         let edgesCreated = 0;
+        const FILE_BATCH_SIZE = 500;
+        // Transaction A: concept staleness + purge (fast, small)
+        phaseStart = Date.now();
+        const filesToPurge = [...changed, ...deleted];
         await this.storage.beginTransaction();
         try {
             // Step 3: Mark agent concepts as stale for changed files
@@ -59,107 +89,229 @@ export class Indexer {
                 await this.storage.markConceptsStale(changed);
             }
             // Step 4: Purge old nodes for changed and deleted files
-            const filesToPurge = [...changed, ...deleted];
             if (filesToPurge.length > 0) {
                 await this.storage.purgeFileNodes(filesToPurge);
             }
-            // Step 5: Parse and index new/changed files
-            // First pass: create file and symbol nodes, collect import info
-            const allSymbolIds = new Set();
-            const symbolNameMap = new Map(); // symbolName -> symbolNodeId
-            // We need existing symbols too (from files not being re-indexed)
-            const existingSymbols = await this.storage.queryNodes({ type: "symbol" });
-            for (const sym of existingSymbols) {
-                const symbolNode = sym;
-                allSymbolIds.add(symbolNode.id);
-                symbolNameMap.set(symbolNode.name, symbolNode.id);
+            await this.storage.commitTransaction();
+        }
+        catch (e) {
+            await this.storage.rollbackTransaction();
+            throw e;
+        }
+        report({
+            phase: "purge",
+            completed: filesToPurge.length,
+            total: filesToPurge.length,
+            elapsedMs: Date.now() - phaseStart,
+        });
+        // Step 5: Parse and index new/changed files
+        // First pass: create file and symbol nodes, collect import info
+        const allSymbolIds = new Set();
+        const symbolNameMap = new Map(); // symbolName -> symbolNodeId
+        // Seed existing-symbol lookup from already-stored symbols in files we are
+        // NOT re-indexing. Use the narrower query to avoid loading all symbols
+        // (which could be millions on large repos).
+        const unchangedFilePaths = [];
+        {
+            const fileNodes = await this.storage.queryNodes({ type: "file" });
+            const processSet = new Set(filesToProcess);
+            for (const n of fileNodes) {
+                const path = n.path;
+                if (!processSet.has(path)) {
+                    unchangedFilePaths.push(path);
+                }
             }
-            const importEdges = [];
-            const callEdges = [];
-            // Per-file symbol ranges for attributing calls to their containing symbol.
-            // Populated during pass 1 from freshly-parsed files.
-            const fileSymbolRanges = new Map();
-            const CALLABLE_KINDS = new Set(["function", "method", "const", "class"]);
-            for (const relPath of filesToProcess) {
-                const absPath = join(this.projectRoot, relPath);
-                const hash = fileHashes.get(relPath);
-                const now = new Date().toISOString();
-                // Create file node
-                const fileId = `file:${relPath}`;
-                const fileNode = {
-                    id: fileId,
-                    type: "file",
-                    source: "static",
-                    name: relPath.split("/").pop() || relPath,
-                    path: relPath,
-                    hash,
-                    lastIndexedAt: now,
-                    createdAt: now,
-                    updatedAt: now,
-                };
-                await this.storage.upsertNode(fileNode);
-                // Parse the file
-                const parseResult = await parseFile(absPath, relPath);
-                // Create symbol nodes and contains edges
-                for (const sym of parseResult.symbols) {
-                    const symbolId = `symbol:${relPath}:${sym.name}`;
-                    const symbolNode = {
-                        id: symbolId,
-                        type: "symbol",
+        }
+        if (unchangedFilePaths.length > 0) {
+            const existingSymbols = (await this.storage.queryNodesByFilePaths(unchangedFilePaths));
+            for (const sym of existingSymbols) {
+                allSymbolIds.add(sym.id);
+                // After Task 2, sym.name is the qualified name (e.g. "A.foo"). Register
+                // the qualified key as canonical. Also register a bare-name fallback so
+                // cross-file call resolution can still match `foo()` → first-registered.
+                symbolNameMap.set(sym.name, sym.id);
+                const bare = sym.name.includes(".")
+                    ? sym.name.split(".").pop()
+                    : sym.name;
+                if (!symbolNameMap.has(bare)) {
+                    symbolNameMap.set(bare, sym.id);
+                }
+            }
+        }
+        const importEdges = [];
+        const callEdges = [];
+        // Per-file symbol ranges for attributing calls to their containing symbol.
+        // Populated during pass 1 from freshly-parsed files.
+        const fileSymbolRanges = new Map();
+        const CALLABLE_KINDS = new Set(["function", "method", "const", "class"]);
+        // Transaction B (chunked): parse + upsert files in batches
+        phaseStart = Date.now();
+        for (let i = 0; i < filesToProcess.length; i += FILE_BATCH_SIZE) {
+            const batch = filesToProcess.slice(i, i + FILE_BATCH_SIZE);
+            await this.storage.beginTransaction();
+            try {
+                for (const relPath of batch) {
+                    const absPath = join(this.projectRoot, relPath);
+                    const hash = fileHashes.get(relPath);
+                    const now = new Date().toISOString();
+                    // Create file node
+                    const fileId = `file:${relPath}`;
+                    const fileNode = {
+                        id: fileId,
+                        type: "file",
                         source: "static",
-                        name: sym.name,
-                        kind: sym.kind,
-                        filePath: relPath,
-                        lineStart: sym.lineStart,
-                        lineEnd: sym.lineEnd,
-                        signature: sym.signature,
+                        name: relPath.split("/").pop() || relPath,
+                        path: relPath,
+                        hash,
+                        lastIndexedAt: now,
                         createdAt: now,
                         updatedAt: now,
                     };
-                    await this.storage.upsertNode(symbolNode);
-                    allSymbolIds.add(symbolId);
-                    symbolNameMap.set(sym.name, symbolId);
-                    // Record range for containing-symbol attribution in pass 3
-                    if (!fileSymbolRanges.has(relPath)) {
-                        fileSymbolRanges.set(relPath, []);
+                    await this.storage.upsertNode(fileNode);
+                    // Parse the file
+                    const parseResult = await parseFile(absPath, relPath);
+                    // Create symbol nodes and contains edges.
+                    //
+                    // Namespace-aware IDs: the base ID is
+                    //   symbol:<relPath>:<qualifiedName>
+                    // where qualifiedName = [...scopePath, name].join(".").
+                    // If two symbols in the same file collapse to the same base ID
+                    // (e.g. two top-level `dup()` functions), disambiguate by suffixing
+                    // `@L<lineStart>` to each colliding entry.
+                    const qualifiedNameOf = (s) => [...s.scopePath, s.name].join(".");
+                    const baseIds = parseResult.symbols.map((sym) => ({
+                        sym,
+                        qualified: qualifiedNameOf(sym),
+                        baseId: `symbol:${relPath}:${qualifiedNameOf(sym)}`,
+                    }));
+                    // Count occurrences of each base ID to detect collisions.
+                    const idCounts = new Map();
+                    for (const entry of baseIds) {
+                        idCounts.set(entry.baseId, (idCounts.get(entry.baseId) ?? 0) + 1);
                     }
-                    fileSymbolRanges.get(relPath).push({
-                        id: symbolId,
-                        kind: sym.kind,
-                        lineStart: sym.lineStart,
-                        lineEnd: sym.lineEnd,
+                    const finalEntries = baseIds.map((entry) => {
+                        const finalId = (idCounts.get(entry.baseId) ?? 0) > 1
+                            ? `${entry.baseId}@L${entry.sym.lineStart}`
+                            : entry.baseId;
+                        return { ...entry, finalId };
                     });
-                    // Create contains edge: file -> symbol
-                    const containsEdge = {
-                        id: `edge:contains:${fileId}:${symbolId}`,
-                        type: "contains",
-                        source: "static",
-                        fromId: fileId,
-                        toId: symbolId,
-                        createdAt: now,
-                    };
-                    await this.storage.upsertEdge(containsEdge);
-                    edgesCreated++;
-                    symbolsFound++;
+                    for (const { sym, qualified, finalId } of finalEntries) {
+                        const symbolNode = {
+                            id: finalId,
+                            type: "symbol",
+                            source: "static",
+                            // Store the qualified name so external tools (codemesh_source,
+                            // mapTree's calledBy) render the namespace-qualified label.
+                            name: qualified,
+                            kind: sym.kind,
+                            filePath: relPath,
+                            lineStart: sym.lineStart,
+                            lineEnd: sym.lineEnd,
+                            signature: sym.signature,
+                            createdAt: now,
+                            updatedAt: now,
+                        };
+                        await this.storage.upsertNode(symbolNode);
+                        allSymbolIds.add(finalId);
+                        // Register under qualified name — this is the canonical key for
+                        // call resolution across files.
+                        symbolNameMap.set(qualified, finalId);
+                        // Also register under bare name if not already claimed — preserves
+                        // today's best-effort behaviour where calls to `foo()` resolve to
+                        // some `foo` when the caller doesn't know which class owns it.
+                        if (!symbolNameMap.has(sym.name)) {
+                            symbolNameMap.set(sym.name, finalId);
+                        }
+                        // Record range for containing-symbol attribution in pass 3
+                        if (!fileSymbolRanges.has(relPath)) {
+                            fileSymbolRanges.set(relPath, []);
+                        }
+                        fileSymbolRanges.get(relPath).push({
+                            id: finalId,
+                            kind: sym.kind,
+                            lineStart: sym.lineStart,
+                            lineEnd: sym.lineEnd,
+                        });
+                        // Create contains edge: file -> symbol
+                        const containsEdge = {
+                            id: `edge:contains:${fileId}:${finalId}`,
+                            type: "contains",
+                            source: "static",
+                            fromId: fileId,
+                            toId: finalId,
+                            createdAt: now,
+                        };
+                        await this.storage.upsertEdge(containsEdge);
+                        edgesCreated++;
+                        symbolsFound++;
+                    }
+                    // Collect imports for second pass
+                    for (const imp of parseResult.imports) {
+                        importEdges.push({
+                            fromFileId: fileId,
+                            importPath: imp,
+                            fromRelPath: relPath,
+                        });
+                    }
+                    // Collect calls for third pass (attribution happens there)
+                    for (const call of parseResult.calls) {
+                        callEdges.push({
+                            fromFileId: fileId,
+                            fromFilePath: relPath,
+                            callee: call.callee,
+                            lineNumber: call.lineNumber,
+                            scopePath: call.scopePath,
+                        });
+                    }
                 }
-                // Collect imports for second pass
-                for (const imp of parseResult.imports) {
-                    importEdges.push({
-                        fromFileId: fileId,
-                        importPath: imp,
-                        fromRelPath: relPath,
-                    });
-                }
-                // Collect calls for third pass (attribution happens there)
-                for (const call of parseResult.calls) {
-                    callEdges.push({
-                        fromFileId: fileId,
-                        fromFilePath: relPath,
-                        callee: call.callee,
-                        lineNumber: call.lineNumber,
-                    });
+                await this.storage.commitTransaction();
+            }
+            catch (e) {
+                await this.storage.rollbackTransaction();
+                const msg = e instanceof Error ? e.message : String(e);
+                const batchIdx = Math.floor(i / FILE_BATCH_SIZE) + 1;
+                const totalBatches = Math.ceil(filesToProcess.length / FILE_BATCH_SIZE);
+                console.warn(`Warning: index aborted during batch ${batchIdx}/${totalBatches} (${msg}). ` +
+                    `${i} file(s) were committed in earlier batches but have no import/call edges. ` +
+                    `Re-run \`codemesh index\` to complete the graph.`);
+                throw e;
+            }
+            report({
+                phase: "parse",
+                completed: Math.min(i + FILE_BATCH_SIZE, filesToProcess.length),
+                total: filesToProcess.length,
+                elapsedMs: Date.now() - phaseStart,
+            });
+        }
+        // Scope-aware callee resolution. Walks outward from the call site's
+        // scope, trying progressively shorter prefixes to find the most-specific
+        // qualified match. Falls back to a bare-name lookup so cross-file calls
+        // still resolve when the caller doesn't know the enclosing class.
+        //
+        // Only `this.<name>` triggers in-scope walking — bare names like `add()`
+        // inside a method are treated as lexical references (imports/top-level),
+        // not sibling-method calls. Otherwise a class method named `add` would
+        // always shadow an imported `add` function.
+        const resolveCallee = (callSiteScope, callee) => {
+            if (callee.startsWith("this.")) {
+                const effectiveCallee = callee.slice("this.".length);
+                // Try progressively shorter prefixes of the caller's scope.
+                for (let i = callSiteScope.length; i >= 0; i--) {
+                    const prefix = callSiteScope.slice(0, i);
+                    const candidate = prefix.length > 0
+                        ? `${prefix.join(".")}.${effectiveCallee}`
+                        : effectiveCallee;
+                    const hit = symbolNameMap.get(candidate);
+                    if (hit)
+                        return hit;
                 }
             }
+            return symbolNameMap.get(callee) ?? null;
+        };
+        // Transaction C: resolution passes (imports + calls)
+        phaseStart = Date.now();
+        await this.storage.beginTransaction();
+        try {
             // Second pass: create import edges between file nodes
             const now = new Date().toISOString();
             for (const { fromFileId, importPath, fromRelPath } of importEdges) {
@@ -182,8 +334,8 @@ export class Indexer {
             // Third pass: create call edges, attributed to the innermost containing
             // symbol (function/method/const/class) of the call site. Module-level
             // calls with no enclosing symbol fall back to a file-level edge.
-            for (const { fromFileId, fromFilePath, callee, lineNumber, } of callEdges) {
-                const symbolId = symbolNameMap.get(callee);
+            for (const { fromFileId, fromFilePath, callee, lineNumber, scopePath, } of callEdges) {
+                const symbolId = resolveCallee(scopePath, callee);
                 if (!symbolId)
                     continue;
                 const ranges = fileSymbolRanges.get(fromFilePath) ?? [];
@@ -224,9 +376,16 @@ export class Indexer {
             await this.storage.rollbackTransaction();
             throw e;
         }
+        report({
+            phase: "resolve",
+            completed: importEdges.length + callEdges.length,
+            total: importEdges.length + callEdges.length,
+            elapsedMs: Date.now() - phaseStart,
+        });
         // Step 5.5: Symbol summarization (opt-in) — generate LLM summaries
         let summariesResult;
         if (options?.withSummaries) {
+            const summariesPhaseStart = Date.now();
             try {
                 // Collect symbols that need summaries (new/changed files or missing summary)
                 const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
@@ -273,6 +432,12 @@ export class Indexer {
                         generated: newSummaries.size,
                         skipped: needsSummary.length - newSummaries.size,
                     };
+                    report({
+                        phase: "summaries",
+                        completed: newSummaries.size,
+                        total: needsSummary.length,
+                        elapsedMs: Date.now() - summariesPhaseStart,
+                    });
                 }
             }
             catch (e) {
@@ -281,6 +446,7 @@ export class Indexer {
             }
         }
         // Step 6: Git intelligence — hotspots and co-change pairs
+        const gitPhaseStart = Date.now();
         try {
             const gitIntel = await analyzeGitHistory(this.projectRoot);
             await this.storage.beginTransaction();
@@ -328,6 +494,12 @@ export class Indexer {
                     edgesCreated++;
                 }
                 await this.storage.commitTransaction();
+                report({
+                    phase: "git",
+                    completed: gitIntel.hotspots.length,
+                    total: gitIntel.hotspots.length,
+                    elapsedMs: Date.now() - gitPhaseStart,
+                });
             }
             catch (e) {
                 await this.storage.rollbackTransaction();
@@ -339,6 +511,7 @@ export class Indexer {
         }
         // Step 7: PageRank — compute centrality scores for all nodes
         let pagerankResult;
+        const pagerankPhaseStart = Date.now();
         try {
             const ranks = await computePageRank(this.storage);
             if (ranks.size > 0) {
@@ -357,6 +530,12 @@ export class Indexer {
                         await this.storage.upsertNode(updatedNode);
                     }
                     await this.storage.commitTransaction();
+                    report({
+                        phase: "pagerank",
+                        completed: ranks.size,
+                        total: ranks.size,
+                        elapsedMs: Date.now() - pagerankPhaseStart,
+                    });
                 }
                 catch (e) {
                     await this.storage.rollbackTransaction();
@@ -373,30 +552,57 @@ export class Indexer {
         catch {
             // PageRank computation is non-critical — skip silently
         }
-        // Step 8: Embeddings (opt-in) — generate vector embeddings for semantic search
+        // Step 8: Embeddings (opt-in) — incremental semantic index update
         let embeddingsResult;
         if (options?.withEmbeddings !== false) {
+            // 8a. Delete embeddings for purged files (changed or deleted).
+            //     Non-fatal: if cleanup fails, the stale rows remain but we
+            //     still proceed to 8b so new symbols get embedded.
+            const purgedFiles = [...changed, ...deleted];
+            if (purgedFiles.length > 0) {
+                try {
+                    await deleteEmbeddingsByFilePaths(this.projectRoot, purgedFiles);
+                }
+                catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    console.warn(`Warning: embedding cleanup failed — ${msg}`);
+                }
+            }
+            // 8b. Embed only symbols in files we just processed.
             try {
-                // Collect all symbol nodes for embedding
-                const allSymbolNodes = await this.storage.queryNodes({ type: "symbol" });
-                const symbolsForEmbedding = allSymbolNodes.map((n) => {
-                    const sym = n;
-                    return {
-                        id: sym.id,
-                        name: sym.name,
-                        signature: sym.signature,
-                        filePath: sym.filePath,
-                        lineStart: sym.lineStart,
-                        lineEnd: sym.lineEnd,
-                        summary: sym.summary,
-                    };
-                });
-                if (symbolsForEmbedding.length > 0) {
-                    embeddingsResult = await indexEmbeddings(this.projectRoot, symbolsForEmbedding);
+                if (filesToProcess.length > 0) {
+                    const freshSymbols = (await this.storage.queryNodesByFilePaths(filesToProcess));
+                    if (freshSymbols.length > 0) {
+                        const symbolsForEmbedding = freshSymbols.map((sym) => ({
+                            id: sym.id,
+                            name: sym.name,
+                            signature: sym.signature,
+                            filePath: sym.filePath,
+                            lineStart: sym.lineStart,
+                            lineEnd: sym.lineEnd,
+                            summary: sym.summary,
+                        }));
+                        const embedPhaseStart = Date.now();
+                        embeddingsResult = await indexEmbeddings(this.projectRoot, symbolsForEmbedding, {
+                            onBatch: (completed, total) => {
+                                report({
+                                    phase: "embeddings",
+                                    completed,
+                                    total,
+                                    elapsedMs: Date.now() - embedPhaseStart,
+                                });
+                            },
+                        });
+                    }
+                    else {
+                        embeddingsResult = { count: 0, durationMs: 0 };
+                    }
+                }
+                else {
+                    embeddingsResult = { count: 0, durationMs: 0 };
                 }
             }
             catch (e) {
-                // Embedding generation is non-critical — log and continue
                 const msg = e instanceof Error ? e.message : String(e);
                 console.warn(`Warning: embedding generation failed — ${msg}`);
             }

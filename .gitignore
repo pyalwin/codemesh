@@ -5,3 +5,4 @@ node_modules/
 bun.lockb
 eval/results/
 docs/superpowers/
+scripts/dist/

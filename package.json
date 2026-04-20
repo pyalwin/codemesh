@@ -25,12 +25,14 @@
     "tree-sitter"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').cpSync('src/indexer/queries','dist/indexer/queries',{recursive:true})\"",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/index.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "check:integrity": "cd scripts && tsc -p tsconfig.json && cd .. && node scripts/dist/check-integrity.js",
+    "verify": "npm run build && npm run test && npm run check:integrity"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

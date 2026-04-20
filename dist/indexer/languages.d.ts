@@ -5,6 +5,8 @@ export interface LanguageConfig {
     name: string;
     extensions: string[];
     grammarPackage: string;
+    /** Relative to src/indexer/queries/, e.g. "swift.scm". Absent = use walker. */
+    queryFile?: string;
 }
 /**
  * Returns the language config for a given file path based on its extension,

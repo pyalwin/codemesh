@@ -25,10 +25,27 @@ export interface IndexResult {
         skipped: number;
     };
 }
+export interface IndexProgress {
+    phase: "scan" | "purge" | "parse" | "resolve" | "git" | "pagerank" | "summaries" | "embeddings";
+    completed: number;
+    total: number;
+    /**
+     * Elapsed ms since the phase started. For per-batch phases like
+     * `parse` and `embeddings` this is cumulative across batches, not
+     * per-batch — i.e. it monotonically grows over the course of the phase.
+     */
+    elapsedMs: number;
+}
 export interface IndexOptions {
     /** Run semantic embedding generation. Defaults to true; set to false to skip. */
     withEmbeddings?: boolean;
     withSummaries?: boolean;
+    /**
+     * Optional reporter invoked at phase boundaries so callers can surface
+     * progress on long-running index runs. Exceptions thrown by the reporter
+     * are caught and logged to stderr — they will not abort the index.
+     */
+    onProgress?: (p: IndexProgress) => void;
 }
 export declare class Indexer {
     private storage;

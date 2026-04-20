@@ -11,17 +11,11 @@ import pagerankModule from "graphology-metrics/centrality/pagerank.js";
 // Handle CJS/ESM interop — these modules may expose .default at runtime
 const Graph = GraphModule.default ?? GraphModule;
 const pagerank = pagerankModule.default ?? pagerankModule;
-const MAX_NODES_FOR_PAGERANK = 20000;
 export async function computePageRank(storage) {
     // 1. Query all file and symbol nodes from storage
     const fileNodes = await storage.queryNodes({ type: "file" });
     const symbolNodes = await storage.queryNodes({ type: "symbol" });
     const allNodes = [...fileNodes, ...symbolNodes];
-    // Guard: skip PageRank for very large repos to avoid stack overflow
-    if (allNodes.length > MAX_NODES_FOR_PAGERANK) {
-        console.log(`  PageRank skipped: ${allNodes.length} nodes exceeds ${MAX_NODES_FOR_PAGERANK} limit`);
-        return new Map();
-    }
     const graph = new Graph();
     // 2. Add nodes
     for (const node of allNodes) {

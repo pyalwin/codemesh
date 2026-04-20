@@ -20,6 +20,11 @@ export interface LspClient {
     /** Shutdown the server */
     shutdown(): Promise<void>;
 }
+export interface LspCommand {
+    binary: string;
+    args: string[];
+}
+export declare function detectLanguageServer(filePath: string): LspCommand | null;
 /**
  * Get or create an LSP client for the given file and project root.
  * Returns null silently if no language server is available.
@@ -29,3 +34,7 @@ export declare function getLspClient(filePath: string, projectRoot: string): Pro
  * Shutdown all cached LSP clients. Call on server exit.
  */
 export declare function shutdownAllLspClients(): Promise<void>;
+/** Test hook: force a reap pass synchronously. */
+export declare function __test_reapIdle(): Promise<void>;
+/** Test hook: stop the heartbeat timer (used in afterEach). */
+export declare function __test_stopHeartbeat(): void;

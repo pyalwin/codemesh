@@ -13,6 +13,12 @@ export interface StorageBackend {
   upsertNode(node: GraphNode): Promise<string>;
   getNode(id: string): Promise<GraphNode | null>;
   queryNodes(filter: NodeFilter): Promise<GraphNode[]>;
+  /**
+   * Return all symbol nodes whose filePath is one of the given paths.
+   * Streams via a single IN query — safe for thousands of paths.
+   * Returns an empty array if filePaths is empty.
+   */
+  queryNodesByFilePaths(filePaths: string[]): Promise<GraphNode[]>;
   deleteNode(id: string): Promise<void>;
 
   upsertEdge(edge: GraphEdge): Promise<string>;

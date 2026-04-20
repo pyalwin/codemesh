@@ -9,10 +9,12 @@ export interface ParsedSymbol {
     lineStart: number;
     lineEnd: number;
     signature: string;
+    scopePath: string[];
 }
 export interface CallReference {
     callee: string;
     lineNumber: number;
+    scopePath: string[];
 }
 export interface ParseResult {
     symbols: ParsedSymbol[];
