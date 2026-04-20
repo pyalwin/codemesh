@@ -1,40 +1,43 @@
 {
+  "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
+  "version": "1.0",
   "serverInfo": {
     "name": "codemesh",
     "version": "0.1.0"
   },
+  "protocolVersion": "2024-11-05",
   "tools": [
     {
       "name": "codemesh_answer",
-      "description": "One-call question answering"
+      "description": "One-call context assembly. USE THIS FIRST for any code question."
     },
     {
       "name": "codemesh_explore",
-      "description": "Search, context, and impact discovery"
-    },
-    {
-      "name": "codemesh_trace",
-      "description": "Follow call chains"
+      "description": "Search, context, and impact discovery."
     },
     {
       "name": "codemesh_enrich",
-      "description": "Write back summaries to the graph"
+      "description": "Add an AI-generated concept linked to a file or symbol."
     },
     {
       "name": "codemesh_workflow",
-      "description": "Write back workflow paths"
+      "description": "Create a workflow that links files in a logical sequence."
     },
     {
       "name": "codemesh_status",
-      "description": "Graph health check"
+      "description": "Get statistics about the knowledge graph."
+    },
+    {
+      "name": "codemesh_trace",
+      "description": "Trace a call chain from a symbol to its leaf nodes."
     },
     {
       "name": "codemesh_map",
-      "description": "Map the call graph from a query or symbol"
+      "description": "Map the call graph from a query or symbol."
     },
     {
       "name": "codemesh_source",
-      "description": "Get the source code of a specific symbol"
+      "description": "Get the source code of a specific symbol by its ID."
     }
   ]
 }
