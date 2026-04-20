@@ -1,131 +1,29 @@
 #!/usr/bin/env node
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
+import { SqliteBackend } from "./graph/sqlite.js";
 import { createServer } from "./server.js";
-import type { StorageBackend } from "./graph/storage.js";
-import type { GraphEdge, GraphNode, SearchResult, TraversalResult } from "./graph/types.js";
 import { join } from "path";
 import { mkdirSync } from "fs";
 import { shutdownAllLspClients } from "./tools/lsp-client.js";
 
-type ServerInstance = ReturnType<typeof createServer>["server"];
-type SmitheryContext = {
-  config?: Partial<z.infer<typeof configSchema>>;
+const projectRoot = process.env.CODEMESH_PROJECT_ROOT ?? process.cwd();
+const dbDir = join(projectRoot, ".codemesh");
+const dbPath = join(dbDir, "codemesh.db");
+
+mkdirSync(dbDir, { recursive: true });
+
+const storage = new SqliteBackend(dbPath);
+await storage.initialize();
+
+const server = createServer(storage, projectRoot);
+const transport = new StdioServerTransport();
+await server.connect(transport);
+
+// Cleanup LSP clients on exit
+const cleanup = async () => {
+  await shutdownAllLspClients();
+  process.exit(0);
 };
-
-export const configSchema = z.object({
-  codemeshProjectRoot: z
-    .string()
-    .describe("The absolute path to the local codebase you want to index"),
-});
-
-function readArgValue(name: string): string | undefined {
-  const assignment = process.argv.find((arg) => arg.startsWith(`${name}=`));
-  if (assignment) return assignment.slice(name.length + 1);
-
-  const flagNames = [
-    `--${name}`,
-    `--${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`,
-  ];
-  for (const flag of flagNames) {
-    const index = process.argv.indexOf(flag);
-    if (index !== -1 && process.argv[index + 1]) return process.argv[index + 1];
-  }
-  return undefined;
-}
-
-function getProjectRoot(): string {
-  return (
-    readArgValue("codemeshProjectRoot") ||
-    process.env.CODEMESH_PROJECT_ROOT ||
-    process.cwd()
-  );
-}
-
-const projectRoot = getProjectRoot();
-
-async function createInitializedStorage(root: string): Promise<StorageBackend> {
-  const { SqliteBackend } = await import("./graph/sqlite.js");
-  const dbDir = join(root, ".codemesh");
-  const dbPath = join(dbDir, "codemesh.db");
-  mkdirSync(dbDir, { recursive: true });
-  const storage = new SqliteBackend(dbPath);
-  await storage.initialize();
-  return storage;
-}
-
-function createScanStorage(): StorageBackend {
-  return {
-    async initialize() {},
-    async close() {},
-    async upsertNode(node: GraphNode) { return node.id; },
-    async getNode() { return null; },
-    async queryNodes() { return []; },
-    async deleteNode() {},
-    async upsertEdge(edge: GraphEdge) { return edge.id; },
-    async getEdges() { return []; },
-    async deleteEdgesByNode() { return 0; },
-    async traverse(): Promise<TraversalResult[]> { return []; },
-    async search(): Promise<SearchResult[]> { return []; },
-    async beginTransaction() {},
-    async commitTransaction() {},
-    async rollbackTransaction() {},
-    async getStaleFiles() { return { changed: [], deleted: [], added: [] }; },
-    async markConceptsStale() { return 0; },
-    async purgeFileNodes() { return 0; },
-    async getStats() {
-      return {
-        nodeCount: {},
-        edgeCount: {},
-        staleCount: 0,
-        lastIndexedAt: null,
-      };
-    },
-  };
-}
-
-export function createSandboxServer(): ServerInstance {
-  return createServer(createScanStorage(), projectRoot).server;
-}
-
-export default async function createSmitheryServer({
-  config,
-}: SmitheryContext = {}): Promise<ServerInstance> {
-  const root = config?.codemeshProjectRoot || getProjectRoot();
-  const storage = await createInitializedStorage(root);
-  return createServer(storage, root).server;
-}
-
-async function main(): Promise<void> {
-  let storage: StorageBackend;
-  try {
-    storage = await createInitializedStorage(projectRoot);
-  } catch (e) {
-    // Silently fallback to an in-memory or empty storage for scanning purposes.
-    // Writing to stderr can cause Smithery's automated scanner to fail.
-    storage = createScanStorage();
-  }
-
-  const server = createServer(storage, projectRoot);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-
-  // Cleanup LSP clients on exit
-  const cleanup = async () => {
-    await shutdownAllLspClients();
-    process.exit(0);
-  };
-  process.on("SIGINT", cleanup);
-  process.on("SIGTERM", cleanup);
-}
-
-if (
-  process.argv[1] &&
-  /(?:^|[/\\])(?:dist[/\\]index\.js|index\.cjs)$/.test(process.argv[1])
-) {
-  main().catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
-}
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);
