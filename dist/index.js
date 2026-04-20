@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { SqliteBackend } from "./graph/sqlite.js";
 import { createServer } from "./server.js";
 import { join } from "path";
 import { mkdirSync } from "fs";
@@ -33,6 +32,7 @@ function getProjectRoot() {
 }
 const projectRoot = getProjectRoot();
 async function createInitializedStorage(root) {
+    const { SqliteBackend } = await import("./graph/sqlite.js");
     const dbDir = join(root, ".codemesh");
     const dbPath = join(dbDir, "codemesh.db");
     mkdirSync(dbDir, { recursive: true });

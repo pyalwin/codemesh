@@ -2,7 +2,6 @@
 
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { SqliteBackend } from "./graph/sqlite.js";
 import { createServer } from "./server.js";
 import type { StorageBackend } from "./graph/storage.js";
 import type { GraphEdge, GraphNode, SearchResult, TraversalResult } from "./graph/types.js";
@@ -46,7 +45,8 @@ function getProjectRoot(): string {
 
 const projectRoot = getProjectRoot();
 
-async function createInitializedStorage(root: string): Promise<SqliteBackend> {
+async function createInitializedStorage(root: string): Promise<StorageBackend> {
+  const { SqliteBackend } = await import("./graph/sqlite.js");
   const dbDir = join(root, ".codemesh");
   const dbPath = join(dbDir, "codemesh.db");
   mkdirSync(dbDir, { recursive: true });
