@@ -1,5 +1,5 @@
 {
-  "name": "codemesh",
+  "name": "@pyalwin/codemesh",
   "version": "0.1.0",
   "description": "Intelligent code knowledge graph for AI coding agents",
   "type": "module",
@@ -7,6 +7,22 @@
   "bin": {
     "codemesh": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pyalwin/codemesh.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "code-graph",
+    "knowledge-graph",
+    "ai-coding",
+    "tree-sitter"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

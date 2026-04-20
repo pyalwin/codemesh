@@ -1,6 +1,5 @@
 node_modules/
 .codemesh/
-.smithery/
 *.db
 *.db-journal
 bun.lockb

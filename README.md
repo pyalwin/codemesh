@@ -7,6 +7,7 @@
 **71% cheaper, 72% faster, 82% fewer tool calls** vs baseline Grep+Read\
 on 6 real-world repos (Sonnet 4.6) — from a single `codemesh index`.
 
+[![npm](https://img.shields.io/npm/v/@pyalwin/codemesh)](https://www.npmjs.com/package/@pyalwin/codemesh)
 [![Tests](https://img.shields.io/badge/tests-124%20passed-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)]()
@@ -99,25 +100,27 @@ Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmar
 
 ### 1. Install
 
-The package isn't published to npm yet. Clone and build from source:
+```bash
+npm install -g @pyalwin/codemesh
+```
+
+Or run directly without installing:
+
+```bash
+npx -y @pyalwin/codemesh --help
+```
+
+<details>
+<summary>Build from source</summary>
 
 ```bash
 git clone https://github.com/pyalwin/codemesh.git
 cd codemesh
-
-# Pick your package manager — both work.
-bun install && bun run build       # bun (fastest)
-# or
-npm install && npm run build       # npm (no extra tooling required)
+npm install && npm run build
+npm link
 ```
 
-Link the binary globally so `codemesh` resolves on your `$PATH`:
-
-```bash
-npm link         # from the codemesh directory — exposes `codemesh` everywhere
-# or invoke directly without linking:
-node /path/to/codemesh/dist/cli.js
-```
+</details>
 
 > Verify the install: `codemesh --version` should print the package version.
 
@@ -150,8 +153,8 @@ Add to your Claude Code MCP config (`~/.claude/mcp-servers.json` or project `.mc
 {
   "mcpServers": {
     "codemesh": {
-      "command": "node",
-      "args": ["/path/to/codemesh/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
       "env": {
         "CODEMESH_PROJECT_ROOT": "/path/to/your/project"
       }
@@ -240,8 +243,8 @@ Add to `~/.claude/mcp-servers.json` (user-wide) or `.mcp.json` (project-local):
 {
   "mcpServers": {
     "codemesh": {
-      "command": "node",
-      "args": ["/absolute/path/to/codemesh/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
       "env": {
         "CODEMESH_PROJECT_ROOT": "/absolute/path/to/your/project"
       }
@@ -250,7 +253,6 @@ Add to `~/.claude/mcp-servers.json` (user-wide) or `.mcp.json` (project-local):
 }
 ```
 
-The MCP server binary lives at `dist/index.js`; the `codemesh` command installed by `npm link` is the CLI (used for `codemesh index`, `codemesh status`, etc.).
 </details>
 
 <details>
@@ -265,8 +267,8 @@ Edit `claude_desktop_config.json`:
 {
   "mcpServers": {
     "codemesh": {
-      "command": "node",
-      "args": ["/absolute/path/to/codemesh/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
       "env": {
         "CODEMESH_PROJECT_ROOT": "/absolute/path/to/your/project"
       }
@@ -287,8 +289,8 @@ Cursor reads `.cursor/mcp.json` per project (or `~/.cursor/mcp.json` for all pro
 {
   "mcpServers": {
     "codemesh": {
-      "command": "node",
-      "args": ["/absolute/path/to/codemesh/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@pyalwin/codemesh"],
       "env": {
         "CODEMESH_PROJECT_ROOT": "${workspaceFolder}"
       }
@@ -312,8 +314,8 @@ Add to `~/.continue/config.json` under `experimental.modelContextProtocolServers
       {
         "transport": {
           "type": "stdio",
-          "command": "node",
-          "args": ["/absolute/path/to/codemesh/dist/index.js"],
+          "command": "npx",
+          "args": ["-y", "@pyalwin/codemesh"],
           "env": {
             "CODEMESH_PROJECT_ROOT": "/absolute/path/to/your/project"
           }
@@ -323,19 +325,6 @@ Add to `~/.continue/config.json` under `experimental.modelContextProtocolServers
   }
 }
 ```
-</details>
-
-<details>
-<summary><strong>Zero-install trial via <code>npx</code></strong> (once published)</summary>
-
-Once codemesh lands on npm, any of the configs above can be simplified to:
-
-```json
-"command": "npx",
-"args": ["-y", "codemesh-mcp"]
-```
-
-Until then, clone + build is the supported path.
 </details>
 
 ---
@@ -563,7 +552,7 @@ Reproducible evaluation harness with LLM-as-judge scoring:
 
 ```bash
 # Setup
-bun install -g codemesh
+npm install -g @pyalwin/codemesh
 git clone --depth 1 https://github.com/Alamofire/Alamofire.git /tmp/alamofire
 # ... clone other repos ...
 
