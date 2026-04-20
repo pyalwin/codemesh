@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pyalwin/codemesh",
+  "description": "Intelligent code knowledge graph for AI coding agents — 71% cheaper, 72% faster",
+  "repository": {
+    "url": "https://github.com/pyalwin/codemesh",
+    "source": "github"
+  },
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@pyalwin/codemesh",
+      "version": "0.1.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Absolute path to the local codebase to index",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "CODEMESH_PROJECT_ROOT"
+        }
+      ]
+    }
+  ]
+}
