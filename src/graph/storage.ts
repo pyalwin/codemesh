@@ -3,6 +3,7 @@ import type {
   GraphEdge,
   NodeFilter,
   SearchResult,
+  SearchOptions,
   TraversalResult,
 } from "./types.js";
 
@@ -13,6 +14,8 @@ export interface StorageBackend {
   upsertNode(node: GraphNode): Promise<string>;
   getNode(id: string): Promise<GraphNode | null>;
   queryNodes(filter: NodeFilter): Promise<GraphNode[]>;
+  /** Indexed file paths under a directory; omit directory for the repository root. */
+  queryFilePaths(directory?: string): Promise<string[]>;
   /**
    * Return all symbol nodes whose filePath is one of the given paths.
    * Streams via a single IN query — safe for thousands of paths.
@@ -35,7 +38,15 @@ export interface StorageBackend {
     edgeTypes?: string[]
   ): Promise<TraversalResult[]>;
 
-  search(query: string, scope?: string): Promise<SearchResult[]>;
+  search(query: string, scope?: string, options?: SearchOptions): Promise<SearchResult[]>;
+  recordDelivery?(entry: {
+    sessionId: string;
+    contextEpoch: string;
+    nodeId: string;
+    mode: string;
+    sourceHash: string;
+  }): Promise<void>;
+  incrementMetric?(key: "source_bytes_delivered" | "source_bytes_avoided" | "conditional_hits", amount: number): Promise<void>;
 
   beginTransaction(): Promise<void>;
   commitTransaction(): Promise<void>;
@@ -51,5 +62,6 @@ export interface StorageBackend {
     edgeCount: Record<string, number>;
     staleCount: number;
     lastIndexedAt: string | null;
+    metrics?: Record<string, number>;
   }>;
 }

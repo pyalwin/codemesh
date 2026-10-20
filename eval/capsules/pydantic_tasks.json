@@ -1,0 +1,58 @@
+{
+  "repository": "https://github.com/pydantic/pydantic.git",
+  "commit": "5adfeaaaea947f81f0f01868604f219084ec151a",
+  "tasks": [
+    {
+      "id": "model-init",
+      "question": "When a user calls BaseModel(**data), where does validation happen, and what part of model construction makes that validator available?",
+      "units": [
+        "pydantic/main.py::BaseModel.__init__",
+        "pydantic/_internal/_model_construction.py::complete_model_class"
+      ],
+      "rubric": [
+        "BaseModel.__init__ calls self.__pydantic_validator__.validate_python with data and self_instance=self.",
+        "Model construction creates a schema validator and installs it on the class as __pydantic_validator__."
+      ]
+    },
+    {
+      "id": "model-init-followup",
+      "question": "Does BaseModel.__init__ itself validate individual fields? Explain its role relative to the validator prepared during class construction.",
+      "units": [
+        "pydantic/main.py::BaseModel.__init__",
+        "pydantic/_internal/_model_construction.py::complete_model_class"
+      ],
+      "rubric": [
+        "BaseModel.__init__ delegates validation rather than implementing per-field validation.",
+        "The prepared schema validator performs the actual validation during instance creation."
+      ]
+    },
+    {
+      "id": "json-schema",
+      "question": "Trace BaseModel.model_json_schema to the code that generates the JSON Schema. What does the generator receive and return?",
+      "units": [
+        "pydantic/main.py::BaseModel.model_json_schema",
+        "pydantic/json_schema.py::model_json_schema",
+        "pydantic/json_schema.py::GenerateJsonSchema.generate"
+      ],
+      "rubric": [
+        "The BaseModel class method delegates to pydantic.json_schema.model_json_schema.",
+        "The utility constructs the configured schema generator and uses the model's core schema.",
+        "GenerateJsonSchema.generate returns a JSON Schema value for the requested validation or serialization mode."
+      ]
+    },
+    {
+      "id": "validator-decorators",
+      "question": "Compare field_validator and model_validator: what does each decorate, and what modes do their public signatures accept?",
+      "units": [
+        "pydantic/functional_validators.py::FieldValidatorModes",
+        "pydantic/functional_validators.py::field_validator",
+        "pydantic/functional_validators.py::model_validator"
+      ],
+      "rubric": [
+        "field_validator decorates methods associated with one or more named fields and defaults to after mode.",
+        "FieldValidatorModes accepts before, after, wrap, and plain.",
+        "model_validator decorates model-level methods and requires wrap, before, or after mode."
+      ]
+    }
+  ]
+}

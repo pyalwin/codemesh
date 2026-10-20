@@ -11,10 +11,7 @@
 import { readFileSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
 
-const runtimeImport = new Function(
-  "specifier",
-  "return import(specifier)",
-) as <T = any>(specifier: string) => Promise<T>;
+const runtimeImport = <T = any>(specifier: string): Promise<T> => import(specifier) as Promise<T>;
 
 // ── Model loading (lazy) ────────────────────────────────────────────
 

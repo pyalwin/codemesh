@@ -29,6 +29,8 @@ export interface SymbolNode extends BaseNode {
     lineStart: number;
     lineEnd: number;
     signature: string;
+    bodyHash?: string;
+    signatureHash?: string;
     summary?: string;
     pagerankScore?: number;
 }
@@ -38,6 +40,14 @@ export interface ConceptNode extends BaseNode {
     summary: string;
     lastUpdatedBy: string;
     stale: boolean;
+    targetId?: string;
+    targetHash?: string;
+    status?: "hypothesis" | "verified" | "stale";
+    history?: Array<{
+        sessionId: string;
+        status: string;
+        at: string;
+    }>;
 }
 export interface WorkflowNode extends BaseNode {
     type: "workflow";
@@ -46,6 +56,13 @@ export interface WorkflowNode extends BaseNode {
     fileSequence: string[];
     lastWalkedAt: string;
     stale: boolean;
+    fileHashes?: Record<string, string>;
+    status?: "hypothesis" | "verified" | "stale";
+    history?: Array<{
+        description: string;
+        fileSequence: string[];
+        at: string;
+    }>;
 }
 export type GraphNode = FileNode | SymbolNode | ConceptNode | WorkflowNode;
 export type EdgeType = "contains" | "imports" | "calls" | "extends" | "describes" | "related_to" | "traverses" | "co_changes";
@@ -62,9 +79,17 @@ export interface GraphEdge {
 export interface NodeFilter {
     type?: NodeType;
     name?: string;
+    /** Exact unqualified name, including the final component of a qualified name. */
+    leafName?: string;
     path?: string;
+    /** Exact source file or directory prefix, matched at a path boundary. */
+    pathPrefix?: string;
     kind?: SymbolKind;
     stale?: boolean;
+}
+export interface SearchOptions {
+    /** Exact source file or directory prefix, applied before candidate limits. */
+    path?: string;
 }
 export interface SearchResult {
     node: GraphNode;

@@ -6,3 +6,9 @@ bun.lockb
 eval/results/
 docs/superpowers/
 scripts/dist/
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.claude/tsc-cache/
+dist/**/*.test.*

@@ -1,0 +1,995 @@
+{
+  "method": "One-reviewer manual rubric audit of the 81 new answers; see quality_review.py.",
+  "rows": [
+    {
+      "task": "unique-serialize",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "ffc81b30ee95f625197c9cc4be6aec4821e398e9cd8e5ebc75aad7de96d1c0f9",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Context does not state the json versus python mode behavior."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "f731396762e810857a021ffc02be5482f5d7b32405d14b3ebef5115c2938f327",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Context does not state the json versus python mode behavior."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "c51f6b1731cfc4757df6980028a6b6d911814176934b52e4fe142cebfc77479d",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Context does not state the json versus python mode behavior."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "412e534bde313eb58e9ad54360ff26f780ed084ce9618e61c1369cfc9a0979ee",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "82713dc1c5e9a63c4edf6cc05bfea2f86b68844d0278e038a042f07d56070721",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "1ef7c77f6cc4ee3e6bcef9a26d23ae355927b62ca2e8885edfd3ef64e26a0426",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "a996e7eef630508a7624fc09cd50023ea79d541d84b72ff2e02ed672de3d7c62",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "9fef5423efd667f0c98aacc5a7392a8da20f4f55de5b47b1033936974d119854",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "807e5fbdf8f701d78122a26c26ce931365b0b9d9ba3ddbffcba9d471ce9a7108",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "0b443ff2d7fce62946eb4be0e613fb93885588f646c808d6e145c060f7c32ed8",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "4e053ac16e2b49754cb6e4b39a47e6b3db40b977621579245654da0549f98e42",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "ff358046f0268cbf14f269b6fd4b6e6a8ceac83072ef6f6aa457f98492bf6d86",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "897cc35f68a2277ae28f25ff09bc157b390ad9bffcdf16ddcb5f17cf29ef0e58",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "9ad0108ed606e55fbb3022242cd91ab7d27d0d98c0385570cf4a2ccf68fdabc8",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "e8ca415d6dd7a74773c61aad8998e96474c12d18fd4311625c0f031d2022ff60",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "9645378f6877f7dece3414fd2d1a9a1c5b01240e0b19caf66a9d6ef24ae74835",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": true,
+      "note": "Says all updated fields use __dict__.update, but allowed extra fields can use __pydantic_extra__."
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "af4c5b273896a51b8a0ece4669717cd23078451e696aa05437fd911eb7b1e5d5",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "e86e371f582db38e90eb834db8670087e520493804022e707f63afbd06f12e67",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "741d6a399ecf5ed822d185bde6117cc8466920daa42307fba81e870a9327a3e4",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "b750fd30960ba99ded9b42e00cd72e5265c7f0d87cf05f04a4c5edb742b80c33",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "d9d9317c31109f315f2ebd55a593c6bb9f0d8fb784d54214bef147534beca27b",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "c42c00a7f709d4d40820cb61182288790e37f681371a767b14f95350b975ce02",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "80100cc2e2a2ffd052ecdb55c07df75138fc219a7a03649be3011eac442aac70",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "38f4fbbf1a6f7a281f0c0d95f31d29ea3923fcde1101ee2e5b4687c4c2299d91",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits after as the field-validator default."
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "5e2d77e0072de1d66145ab1dbbe87fbb806d794864e419149132b795dc2a4ea3",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits after as the field-validator default."
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "3fb65e4138e3453428e588cd1f156d227544d33d8028fb49a0c20733ce351c70",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "28d479b9951510c1158dcc107950b44c93a079c2610f0f74c9973180f7c381a8",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "ddcbd6ae870b0819b864372e57ce8284ccdc17daeaa729257da23afda0567de5",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "5f796a76112c1da02444399ff2f84e55f8c17d46a6549bce6841966d48c81351",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "6320df551ac6ff2a7ddafdf7b7de29d22393043e84a94593247bc35381bcb429",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "406ee8749a02c9e11f8892d2ccec68bb9824c9096ed52d9490c105186e3d8cd0",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "f20921ad242720da3a4c50276c013f3fbcf68ebf8490c9677150e66b3ed0024b",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "a7527e1abc364de81207c53ba9d48c668b2ef9866a22540116273da34abd8e45",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "1dc03beaa1271165a5f31a112d1563039be3f2c2a7ecd31a862282f9c77a8130",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "9300a060bb3680828cd022b05554e9e4f9fc1291746da0db7cc03e92e25b3777",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "62b574db20a740952158fdec0f4a4bb6ca9bae428cee9501aa1101a50d601d96",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "6af07b930e506ddbbab8d16ad14f35de7b4c2a316fc02ef4c4fb1abca181fc83",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Does not explicitly trace the class-method handoff or exact mode=mode argument to generate."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "0a3b9995b51b1ddbe94239963932308c9cdc01d221c03ee1fe31184b2371dfb1",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Does not explicitly trace the class-method handoff or exact mode=mode argument to generate."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "b077e42bde690c731d6b08e9f3b62f3c0c04ef69fdc103c7f4d7e1c21ad5c8df",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Does not explicitly trace the class-method handoff or exact mode=mode argument to generate."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "434137da3252b264e0e08e00c7fc93b038c6d342aef11dcc6542dd0ae1bfdbba",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Explains the utility but omits the class-method handoff to it."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "b72e4bcb08f2c8bfeb8aab477f7b2b7be238fac9e92fa871a9f9b30a832da335",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Explains the utility but omits the class-method handoff to it."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "0df78e7401a6187a90750ceb9be98bf03b13b06c07a505adde7af1e54c45bfac",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Explains the utility but omits the class-method handoff to it."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "a27d47d7f4fbc98b1d8039ea6dc9a69d727e7a7fdfd7b0e830a2ecfc03472f3d",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Explains the utility but omits the class-method handoff to it."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "a7526d4bd396222fb5c4b498d53c836ac72564655fd921fe301aef6838d057ac",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Explains the utility but omits the class-method handoff to it."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "a401c789ea6aa948ca16f628d32fdc47495bde21c52d53864d066df36ff6b9fd",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Explains the utility but omits the class-method handoff to it."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "af3d0b17c23d4d0fab7b61cb167e3a1503bdfacdc2194f7bdbb1e043bf06bf49",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "7d65717f20e9f8d76f7ef5db615d7ec4d6c1fb828219fd3103148cc729bda6d8",
+      "rubric_hits": [
+        false,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the handoff from the class method through the utility."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "9d088cb8d1e64d40fa1c5d8b983cefd91bf7792249ce294659887ca2a8593af6",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "619db9f407ce7ddc4af0b5a15921dc7092a6e24c38dded4342c6c04f5120064f",
+      "rubric_hits": [
+        false,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the class-method handoff; also gives incorrect 2400-series citation line numbers, which are not scored here."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "4a4bee1dac11256bbec75be1e8b057ba3b4d682c5773ea5e8f08b035d0fedaea",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "e2befa289b7b0ef2f54ccfde6dfbad4603fd8c39b655e0fb5bcb9483bb13f311",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "edb839b413c5045bab20c8d4e27d2bf5799b3a69e31fdb8e94e83c093e3646d7",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "4dcd779f5fe3f7e1796d3b081594351e7c6d5120389553ffb6f10cccb47b7774",
+      "rubric_hits": [
+        false,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the handoff from the class method through the utility."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "959969fd19ad34d64634297a6f7ec1d0a9be7dfe8b98d9ac221cdcc213e23736",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "1b6e8f3a280ed13bacca28909a940a52302f111d541bc5f0c81b800e123ef999",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the exact self_instance=self argument required by the rubric."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "fa9a92f5c6e1b6164984736ab8bbd93bea43ab074eb8bec8de9976457bd77b20",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the exact self_instance=self argument required by the rubric."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "521b2429fc435efd151d049c71f56a76221768be882eee3fdfe4da1b16598538",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the exact self_instance=self argument required by the rubric."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "b5797ba3bc1b0069a877295378a04772f176c1c236b3661002af0eaf9cedc6db",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "70bf5b7f7614234da05c233f6d8ee03d7999d69986133afd6d2425b7fa94639a",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "a847b16a8c73f3803f7ad94e01590a6f153611d295454148c401341c330010f8",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "6039fb1b5eb2f2623e02ba7af137a1f9f4e0b5756e20821b04494ab8560ab259",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "7ccf6db3d66b251234ad9d5d9c97a74f0c1e4bcada724591b19e0dec6eaee1da",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "6578f752ecf31bce597ee55a27fe4c42aae1a8b01c53bf4d5ec96cdac5e89cfe",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "6bfc0ab3162653ae6f75add3b99ca064976a1461bb95ddce78904e94bfb0c94e",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "946c37aba66d93ca5ac152b7eeed87601989cecad658bdab3c38c0575f0834d8",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "65cad1454af0d8a10958afe8c9e4047d3c97bae9f1c4c02aeb1d84c72bb7dd7f",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "48fe963f29a3ce1595747f89df89d05abb31f74f5bc55a2b832c4eb3412b0c42",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "6c0731d831cd3daa439e31943e96d0d8e847c2dbb8b0dea25a9f922cfebc0330",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": true,
+      "note": "Incorrectly says validation occurs once at class completion; that step creates the validator, while validation occurs per instance."
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "e677003417925e260b5d760efdace4bb295387d2015e3b07fa3363b081c7da97",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "b5f512bef4fde815489769cfb1bafd035592a36061036f4e5088181715460a3d",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "5d436b04f0d4b22d263a5e32c65722217139ef09f521851eefc2c7f7be1e8c99",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "54771bae81870892ff5e75c14065613bee821440abd1f35d452b85f6925a0848",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "2f90ed8b726e8a3bd32e2cfa97f7cbe893acf6f2862564a12287a5a69f4e1ebc",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the exact self_instance=self argument required by the rubric."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "3f1cf15d7e59c8ab388b34a657e2b626034cab57d40302a6e9faeba04e53e0ee",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the exact self_instance=self argument required by the rubric."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "b7eb6e4354a5488646cca258aac86a3449270ff1bc8d0746990aa9260eda08e8",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the exact self_instance=self argument required by the rubric."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "57479fd055ba6eb083b8b3c7a46fbdaffb7731b9cfb507ed6c0a503df154a11b",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "0e2093ad263a73669329e3718347b7fed72bc257359399dc2ac5dc45bf0b06fe",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "42cd2308bd77cb0e25f317600be19d5d1417c22a84aa254f00eb240e8a60c1a8",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2_ids",
+      "repeat": 1,
+      "answer_sha256": "a5f81c9f1ea465fbc3d8a1ba7246fa9d1e3bb554bb609d565748b8cc4700ce43",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2_ids",
+      "repeat": 2,
+      "answer_sha256": "8f9203a3d14162cc8e92f33c991f4d616a2517dede9905f8ff4ad499379a98b9",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2_ids",
+      "repeat": 3,
+      "answer_sha256": "2566185859e8d617e7438d47f82822504d28c3011d78dd77a95853ea6e862520",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    }
+  ]
+}

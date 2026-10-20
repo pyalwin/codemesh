@@ -3,6 +3,7 @@
  * with tree-sitter, and stores the results in the graph database.
  */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, relative, extname, dirname } from "node:path";
 import ignore from "ignore";
 import { parseFile } from "./parser.js";
@@ -37,7 +38,7 @@ export class Indexer {
      * 4. Remove deleted file nodes
      * 5. Git intelligence
      * 6. PageRank scoring
-     * 7. Embeddings (on by default; pass withEmbeddings: false to skip)
+     * 7. Legacy embeddings only when explicitly requested
      */
     async index(options) {
         const startTime = Date.now();
@@ -72,21 +73,59 @@ export class Indexer {
         });
         // Step 2: Identify changed, new, and deleted files
         const { changed, deleted, added } = await this.storage.getStaleFiles(fileHashes);
-        const filesToProcess = [...changed, ...added];
+        const filesToProcess = options?.force
+            ? [...fileHashes.keys()]
+            : [...changed, ...added];
         // Chunk DB mutations across three transactions (plus a batched middle
         // loop) to bound WAL pressure and let other readers see progress on
         // large repos.
         let symbolsFound = 0;
         let edgesCreated = 0;
         const FILE_BATCH_SIZE = 500;
+        // Snapshot reusable symbol metadata and note links before the purge removes
+        // their foreign-key edges. Only byte-identical symbol bodies can retain a
+        // trusted summary and fresh agent notes after re-indexing.
+        const oldSymbols = new Map();
+        const oldNoteEdges = new Map();
+        const oldWorkflowEdges = new Map();
+        const oldFileHashes = new Map();
+        const processPaths = new Set(filesToProcess);
+        for (let i = 0; i < filesToProcess.length; i += FILE_BATCH_SIZE) {
+            for (const node of await this.storage.queryNodesByFilePaths(filesToProcess.slice(i, i + FILE_BATCH_SIZE))) {
+                if (node.type === "symbol")
+                    oldSymbols.set(node.id, node);
+            }
+        }
+        for (const node of await this.storage.queryNodes({ type: "file" })) {
+            if (node.type === "file" && processPaths.has(node.path))
+                oldFileHashes.set(node.path, node.hash);
+        }
+        const rememberEdges = async (ownerId, type, targetMap) => {
+            for (const edge of await this.storage.getEdges(ownerId, "out", [type])) {
+                if (!oldSymbols.has(edge.toId) && !processPaths.has(edge.toId.slice(5)))
+                    continue;
+                const entries = targetMap.get(edge.toId) ?? [];
+                entries.push(edge);
+                targetMap.set(edge.toId, entries);
+            }
+        };
+        for (const node of await this.storage.queryNodes({ type: "concept" })) {
+            await rememberEdges(node.id, "describes", oldNoteEdges);
+        }
+        for (const node of await this.storage.queryNodes({ type: "workflow" })) {
+            await rememberEdges(node.id, "traverses", oldWorkflowEdges);
+        }
         // Transaction A: concept staleness + purge (fast, small)
         phaseStart = Date.now();
-        const filesToPurge = [...changed, ...deleted];
+        const filesToPurge = options?.force
+            ? [...new Set([...filesToProcess, ...deleted])]
+            : [...changed, ...deleted];
         await this.storage.beginTransaction();
         try {
-            // Step 3: Mark agent concepts as stale for changed files
-            if (changed.length > 0) {
-                await this.storage.markConceptsStale(changed);
+            // Step 3: Mark agent concepts as stale while the old file/symbol
+            // nodes and their describes edges still exist, including deletions.
+            if (filesToPurge.length > 0) {
+                await this.storage.markConceptsStale(filesToPurge);
             }
             // Step 4: Purge old nodes for changed and deleted files
             if (filesToPurge.length > 0) {
@@ -123,18 +162,18 @@ export class Indexer {
             }
         }
         if (unchangedFilePaths.length > 0) {
-            const existingSymbols = (await this.storage.queryNodesByFilePaths(unchangedFilePaths));
-            for (const sym of existingSymbols) {
-                allSymbolIds.add(sym.id);
-                // After Task 2, sym.name is the qualified name (e.g. "A.foo"). Register
-                // the qualified key as canonical. Also register a bare-name fallback so
-                // cross-file call resolution can still match `foo()` → first-registered.
-                symbolNameMap.set(sym.name, sym.id);
-                const bare = sym.name.includes(".")
-                    ? sym.name.split(".").pop()
-                    : sym.name;
-                if (!symbolNameMap.has(bare)) {
-                    symbolNameMap.set(bare, sym.id);
+            for (let i = 0; i < unchangedFilePaths.length; i += FILE_BATCH_SIZE) {
+                const existingSymbols = (await this.storage.queryNodesByFilePaths(unchangedFilePaths.slice(i, i + FILE_BATCH_SIZE)));
+                for (const sym of existingSymbols) {
+                    allSymbolIds.add(sym.id);
+                    // The qualified key is canonical; bare names remain a best-effort fallback.
+                    symbolNameMap.set(sym.name, sym.id);
+                    const bare = sym.name.includes(".")
+                        ? sym.name.split(".").pop()
+                        : sym.name;
+                    if (!symbolNameMap.has(bare)) {
+                        symbolNameMap.set(bare, sym.id);
+                    }
                 }
             }
         }
@@ -168,8 +207,23 @@ export class Indexer {
                         updatedAt: now,
                     };
                     await this.storage.upsertNode(fileNode);
+                    // File-level notes survive an edit as stale, so agents can still
+                    // find and inspect their provenance instead of losing the link.
+                    for (const edge of oldNoteEdges.get(fileId) ?? []) {
+                        await this.storage.upsertEdge(edge);
+                        if (oldFileHashes.get(relPath) === hash) {
+                            const note = await this.storage.getNode(edge.fromId);
+                            if (note?.type === "concept") {
+                                await this.storage.upsertNode({ ...note, stale: false, updatedAt: now });
+                            }
+                        }
+                    }
+                    for (const edge of oldWorkflowEdges.get(fileId) ?? []) {
+                        await this.storage.upsertEdge(edge);
+                    }
                     // Parse the file
                     const parseResult = await parseFile(absPath, relPath);
+                    const sourceLines = readFileSync(absPath, "utf-8").split("\n");
                     // Create symbol nodes and contains edges.
                     //
                     // Namespace-aware IDs: the base ID is
@@ -196,6 +250,14 @@ export class Indexer {
                         return { ...entry, finalId };
                     });
                     for (const { sym, qualified, finalId } of finalEntries) {
+                        const bodyHash = createHash("sha256")
+                            .update(sourceLines.slice(sym.lineStart - 1, sym.lineEnd).join("\n"))
+                            .digest("hex");
+                        const signatureHash = createHash("sha256")
+                            .update(sym.signature)
+                            .digest("hex");
+                        const prior = oldSymbols.get(finalId);
+                        const unchangedBody = Boolean(prior?.bodyHash && prior.bodyHash === bodyHash);
                         const symbolNode = {
                             id: finalId,
                             type: "symbol",
@@ -208,10 +270,22 @@ export class Indexer {
                             lineStart: sym.lineStart,
                             lineEnd: sym.lineEnd,
                             signature: sym.signature,
+                            bodyHash,
+                            signatureHash,
+                            ...(unchangedBody && prior?.summary ? { summary: prior.summary } : {}),
                             createdAt: now,
                             updatedAt: now,
                         };
                         await this.storage.upsertNode(symbolNode);
+                        for (const edge of oldNoteEdges.get(finalId) ?? []) {
+                            await this.storage.upsertEdge(edge);
+                            if (unchangedBody) {
+                                const note = await this.storage.getNode(edge.fromId);
+                                if (note?.type === "concept") {
+                                    await this.storage.upsertNode({ ...note, stale: false, updatedAt: now });
+                                }
+                            }
+                        }
                         allSymbolIds.add(finalId);
                         // Register under qualified name — this is the canonical key for
                         // call resolution across files.
@@ -392,7 +466,7 @@ export class Indexer {
                 const needsSummary = allSymbolNodes.filter((n) => {
                     const sym = n;
                     // Summarize if: in a newly processed file, or has no summary yet
-                    return filesToProcess.includes(sym.filePath) || !sym.summary;
+                    return !sym.summary;
                 });
                 if (needsSummary.length > 0) {
                     const symbolsForSummary = needsSummary.map((n) => {
@@ -554,7 +628,7 @@ export class Indexer {
         }
         // Step 8: Embeddings (opt-in) — incremental semantic index update
         let embeddingsResult;
-        if (options?.withEmbeddings !== false) {
+        if (options?.withEmbeddings === true) {
             // 8a. Delete embeddings for purged files (changed or deleted).
             //     Non-fatal: if cleanup fails, the stale rows remain but we
             //     still proceed to 8b so new symbols get embedded.
@@ -639,9 +713,8 @@ export class Indexer {
         return ig;
     }
     /**
-     * Recursively walk the directory tree, collecting file paths and their
-     * stat-based change keys (mtime + size). This avoids reading file content
-     * for the ~90% of files that haven't changed between index runs.
+     * Recursively walk the directory tree and hash supported source files.
+     * Content hashes detect changes even when mtime and size are unchanged.
      */
     walkDirectory(dir, ig, supportedExts, fileHashes) {
         let entries;
@@ -671,9 +744,16 @@ export class Indexer {
                 const ext = extname(absPath);
                 if (!supportedExts.has(ext))
                     continue;
-                // Use stat-based fast key instead of reading file content for SHA256
-                const hash = `${stat.mtimeMs}:${stat.size}`;
-                fileHashes.set(relPath, hash);
+                try {
+                    const hash = createHash("sha256")
+                        .update(readFileSync(absPath))
+                        .digest("hex");
+                    fileHashes.set(relPath, hash);
+                }
+                catch (error) {
+                    // An unreadable tracked file must not be mistaken for a deletion.
+                    throw new Error(`Cannot hash source file ${relPath}`, { cause: error });
+                }
             }
         }
     }

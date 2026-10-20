@@ -4,7 +4,7 @@
 
 import type { StorageBackend } from "../graph/storage.js";
 import type { GraphNode, SymbolNode } from "../graph/types.js";
-import { readSourceLines } from "./source-reader.js";
+import { handleSource } from "./source.js";
 
 /**
  * Multi-strategy symbol finder.
@@ -69,6 +69,8 @@ export interface TraceStep {
   kind: string;
   signature: string;
   source: string | null;
+  sourceStatus?: "fresh" | "unchanged" | "stale" | "deleted";
+  sourceMode?: "preview";
   lines?: string; // e.g. "271-438" — only in compact mode
   calls: string[]; // names of symbols this one calls
   pagerankScore?: number;
@@ -78,6 +80,7 @@ export interface TraceOutput {
   startSymbol: string;
   steps: TraceStep[];
   depth: number;
+  truncated?: boolean;
 }
 
 export async function handleTrace(
@@ -86,8 +89,12 @@ export async function handleTrace(
   projectRoot: string,
 ): Promise<TraceOutput> {
   const maxDepth = input.depth ?? 3;
+  if (!Number.isInteger(maxDepth) || maxDepth < 0 || maxDepth > 5) {
+    throw new Error("depth must be an integer from 0 to 5");
+  }
   const steps: TraceStep[] = [];
   const visited = new Set<string>();
+  let truncated = false;
 
   // Find the starting symbol with multi-strategy matching
   let startNodes = await findSymbol(storage, input.symbol);
@@ -102,6 +109,7 @@ export async function handleTrace(
   ];
 
   while (queue.length > 0) {
+    if (steps.length >= 25) { truncated = true; break; }
     const { nodeId, currentDepth } = queue.shift()!;
 
     if (visited.has(nodeId) || currentDepth > maxDepth) continue;
@@ -113,7 +121,9 @@ export async function handleTrace(
     const sym = node as SymbolNode;
 
     // Get outgoing calls edges
-    const callEdges = await storage.getEdges(nodeId, "out", ["calls"]);
+    const callEdges = (await storage.getEdges(nodeId, "out", ["calls"]))
+      .sort((a, b) => a.toId.localeCompare(b.toId));
+    if (currentDepth >= maxDepth && callEdges.length > 0) truncated = true;
     const calleeNames: string[] = [];
 
     for (const edge of callEdges) {
@@ -126,12 +136,15 @@ export async function handleTrace(
       }
     }
 
+    const sourceView = input.compact ? null : await handleSource(storage, { id: sym.id, mode: "preview" }, projectRoot);
     const step: TraceStep = {
       symbol: sym.name,
       filePath: sym.filePath,
       kind: sym.kind,
       signature: sym.signature,
-      source: input.compact ? null : readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd),
+      source: sourceView?.source ?? null,
+      ...(sourceView ? { sourceStatus: sourceView.status } : {}),
+      ...(sourceView ? { sourceMode: "preview" as const } : {}),
       calls: calleeNames,
       pagerankScore: sym.pagerankScore,
     };
@@ -144,5 +157,5 @@ export async function handleTrace(
   // Sort steps by PageRank — most important symbols first
   steps.sort((a, b) => (b.pagerankScore ?? 0) - (a.pagerankScore ?? 0));
 
-  return { startSymbol: input.symbol, steps, depth: maxDepth };
+  return { startSymbol: input.symbol, steps, depth: maxDepth, truncated };
 }

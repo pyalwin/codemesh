@@ -1,5 +1,5 @@
 /**
- * MCP Server — Registers all 7 codemesh tools on a McpServer instance.
+ * MCP Server — Thin adapter over the shared Codemesh handlers.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { StorageBackend } from "./graph/storage.js";

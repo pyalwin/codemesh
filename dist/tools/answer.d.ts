@@ -65,6 +65,7 @@ export interface AnswerOutput {
          *  snippet contains the full symbol body — no Read needed. */
         truncated?: boolean;
         summary?: string;
+        stale?: boolean;
     }>;
 }
 export declare function handleAnswer(storage: StorageBackend, input: AnswerInput, projectRoot: string): Promise<AnswerOutput>;

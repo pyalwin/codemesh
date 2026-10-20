@@ -1,13 +1,31 @@
 /**
- * codemesh_map — Map the call graph from a query or symbol.
+ * codemesh_map — Navigate indexed code or map a call graph from a query.
  *
- * Returns a summary-enriched tree of symbols with no source code.
- * Use codemesh_source to read the code of specific symbols.
+ * Without a query or symbol, returns one bounded, deterministic navigation step.
+ * Legacy query/symbol inputs still return a summary-enriched call tree.
+ * Use codemesh_source to read exact symbol code.
  */
 import { buildMapTree } from "./map-tree.js";
 import { findSymbol } from "./trace.js";
-import { semanticSearch } from "../indexer/embeddings.js";
+import { handleNavigation } from "./navigation.js";
+import { rankedQuery } from "./query.js";
 export async function handleMap(storage, input, projectRoot) {
+    const legacy = input.query !== undefined || input.symbol !== undefined;
+    if (!legacy) {
+        return handleNavigation(storage, input);
+    }
+    if (input.node !== undefined || input.relation !== undefined || input.limit !== undefined || input.cursor !== undefined || input.maxBytes !== undefined) {
+        throw new Error("query/symbol cannot be combined with node/relation/limit/cursor/maxBytes");
+    }
+    if (input.symbol !== undefined && !input.symbol.trim()) {
+        throw new Error("symbol must not be empty");
+    }
+    if (input.query !== undefined && !input.query.trim() && !input.symbol) {
+        throw new Error("query must not be empty");
+    }
+    if (!input.symbol && !input.query) {
+        throw new Error("query or symbol is required for legacy map search");
+    }
     let startNodeIds = [];
     if (input.symbol) {
         // Direct symbol lookup
@@ -15,22 +33,12 @@ export async function handleMap(storage, input, projectRoot) {
         startNodeIds = nodes.slice(0, 3).map(n => n.id);
     }
     else {
-        // Semantic + FTS5 search to find starting points
-        const ftsResults = await storage.search(input.query, "symbols");
+        // Share search ranking so exact identifiers remain the first graph seeds.
+        const ftsResults = await rankedQuery(storage, { query: input.query, scope: "symbols" });
         const ftsIds = ftsResults.slice(0, 5).map(r => r.node.id);
-        let semanticIds = [];
-        try {
-            const semResults = await semanticSearch(projectRoot, input.query, 5);
-            semanticIds = semResults
-                .filter(r => !new Set(ftsIds).has(r.id))
-                .map(r => r.id);
-        }
-        catch {
-            // Semantic search unavailable — continue with FTS5 only
-        }
-        // Merge and deduplicate, FTS first
+        // Deduplicate FTS results in stable order.
         const seen = new Set();
-        for (const id of [...ftsIds, ...semanticIds]) {
+        for (const id of ftsIds) {
             if (!seen.has(id)) {
                 seen.add(id);
                 startNodeIds.push(id);
@@ -42,10 +50,11 @@ export async function handleMap(storage, input, projectRoot) {
     if (startNodeIds.length === 0) {
         return { startingPoints: [], totalSymbols: 0 };
     }
-    const { nodes, totalSymbols } = await buildMapTree(storage, startNodeIds);
+    const { nodes, totalSymbols, truncated } = await buildMapTree(storage, startNodeIds);
     return {
         startingPoints: nodes,
         totalSymbols,
+        truncated,
     };
 }
 //# sourceMappingURL=map.js.map

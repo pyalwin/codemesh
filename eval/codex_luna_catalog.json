@@ -1,0 +1,36 @@
+{
+  "models": [
+    {
+      "slug": "gpt-6-luna",
+      "display_name": "GPT-6-Luna",
+      "description": "Fast and affordable model for easier tasks.",
+      "model_messages": {
+        "instructions_template": "Follow the evaluation harness instructions. Return only the requested JSON action or handoff text."
+      },
+      "default_reasoning_level": "medium",
+      "supported_reasoning_levels": [
+        { "effort": "low", "description": "Fast responses with lighter reasoning" },
+        { "effort": "medium", "description": "Balances speed and reasoning depth for everyday tasks" },
+        { "effort": "high", "description": "Greater reasoning depth for complex problems" },
+        { "effort": "xhigh", "description": "Extra high reasoning depth for complex problems" },
+        { "effort": "max", "description": "Maximum reasoning depth for the hardest problems" }
+      ],
+      "shell_type": "disabled",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 4,
+      "default_reasoning_summary": "none",
+      "support_verbosity": true,
+      "default_verbosity": "low",
+      "apply_patch_tool_type": null,
+      "truncation_policy": { "mode": "tokens", "limit": 10000 },
+      "context_window": 272000,
+      "max_context_window": 872000,
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": ["text", "image"],
+      "supports_search_tool": false,
+      "tool_mode": "direct"
+    }
+  ]
+}

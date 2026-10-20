@@ -9,11 +9,11 @@ set -euo pipefail
 # Parse file_path from stdin JSON using python3
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | python3 -c "
-import sys, json
+import sys, json, os
 try:
     data = json.load(sys.stdin)
     fp = data.get('tool_input', {}).get('file_path', '')
-    print(fp)
+    print(os.path.realpath(fp) if fp else '')
 except:
     print('')
 " 2>/dev/null || echo "")
@@ -50,11 +50,13 @@ SUMMARY=$(sqlite3 "$DB_PATH" "
     WHERE n.type = 'concept'
       AND e.type = 'describes'
       AND target.path = '$REL_PATH'
+      AND COALESCE(json_extract(n.data, '$.stale'), 0) != 1
     LIMIT 1;
 " 2>/dev/null || echo "")
 
+CONTEXT=""
 if [ -n "$SUMMARY" ]; then
-    echo "[Codemesh] Previous agent summary for ${REL_PATH}: ${SUMMARY}"
+    CONTEXT="[Codemesh] Previous agent summary for ${REL_PATH}: ${SUMMARY}"
 fi
 
 # Query for workflows involving this file
@@ -66,10 +68,17 @@ WORKFLOWS=$(sqlite3 "$DB_PATH" "
 " 2>/dev/null || echo "")
 
 if [ -n "$WORKFLOWS" ]; then
-    echo "[Codemesh] Known workflows involving ${REL_PATH}:"
-    echo "$WORKFLOWS" | while IFS= read -r line; do
-        [ -n "$line" ] && echo "  - $line"
-    done
+    CONTEXT="${CONTEXT}${CONTEXT:+$'\n'}[Codemesh] Known workflows involving ${REL_PATH}:"
+    while IFS= read -r line; do
+        [ -n "$line" ] && CONTEXT="${CONTEXT}"$'\n'"  - $line"
+    done <<< "$WORKFLOWS"
+fi
+
+if [ -n "$CONTEXT" ]; then
+    printf '%s' "$CONTEXT" | python3 -c '
+import json, sys
+print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": sys.stdin.read()}}))
+'
 fi
 
 exit 0

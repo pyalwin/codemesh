@@ -1,0 +1,48 @@
+{
+  "repository": "https://github.com/pydantic/pydantic.git",
+  "commit": "5adfeaaaea947f81f0f01868604f219084ec151a",
+  "tasks": [
+    {
+      "id": "alias_roundtrip_flow",
+      "symptom": "Models configured with a generated common alias and separate input and output aliases no longer honor the independent names: validation can request the output name, and serialized output can fall back to the common name. Restore the input/output round trip while preserving explicit high-priority aliases and the fallback when only a common generator is configured.",
+      "impact_question": "Trace generated names from configuration through field metadata into validation and serialization. Which precedence rules must remain intact for explicit aliases, separate generated aliases, and a common fallback?",
+      "path": "pydantic/aliases.py",
+      "mutations": [
+        {
+          "path": "pydantic/aliases.py",
+          "old": "return alias, validation_alias, serialization_alias  # type: ignore",
+          "mutant": "return alias, serialization_alias, validation_alias  # type: ignore"
+        },
+        {
+          "path": "pydantic/_internal/_fields.py",
+          "old": "field_info.serialization_alias = get_first_not_none(serialization_alias, alias)",
+          "mutant": "field_info.serialization_alias = get_first_not_none(alias, serialization_alias)",
+          "occurrence": 1
+        }
+      ],
+      "visible_test": "from pydantic import AliasGenerator, BaseModel, ConfigDict\n\ndef test_distinct_generated_aliases_round_trip():\n    class Message(BaseModel):\n        model_config = ConfigDict(alias_generator=AliasGenerator(\n            alias=lambda name: 'common_' + name,\n            validation_alias=lambda name: 'in_' + name,\n            serialization_alias=lambda name: 'out_' + name,\n        ))\n        value: int\n\n    message = Message.model_validate({'in_value': 7})\n    assert message.model_dump(by_alias=True) == {'out_value': 7}\n",
+      "hidden_test": "eval/edit_tasks/hidden/test_alias_roundtrip_flow.py"
+    },
+    {
+      "id": "trusted_default_factory_flow",
+      "symptom": "Constructing a model from trusted values loses earlier field values when computing a later field default, although normal validation can compute it. Explicitly resolving a field default with a supplied mapping also loses that mapping. Restore data-dependent defaults across both entry points, including chained defaults and aliased input; keep zero-argument factories and static defaults working.",
+      "impact_question": "Follow trusted model construction through field-default resolution to the factory call. Which values must each later factory see, how should aliases and explicit values affect that mapping, and when must a factory remain uncalled?",
+      "path": "pydantic/fields.py",
+      "mutations": [
+        {
+          "path": "pydantic/fields.py",
+          "old": "            validated_data=validated_data,\n            call_default_factory=call_default_factory,",
+          "mutant": "            validated_data=None,\n            call_default_factory=call_default_factory,",
+          "occurrence": 1
+        },
+        {
+          "path": "pydantic/_internal/_fields.py",
+          "old": "return fac(validated_data)",
+          "mutant": "return fac({})"
+        }
+      ],
+      "visible_test": "from pydantic import BaseModel, Field\nfrom pydantic.fields import FieldInfo\n\ndef test_trusted_construction_passes_previous_field_values():\n    class Invoice(BaseModel):\n        subtotal: int\n        total: int = Field(default_factory=lambda data: data['subtotal'] + 5)\n\n    assert Invoice.model_construct(subtotal=20).total == 25\n\ndef test_explicit_default_resolution_passes_supplied_values():\n    field = FieldInfo(default_factory=lambda data: data['subtotal'] + 5)\n    assert field.get_default(call_default_factory=True, validated_data={'subtotal': 20}) == 25\n",
+      "hidden_test": "eval/edit_tasks/hidden/test_trusted_default_factory_flow.py"
+    }
+  ]
+}

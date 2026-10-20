@@ -1,0 +1,171 @@
+{
+  "repository": "https://github.com/pydantic/pydantic.git",
+  "commit": "5adfeaaaea947f81f0f01868604f219084ec151a",
+  "tasks": [
+    {
+      "id": "unique-serialize",
+      "category": "unique_path",
+      "path_group": "serialization",
+      "question": "What does BaseModel.model_dump return, which component does the work, and how do json and python modes differ?",
+      "units": ["pydantic/main.py::BaseModel.model_dump"],
+      "rubric": [
+        "Returns a dictionary by delegating to self.__pydantic_serializer__.to_python.",
+        "json mode yields JSON-serializable values; python mode may keep Python objects."
+      ],
+      "checks": [
+        {"label": "serializer delegation", "all_of": ["to_python", "serializer"]},
+        {"label": "mode distinction", "all_of": ["json", "python", "serializ"]}
+      ]
+    },
+    {
+      "id": "unique-copy",
+      "category": "unique_path",
+      "path_group": "copying",
+      "question": "In BaseModel.model_copy, what happens when deep=True and update is provided? Explain treatment of updated fields, validation, and fields_set.",
+      "units": ["pydantic/main.py::BaseModel.model_copy"],
+      "rubric": [
+        "Deep-copies fields not being updated while applying update values directly.",
+        "Update values are not validated.",
+        "Adds update keys to __pydantic_fields_set__."
+      ],
+      "checks": [
+        {"label": "selective deep copy", "all_of": ["deep", "updat"]},
+        {"label": "no validation", "all_of": ["validat"]},
+        {"label": "fields set", "all_of": ["fields_set"]}
+      ]
+    },
+    {
+      "id": "unique-validators",
+      "category": "unique_path",
+      "path_group": "validator_decorators",
+      "question": "Compare field_validator and model_validator: what does each decorate, and which modes does each accept?",
+      "units": [
+        "pydantic/functional_validators.py::FieldValidatorModes",
+        "pydantic/functional_validators.py::field_validator",
+        "pydantic/functional_validators.py::model_validator"
+      ],
+      "rubric": [
+        "field_validator decorates field methods and accepts before, after, wrap, and plain; after is the default.",
+        "model_validator decorates model methods and requires before, after, or wrap."
+      ],
+      "checks": [
+        {"label": "four field modes", "all_of": ["before", "after", "wrap", "plain"]},
+        {"label": "two decorator scopes", "all_of": ["field", "model"]}
+      ]
+    },
+    {
+      "id": "depth-schema-1",
+      "category": "same_path_depth",
+      "path_group": "json_schema",
+      "depth": 1,
+      "question": "At the public BaseModel.model_json_schema entry point, what function receives the work next and which options are passed through?",
+      "units": ["pydantic/main.py::BaseModel.model_json_schema"],
+      "rubric": [
+        "Delegates to the module-level model_json_schema function.",
+        "Passes the model class and options including by_alias, ref_template, union_format, schema_generator, and mode."
+      ],
+      "checks": [
+        {"label": "delegate", "all_of": ["model_json_schema"]},
+        {"label": "options", "all_of": ["by_alias", "mode"]}
+      ]
+    },
+    {
+      "id": "depth-schema-2",
+      "category": "same_path_depth",
+      "path_group": "json_schema",
+      "depth": 2,
+      "question": "Trace BaseModel.model_json_schema one step deeper: how does the utility create a generator, and which model data does it pass to generate?",
+      "units": [
+        "pydantic/main.py::BaseModel.model_json_schema",
+        "pydantic/json_schema.py::model_json_schema"
+      ],
+      "rubric": [
+        "The class method calls the module-level model_json_schema utility.",
+        "The utility instantiates the configured schema_generator and calls generate with cls.__pydantic_core_schema__ and mode."
+      ],
+      "checks": [
+        {"label": "generator creation", "all_of": ["generator"]},
+        {"label": "core schema input", "all_of": ["core_schema", "mode"]}
+      ]
+    },
+    {
+      "id": "depth-schema-3",
+      "category": "same_path_depth",
+      "path_group": "json_schema",
+      "depth": 3,
+      "question": "Trace JSON Schema generation from BaseModel.model_json_schema through the utility into GenerateJsonSchema.generate. What does the final method receive, process, and return?",
+      "units": [
+        "pydantic/main.py::BaseModel.model_json_schema",
+        "pydantic/json_schema.py::model_json_schema",
+        "pydantic/json_schema.py::GenerateJsonSchema.generate"
+      ],
+      "rubric": [
+        "The class method delegates to the module-level utility, which calls GenerateJsonSchema.generate.",
+        "generate receives a CoreSchema plus validation/serialization mode and returns a JsonSchemaValue.",
+        "The generated schema handles definitions and references before return."
+      ],
+      "checks": [
+        {"label": "call chain", "all_of": ["GenerateJsonSchema", "model_json_schema"]},
+        {"label": "input and output", "all_of": ["CoreSchema", "JsonSchemaValue"]},
+        {"label": "definitions", "all_of": ["defin", "ref"]}
+      ]
+    },
+    {
+      "id": "frame-init-1",
+      "category": "same_path_same_depth_reframe",
+      "path_group": "initialization",
+      "frame": 1,
+      "question": "When a user constructs a BaseModel with keyword data, where is validation performed, and who prepared that validator?",
+      "units": [
+        "pydantic/main.py::BaseModel.__init__",
+        "pydantic/_internal/_model_construction.py::complete_model_class"
+      ],
+      "rubric": [
+        "BaseModel.__init__ invokes self.__pydantic_validator__.validate_python(data, self_instance=self).",
+        "complete_model_class creates and assigns the class validator via create_schema_validator."
+      ],
+      "checks": [
+        {"label": "validation call", "all_of": ["validate_python", "__pydantic_validator__"]},
+        {"label": "preparation", "all_of": ["complete_model_class", "create_schema_validator"]}
+      ]
+    },
+    {
+      "id": "frame-init-2",
+      "category": "same_path_same_depth_reframe",
+      "path_group": "initialization",
+      "frame": 2,
+      "question": "A model instance validates its input despite __init__ containing little field logic. Explain the division of labor between __init__ and class completion.",
+      "units": [
+        "pydantic/main.py::BaseModel.__init__",
+        "pydantic/_internal/_model_construction.py::complete_model_class"
+      ],
+      "rubric": [
+        "BaseModel.__init__ delegates to self.__pydantic_validator__.validate_python rather than validating fields itself.",
+        "complete_model_class creates and stores the validator on the model class."
+      ],
+      "checks": [
+        {"label": "validation call", "all_of": ["validate_python", "__pydantic_validator__"]},
+        {"label": "preparation", "all_of": ["complete_model_class", "create_schema_validator"]}
+      ]
+    },
+    {
+      "id": "frame-init-3",
+      "category": "same_path_same_depth_reframe",
+      "path_group": "initialization",
+      "frame": 3,
+      "question": "For the expression Model(x=1), identify the prepared validation object and trace where it is installed and where it is called.",
+      "units": [
+        "pydantic/main.py::BaseModel.__init__",
+        "pydantic/_internal/_model_construction.py::complete_model_class"
+      ],
+      "rubric": [
+        "The object is __pydantic_validator__, created by create_schema_validator during complete_model_class.",
+        "BaseModel.__init__ calls its validate_python method with input data and self_instance=self."
+      ],
+      "checks": [
+        {"label": "validation call", "all_of": ["validate_python", "__pydantic_validator__"]},
+        {"label": "preparation", "all_of": ["complete_model_class", "create_schema_validator"]}
+      ]
+    }
+  ]
+}

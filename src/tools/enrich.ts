@@ -3,7 +3,8 @@
  */
 
 import type { StorageBackend } from "../graph/storage.js";
-import type { ConceptNode, GraphEdge } from "../graph/types.js";
+import { createHash } from "node:crypto";
+import type { ConceptNode, GraphEdge, FileNode, SymbolNode } from "../graph/types.js";
 
 export interface EnrichInput {
   path: string;
@@ -11,6 +12,7 @@ export interface EnrichInput {
   summary: string;
   related_files?: string[];
   sessionId: string;
+  status?: "hypothesis" | "verified";
 }
 
 export interface EnrichOutput {
@@ -35,8 +37,22 @@ export async function handleEnrich(
     return { nodeId: "", success: false };
   }
 
-  // Create a unique concept ID based on target and timestamp
-  const conceptId = `concept:${input.path}${input.symbol ? `:${input.symbol}` : ""}:${Date.now()}`;
+  // Exact repeated notes consolidate. Differing notes remain side by side so
+  // contradictions are visible instead of being silently overwritten.
+  const existingEdges = await storage.getEdges(targetId, "in", ["describes"]);
+  let existing: ConceptNode | null = null;
+  for (const edge of existingEdges) {
+    const candidate = await storage.getNode(edge.fromId);
+    if (candidate?.type === "concept" && candidate.summary.trim() === input.summary.trim()) {
+      existing = candidate;
+      break;
+    }
+  }
+  const summaryHash = createHash("sha256").update(input.summary.trim()).digest("hex").slice(0, 16);
+  const conceptId = existing?.id ?? `concept:${targetId}:${summaryHash}`;
+  const targetHash = targetNode.type === "file"
+    ? (targetNode as FileNode).hash
+    : (targetNode as SymbolNode).bodyHash;
 
   // Create the concept node
   const conceptNode: ConceptNode = {
@@ -47,7 +63,17 @@ export async function handleEnrich(
     summary: input.summary,
     lastUpdatedBy: input.sessionId,
     stale: false,
-    createdAt: now,
+    targetId,
+    targetHash,
+    status: input.status ?? existing?.status ?? "hypothesis",
+    history: existing && existing.lastUpdatedBy !== input.sessionId
+      ? [...(existing.history ?? []), {
+          sessionId: existing.lastUpdatedBy,
+          status: existing.status ?? "hypothesis",
+          at: existing.updatedAt,
+        }].slice(-20)
+      : existing?.history,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
 

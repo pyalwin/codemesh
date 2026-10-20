@@ -1,0 +1,224 @@
+{
+  "answers": [
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "phase": "python_path",
+      "answer_sha256": "1f4ae67e791aaff87e3b00508d09a430f0340108c13a66848ef5af56dd346215",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "phase": "json_and_setup",
+      "answer_sha256": "a906d2afc974f8464147db3bc29a161180f5cd1e0fee08acccb3056e828ab49d",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "987ec505e65ccfcacba99d817e79b630fe60f526451989edc2d9391f7abd846c",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "phase": "dict_path",
+      "answer_sha256": "483e17f78b98805385910f72bb273dd68503df7cc2131802b1fa6adcb6040e98",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": true,
+      "note": "Speculates JSON sibling likely wraps model_dump, contradicted by later read."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "phase": "json_path",
+      "answer_sha256": "bdc7ad273bc7ce2383852f2c4b79af5fec35ba91b0d819c18cf20eaf6e099b1c",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits .decode() required by the frozen rubric."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "23786f09d000cee164206215a1237258b619d2dedb4908da4ddde1afdc178827",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits return/decoding or forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "phase": "python_path",
+      "answer_sha256": "1d21042bc4096e7a1f63c0954b9f047806d83f9ef4cbfeea97897ff805dee28a",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "phase": "json_and_setup",
+      "answer_sha256": "747e819812f27ca96def1349176130451ceead478bb19798d3850c6b94a639eb",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "ba2aec00f29411f276b5da3dff06dd9fcb29870b02a64b2f3213ca2b3d92d198",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "phase": "dict_path",
+      "answer_sha256": "6626fe00dfa5ab6c9af1f862c9194f12a5ad0f4c881e479941a76d35e171ed18",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "phase": "json_path",
+      "answer_sha256": "ac220a2cc173edf033ac66a5a37ed4fdb4014e27118e49bd59cf33ce2518c6cc",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits .decode() required by the frozen rubric."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "de61ad84e3369dd8323be6b42c7da1802ccb9fb1f3fd4e15e04d70297321fa5c",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits return/decoding or forwarding details.",
+      "core_conclusion_correct": true
+    }
+  ],
+  "memories": [
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "memory_sha256": "d5536ff292533b93798e72ec163c3c69dc90e40dad6debf2edf02f7e4c2fd4ef",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "memory_sha256": "6ea6231f463eabe1acb31c39b9c5c4a46d68b3e14db7634ce6a0fc9eb2394367",
+      "rubric_hits": [
+        true,
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits to_json().decode()."
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 2,
+      "memory_sha256": "134683cf559b0fc6592d1bec713ca6ad59ba74800927be10a97db321dd0146d9",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard_nosource",
+      "repeat": 1,
+      "memory_sha256": "b92e240d4f663949ae83daf6a15233390e5074672c67d12f25b85f907743c907",
+      "rubric_hits": [
+        true,
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits to_json().decode()."
+    }
+  ]
+}

@@ -15,6 +15,7 @@ export interface ReadSymbolOutput {
     signature: string;
     lines: string;
     source: string | null;
+    sourceStatus: "fresh" | "unchanged" | "stale" | "deleted";
 }
 export declare function handleReadSymbol(storage: StorageBackend, input: ReadSymbolInput, projectRoot: string): Promise<ReadSymbolOutput | {
     error: string;

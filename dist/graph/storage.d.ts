@@ -1,10 +1,12 @@
-import type { GraphNode, GraphEdge, NodeFilter, SearchResult, TraversalResult } from "./types.js";
+import type { GraphNode, GraphEdge, NodeFilter, SearchResult, SearchOptions, TraversalResult } from "./types.js";
 export interface StorageBackend {
     initialize(): Promise<void>;
     close(): Promise<void>;
     upsertNode(node: GraphNode): Promise<string>;
     getNode(id: string): Promise<GraphNode | null>;
     queryNodes(filter: NodeFilter): Promise<GraphNode[]>;
+    /** Indexed file paths under a directory; omit directory for the repository root. */
+    queryFilePaths(directory?: string): Promise<string[]>;
     /**
      * Return all symbol nodes whose filePath is one of the given paths.
      * Streams via a single IN query — safe for thousands of paths.
@@ -16,7 +18,15 @@ export interface StorageBackend {
     getEdges(nodeId: string, direction: "in" | "out" | "both", edgeTypes?: string[]): Promise<GraphEdge[]>;
     deleteEdgesByNode(nodeId: string): Promise<number>;
     traverse(startId: string, depth: number, edgeTypes?: string[]): Promise<TraversalResult[]>;
-    search(query: string, scope?: string): Promise<SearchResult[]>;
+    search(query: string, scope?: string, options?: SearchOptions): Promise<SearchResult[]>;
+    recordDelivery?(entry: {
+        sessionId: string;
+        contextEpoch: string;
+        nodeId: string;
+        mode: string;
+        sourceHash: string;
+    }): Promise<void>;
+    incrementMetric?(key: "source_bytes_delivered" | "source_bytes_avoided" | "conditional_hits", amount: number): Promise<void>;
     beginTransaction(): Promise<void>;
     commitTransaction(): Promise<void>;
     rollbackTransaction(): Promise<void>;
@@ -32,5 +42,6 @@ export interface StorageBackend {
         edgeCount: Record<string, number>;
         staleCount: number;
         lastIndexedAt: string | null;
+        metrics?: Record<string, number>;
     }>;
 }

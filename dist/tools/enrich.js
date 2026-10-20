@@ -1,6 +1,7 @@
 /**
  * codemesh_enrich — Create a concept node describing a file or symbol.
  */
+import { createHash } from "node:crypto";
 export async function handleEnrich(storage, input) {
     const now = new Date().toISOString();
     // Determine the target node ID
@@ -12,8 +13,22 @@ export async function handleEnrich(storage, input) {
     if (!targetNode) {
         return { nodeId: "", success: false };
     }
-    // Create a unique concept ID based on target and timestamp
-    const conceptId = `concept:${input.path}${input.symbol ? `:${input.symbol}` : ""}:${Date.now()}`;
+    // Exact repeated notes consolidate. Differing notes remain side by side so
+    // contradictions are visible instead of being silently overwritten.
+    const existingEdges = await storage.getEdges(targetId, "in", ["describes"]);
+    let existing = null;
+    for (const edge of existingEdges) {
+        const candidate = await storage.getNode(edge.fromId);
+        if (candidate?.type === "concept" && candidate.summary.trim() === input.summary.trim()) {
+            existing = candidate;
+            break;
+        }
+    }
+    const summaryHash = createHash("sha256").update(input.summary.trim()).digest("hex").slice(0, 16);
+    const conceptId = existing?.id ?? `concept:${targetId}:${summaryHash}`;
+    const targetHash = targetNode.type === "file"
+        ? targetNode.hash
+        : targetNode.bodyHash;
     // Create the concept node
     const conceptNode = {
         id: conceptId,
@@ -23,7 +38,17 @@ export async function handleEnrich(storage, input) {
         summary: input.summary,
         lastUpdatedBy: input.sessionId,
         stale: false,
-        createdAt: now,
+        targetId,
+        targetHash,
+        status: input.status ?? existing?.status ?? "hypothesis",
+        history: existing && existing.lastUpdatedBy !== input.sessionId
+            ? [...(existing.history ?? []), {
+                    sessionId: existing.lastUpdatedBy,
+                    status: existing.status ?? "hypothesis",
+                    at: existing.updatedAt,
+                }].slice(-20)
+            : existing?.history,
+        createdAt: existing?.createdAt ?? now,
         updatedAt: now,
     };
     await storage.upsertNode(conceptNode);

@@ -1,4 +1,4 @@
-import type { GraphNode, GraphEdge, NodeFilter, SearchResult, TraversalResult } from "./types.js";
+import type { GraphNode, GraphEdge, NodeFilter, SearchResult, SearchOptions, TraversalResult } from "./types.js";
 import type { StorageBackend } from "./storage.js";
 /**
  * SQLite storage backend for the code knowledge graph.
@@ -7,9 +7,12 @@ import type { StorageBackend } from "./storage.js";
 export declare class SqliteBackend implements StorageBackend {
     private db;
     private readonly dbPath;
+    private inTransaction;
+    private graphDirty;
     constructor(dbPath: string);
     initialize(): Promise<void>;
     close(): Promise<void>;
+    private markGraphDirty;
     private getDb;
     private createSchema;
     /**
@@ -24,6 +27,7 @@ export declare class SqliteBackend implements StorageBackend {
     upsertNode(node: GraphNode): Promise<string>;
     getNode(id: string): Promise<GraphNode | null>;
     queryNodes(filter: NodeFilter): Promise<GraphNode[]>;
+    queryFilePaths(directory?: string): Promise<string[]>;
     queryNodesByFilePaths(filePaths: string[]): Promise<GraphNode[]>;
     deleteNode(id: string): Promise<void>;
     upsertEdge(edge: GraphEdge): Promise<string>;
@@ -31,12 +35,20 @@ export declare class SqliteBackend implements StorageBackend {
     deleteEdgesByNode(nodeId: string): Promise<number>;
     private deserializeEdge;
     traverse(startId: string, depth: number, edgeTypes?: string[]): Promise<TraversalResult[]>;
-    search(query: string, _scope?: string): Promise<SearchResult[]>;
+    recordDelivery(entry: {
+        sessionId: string;
+        contextEpoch: string;
+        nodeId: string;
+        mode: string;
+        sourceHash: string;
+    }): Promise<void>;
+    incrementMetric(key: "source_bytes_delivered" | "source_bytes_avoided" | "conditional_hits", amount: number): Promise<void>;
+    search(query: string, scope?: string, options?: SearchOptions): Promise<SearchResult[]>;
     /**
      * Search using trigram index for partial/substring symbol matching.
      * Finds nodes whose name or signature contains the query as a substring.
      */
-    searchTrigrams(query: string): Promise<SearchResult[]>;
+    searchTrigrams(query: string, scope?: string, options?: SearchOptions): Promise<SearchResult[]>;
     beginTransaction(): Promise<void>;
     commitTransaction(): Promise<void>;
     rollbackTransaction(): Promise<void>;
@@ -52,5 +64,6 @@ export declare class SqliteBackend implements StorageBackend {
         edgeCount: Record<string, number>;
         staleCount: number;
         lastIndexedAt: string | null;
+        metrics: Record<string, number>;
     }>;
 }

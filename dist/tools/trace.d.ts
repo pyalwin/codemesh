@@ -20,6 +20,8 @@ export interface TraceStep {
     kind: string;
     signature: string;
     source: string | null;
+    sourceStatus?: "fresh" | "unchanged" | "stale" | "deleted";
+    sourceMode?: "preview";
     lines?: string;
     calls: string[];
     pagerankScore?: number;
@@ -28,5 +30,6 @@ export interface TraceOutput {
     startSymbol: string;
     steps: TraceStep[];
     depth: number;
+    truncated?: boolean;
 }
 export declare function handleTrace(storage: StorageBackend, input: TraceInput, projectRoot: string): Promise<TraceOutput>;

@@ -9,7 +9,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
-const runtimeImport = new Function("specifier", "return import(specifier)");
+const runtimeImport = (specifier) => import(specifier);
 // ── Model loading (lazy) ────────────────────────────────────────────
 let embedder = null;
 async function getEmbedder() {

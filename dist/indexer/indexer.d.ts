@@ -37,9 +37,11 @@ export interface IndexProgress {
     elapsedMs: number;
 }
 export interface IndexOptions {
-    /** Run semantic embedding generation. Defaults to true; set to false to skip. */
+    /** Legacy opt-in semantic embeddings; the SQLite-only path is the default. */
     withEmbeddings?: boolean;
     withSummaries?: boolean;
+    /** Reparse every tracked file without deleting agent knowledge. */
+    force?: boolean;
     /**
      * Optional reporter invoked at phase boundaries so callers can surface
      * progress on long-running index runs. Exceptions thrown by the reporter
@@ -59,7 +61,7 @@ export declare class Indexer {
      * 4. Remove deleted file nodes
      * 5. Git intelligence
      * 6. PageRank scoring
-     * 7. Embeddings (on by default; pass withEmbeddings: false to skip)
+     * 7. Legacy embeddings only when explicitly requested
      */
     index(options?: IndexOptions): Promise<IndexResult>;
     /**
@@ -68,9 +70,8 @@ export declare class Indexer {
      */
     private loadIgnoreRules;
     /**
-     * Recursively walk the directory tree, collecting file paths and their
-     * stat-based change keys (mtime + size). This avoids reading file content
-     * for the ~90% of files that haven't changed between index runs.
+     * Recursively walk the directory tree and hash supported source files.
+     * Content hashes detect changes even when mtime and size are unchanged.
      */
     private walkDirectory;
     /**

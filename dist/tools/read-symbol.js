@@ -5,7 +5,7 @@
  * Uses the same multi-strategy symbol finder as trace.
  */
 import { findSymbol } from "./trace.js";
-import { readSourceLines } from "./source-reader.js";
+import { handleSource } from "./source.js";
 export async function handleReadSymbol(storage, input, projectRoot) {
     const nodes = await findSymbol(storage, input.symbol);
     if (nodes.length === 0) {
@@ -16,14 +16,15 @@ export async function handleReadSymbol(storage, input, projectRoot) {
         return { error: `'${input.symbol}' resolved to a ${node.type} node, not a symbol.` };
     }
     const sym = node;
-    const source = readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd);
+    const sourceView = await handleSource(storage, { id: sym.id }, projectRoot);
     return {
         symbol: sym.name,
         filePath: sym.filePath,
         kind: sym.kind,
         signature: sym.signature,
         lines: `${sym.lineStart}-${sym.lineEnd}`,
-        source,
+        source: sourceView.source,
+        sourceStatus: sourceView.status,
     };
 }
 //# sourceMappingURL=read-symbol.js.map

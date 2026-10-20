@@ -711,6 +711,34 @@ describe("Maintenance", () => {
     expect(concept.stale).toBe(true);
   });
 
+  it("marks file and symbol concepts stale before their targets are purged", async () => {
+    await db.upsertNode(makeSymbolNode({
+      id: "symbol:a-fn",
+      filePath: "src/a.ts",
+    }));
+    await db.upsertNode(makeConceptNode({ id: "concept:file-a" }));
+    await db.upsertNode(makeConceptNode({ id: "concept:symbol-a" }));
+    await db.upsertNode(makeConceptNode({ id: "concept:file-b" }));
+    await db.upsertEdge(makeEdge({
+      id: "describes-file-a", type: "describes", source: "agent",
+      fromId: "concept:file-a", toId: "file:src/a.ts",
+    }));
+    await db.upsertEdge(makeEdge({
+      id: "describes-symbol-a", type: "describes", source: "agent",
+      fromId: "concept:symbol-a", toId: "symbol:a-fn",
+    }));
+    await db.upsertEdge(makeEdge({
+      id: "describes-file-b", type: "describes", source: "agent",
+      fromId: "concept:file-b", toId: "file:src/b.ts",
+    }));
+
+    expect(await db.markConceptsStale(["src/a.ts"])).toBe(2);
+    await db.purgeFileNodes(["src/a.ts"]);
+    expect(((await db.getNode("concept:file-a")) as ConceptNode).stale).toBe(true);
+    expect(((await db.getNode("concept:symbol-a")) as ConceptNode).stale).toBe(true);
+    expect(((await db.getNode("concept:file-b")) as ConceptNode).stale).toBe(false);
+  });
+
   it("should purge file nodes and their symbols", async () => {
     await db.upsertNode(
       makeSymbolNode({

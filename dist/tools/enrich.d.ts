@@ -8,6 +8,7 @@ export interface EnrichInput {
     summary: string;
     related_files?: string[];
     sessionId: string;
+    status?: "hypothesis" | "verified";
 }
 export interface EnrichOutput {
     nodeId: string;

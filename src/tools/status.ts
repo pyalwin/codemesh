@@ -9,6 +9,7 @@ export interface StatusOutput {
   edgeCount: Record<string, number>;
   staleCount: number;
   lastIndexedAt: string | null;
+  metrics?: Record<string, number>;
 }
 
 export async function handleStatus(

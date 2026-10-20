@@ -1,0 +1,660 @@
+{
+  "answers": [
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "phase": "python_path",
+      "answer_sha256": "c497ebe7a12bd1fd0a78b749d1dffd7c15255600b2627027ec524274b51c8976",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "phase": "json_and_setup",
+      "answer_sha256": "9020b50f0892aa4eeabec9460858f1b1abda2c5705d02406f9e7330652ebf4ec",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "beb11f10ccc95909542d7c27eec2772976ac9c5ae4e99dd3ad2aaac36841291a",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "phase": "dict_path",
+      "answer_sha256": "a1684f40aa901ad52efa733382cb24442b15f777a821d988966ad1a5cefa7583",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "phase": "json_path",
+      "answer_sha256": "a5e9c2bc79a019a9487bce1b60b999832ec261ba186909a0070bae350fc26393",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "States direct to_json and str, but omits the required .decode() conversion."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "9ab63fc4ac6d34f205312ce58701a68176664b798458e1a52a806e5f6f22339a",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits required .decode() or option-forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "phase": "dict_path",
+      "answer_sha256": "56edc34f594869279890bb85cd3366f081b2cd9db812377e6a78ca42a5de977d",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "phase": "json_path",
+      "answer_sha256": "d3b7880aa3f9b550ac209b1a9aa1550da2ba4c5c9b7eb278132615a82a0926d3",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "States direct to_json and str, but omits the required .decode() conversion."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "8888896e8a3119bb21ed04128b75b95dc8b1314082b4022acbcb5a6e01b76d4c",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits required .decode() or option-forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "phase": "python_path",
+      "answer_sha256": "b97281b358cb388b4f2306e28e604e017c6e8bb931d099a8a573aa2dd288d244",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "phase": "json_and_setup",
+      "answer_sha256": "71bb88399912f6efc236e5958544290277f511effa1841327036027b103f316d",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "f8acdc8936b9fa5ec47d95489e6e9a22fb4c1d5135bbc9bb4966b1b0228ab019",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "phase": "python_path",
+      "answer_sha256": "cc6694581c40e4d1a9ff5c461dfd837f9cd27e3e49935173368aa8134dc09dae",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "phase": "json_and_setup",
+      "answer_sha256": "eb0bd978dc08b0bf6999cb566140431fde7a973fc2826c2139b2644926302d48",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "6ec1314f0686fbc05479445f3fa1ed964f6b94a4d197773f6a91f1e41cda5b06",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "phase": "python_path",
+      "answer_sha256": "6233118c220715fd8786e4116f2e2c9d795866034ab00131372e073d5a4ee294",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "phase": "json_and_setup",
+      "answer_sha256": "25f48ec9265793caf0fe57d899e6a233472d1fcddfd7655ff2ab3e5d4bc0c48e",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "5b4d52db9d80d65dc409c63129d51cd086f93cb35109916583457bb7a2236518",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "phase": "python_path",
+      "answer_sha256": "3c435a45e5e48605fa759b5a01e72de02f9e53fa6309aae8be2726d21ef53556",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "phase": "json_and_setup",
+      "answer_sha256": "b14ab8d63c1fec7707876dd83cd5e86251cc3646c3bc64b10df3e27eed461b00",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "b973d8dbd9fdef9d7d889602b13d95ca0df5d9e1aac9c6a7b37d7dbc3cf4344f",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "phase": "dict_path",
+      "answer_sha256": "846e77ea69e96df3ce7a579fd85b7f848657d8a9fca143ef97a5ffa86ba1d882",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "phase": "json_path",
+      "answer_sha256": "9bb2aa7fa445361139ed7ebf41631cc2597784de2c91f2c99370658341ea0579",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "States direct to_json and str, but omits the required .decode() conversion."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "57c27b49ed135e5965e9315e1f5197b6d127ea0a89c4463583cf494063f8d1fd",
+      "rubric_hits": [
+        true,
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits required .decode() or option-forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "phase": "dict_path",
+      "answer_sha256": "0de372c8b1f673ec45651b296181dd77f8950b296d888bb73eb30315cd79c9c9",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": true,
+      "note": "Speculates that model_dump_json likely wraps the dict export, contradicted by the next source read."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "phase": "json_path",
+      "answer_sha256": "a204817585ea4272f99ceef650517b0dab84e33203a796c878433268fc56e263",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "States direct to_json and str, but omits the required .decode() conversion."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "20a7e55d18a2b84b4ae9fca7c3e4986c1c16c7fb8881042969ddf2adf1d939c2",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits required .decode() or option-forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "phase": "dict_path",
+      "answer_sha256": "45c31c653309efc86531aad20d358db19615766db984c264767e5c6a68726852",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "phase": "json_path",
+      "answer_sha256": "4f0915e0f0e134cb24cd89787bad8871e30c43f3648f945a28f950c7ac1d9742",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "States direct to_json and str, but omits the required .decode() conversion."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "67d04443c9830a48226a6264f53e77b0e8e8ec251c82addc96084576cb2a4215",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits required .decode() or option-forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "phase": "dict_path",
+      "answer_sha256": "72a10cfb9af323217d91f6ddd72eafeecf1eddb3f4d108858cfc2922995df195",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "phase": "json_path",
+      "answer_sha256": "93fc13351ded0292d935a24830b1e4e4d5ddd8e86690677abe2e0593f4c84867",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "States direct to_json and str, but omits the required .decode() conversion."
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "phase": "post_compaction_impact",
+      "answer_sha256": "84247e06577e67c1d405656b65c98d6a148344942f4c635c1baaad8f2e56dd27",
+      "rubric_hits": [
+        true,
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Correct main impact conclusion; omits required .decode() or option-forwarding details.",
+      "core_conclusion_correct": true
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "phase": "python_path",
+      "answer_sha256": "2ce971598026362c83d1d7b87c49dc5b6c97d252485d3399c579778fc4797019",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "phase": "json_and_setup",
+      "answer_sha256": "b49684cb2003992907e0ab120dc2328d9fd2d70b6711e0259acb10b3c1abca42",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "phase": "post_compaction_scenario",
+      "answer_sha256": "237694cd5879ba55c109476fcee6a11b2a4f1466c13bfdfdeab4269bf9ebf0da",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "",
+      "core_conclusion_correct": true
+    }
+  ],
+  "memories": [
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "memory_sha256": "d1a0320bd38d64d36b0a7c789ab32657af0477f019b0cf6a5d0bd1f2d72d5ca4",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "memory_sha256": "70d29499ed61ffff6c65556a1c6ec3fe0e0fefcae742f42d238690202c549b91",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "memory_sha256": "6e6f621dc7eddb476a1aa3a9d4904ccaae00aacabcaffc55843590663f4b6897",
+      "rubric_hits": [
+        true,
+        true,
+        false
+      ],
+      "false_claim": true,
+      "note": "Incorrectly says both methods forward indent and ensure_ascii."
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 1,
+      "memory_sha256": "4c2e1c76555452725e09d11aa9c8b85215e0d3baf6ad9c79f7a18d6c2091b34d",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "memory_sha256": "8c3f317db9b091477588230c3e054ec08c673055250d279fb6546193ed7c13e5",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "memory_sha256": "b296f6a2efa055826ea1c2cbf446d49bcb9a3ea9cddb974bf6e6d4b768908d80",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 2,
+      "memory_sha256": "0d9c7ae3e6f5d89365086d1b017c87666b683c857cbd0bb3ff5b41e8232038db",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids",
+      "repeat": 2,
+      "memory_sha256": "d8e7652d78bcde30975569e1879ffa1a101d45b3f7fee7c80be94144bc70fb4b",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "memory_sha256": "bcdcef1cf9b8a14820a37445f29222df237c1736f37c144e6548888b2f81a8df",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 1,
+      "memory_sha256": "5079396fe075bfcb8e587ceb680f133a932e1ee97d707b93896d6323e0c46af5",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "serialization_handoff",
+      "mode": "raw",
+      "repeat": 2,
+      "memory_sha256": "7807675a087fda07daa305e7308a22cd1993665c8ede866aa00de595668fd93c",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "workflow": "validation_handoff",
+      "mode": "ids_guard",
+      "repeat": 1,
+      "memory_sha256": "b0ea6065735c0385a798da095271a95fa9fcb6444152ab7973821a7143571aa3",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    }
+  ]
+}

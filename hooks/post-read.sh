@@ -10,11 +10,11 @@ set -euo pipefail
 # Parse file_path from stdin JSON using python3
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | python3 -c "
-import sys, json
+import sys, json, os
 try:
     data = json.load(sys.stdin)
     fp = data.get('tool_input', {}).get('file_path', '')
-    print(fp)
+    print(os.path.realpath(fp) if fp else '')
 except:
     print('')
 " 2>/dev/null || echo "")
@@ -55,7 +55,10 @@ HAS_FRESH_CONCEPT=$(sqlite3 "$DB_PATH" "
 " 2>/dev/null || echo "0")
 
 if [ "$HAS_FRESH_CONCEPT" = "0" ]; then
-    echo "[Codemesh] This file has no cached summary. Consider calling codemesh_enrich() with what you learned."
+    python3 -c '
+import json
+print(json.dumps({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "[Codemesh] This file has no cached summary. Consider calling codemesh_enrich() with what you learned."}}))
+'
 fi
 
 exit 0

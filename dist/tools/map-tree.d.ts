@@ -1,7 +1,7 @@
 /**
  * Shared tree builder for codemesh_map and codemesh_answer.
  *
- * BFS through calls edges with a visited set, no depth limit.
+ * Bounded traversal through calls edges with a visited set.
  * Returns a recursive tree with summary/kind/filePath/id/pagerank on each node.
  */
 import type { StorageBackend } from "../graph/storage.js";
@@ -27,4 +27,5 @@ export interface MapNode {
 export declare function buildMapTree(storage: StorageBackend, startNodeIds: string[]): Promise<{
     nodes: MapNode[];
     totalSymbols: number;
+    truncated: boolean;
 }>;

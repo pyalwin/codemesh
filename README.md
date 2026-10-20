@@ -27,7 +27,7 @@ On a 600-file codebase, a typical exploration task involves 10+ file reads befor
 
 ```
 Before:  Agent → Grep → 50 matches → Read 10 files → Understand → Work
-After:   Agent → codemesh_explore → 3 relevant files → codemesh_trace → full path → Work
+After:   Agent → codemesh_map → expand chosen branches → read exact symbols → Work
 ```
 
 Codemesh is an MCP server that gives agents a persistent, queryable knowledge graph. The graph gets smarter over time: agents write back what they learn, so the next session starts informed.
@@ -39,6 +39,11 @@ Codemesh is an MCP server that gives agents a persistent, queryable knowledge gr
 Benchmarked on 6 real-world codebases (Alamofire, Excalidraw, VS Code, Swift Compiler, pydantic-validators, pydantic-basemodel) with Claude Sonnet 4.6, compared alongside baseline and graph-based approaches for context.
 
 Full methodology, per-repo breakdowns, and pairwise comparisons: [`docs/benchmark-results.md`](docs/benchmark-results.md) | [Early pydantic evals](docs/experiments/pydantic-eval-results.md)
+
+These historical runs used the earlier answer-first workflow. The map-first
+navigation workflow described below is evaluated in an exploratory
+[Pydantic pilot](docs/experiments/map-navigation-eval.md); the figures in this
+section should not be read as its measured performance.
 
 ### Cost
 
@@ -128,8 +133,12 @@ npm link
 
 ```bash
 cd /your/project
-codemesh index --with-embeddings
+codemesh index
 ```
+
+The default index and retrieval path uses one SQLite database in `.codemesh/`.
+It does not generate embeddings or require a vector database. Existing vector
+artifacts from older runs are left untouched but are not used by this path.
 
 ```
 Indexed 656 files
@@ -137,7 +146,6 @@ Indexed 656 files
   Edges created:  33266
   Duration:       10009ms
   PageRank:       13843 nodes scored
-  Embeddings:     13187 symbols embedded
 ```
 
 ### 3. Choose your mode
@@ -165,10 +173,15 @@ Add to your Claude Code MCP config (`~/.claude/mcp-servers.json` or project `.mc
 
 The agent gets native MCP tools:
 
-- `codemesh_answer` — one-call question answering (PRIMARY)
+- `codemesh_map` — browse one level of the indexed repository or follow a link
+- `codemesh_source` — read a revision-checked source view by symbol ID; `ifHash` avoids repeat delivery
+- `codemesh_inspect` — inspect an exact symbol and its direct calls with bounded, exact source blocks
+- `codemesh_hydrate` — verify saved symbol references and reopen exact source after a handoff
+- `codemesh_answer` — optional ranked context assembly
 - `codemesh_explore` — search, context (multi-target), impact
 - `codemesh_trace` — follow call chains
 - `codemesh_enrich` / `codemesh_workflow` — write back
+- `codemesh_recall` — retrieve notes and workflows with freshness status
 - `codemesh_status` — health check
 
 **Best for:** Opus, structured workflows, enrichment/write-back
@@ -183,17 +196,24 @@ No MCP config needed. The agent calls codemesh directly via Bash:
 ```bash
 export CODEMESH_PROJECT_ROOT=/path/to/your/project
 
-# Primary — one-call question answering:
-codemesh explore answer "How does request handling work?"
+# Navigate one level at a time, then read a selected symbol:
+codemesh explore map
+codemesh explore map --node 'dir:src'
+codemesh explore map --node 'file:src/server.ts'
+codemesh explore source 'symbol:src/server.ts:createServer'
+codemesh explore source 'symbol:src/server.ts:createServer' --mode preview
+codemesh explore inspect 'symbol:src/server.ts:createServer' --depth 1 --max-symbols 4 --compact
+codemesh explore hydrate --references '[{"id":"symbol:src/server.ts:createServer","bodyHash":"HASH"}]' --compact
 
-# Follow-up commands:
+# Other exploration commands:
 codemesh explore search "request flow"
 codemesh explore context Source/Core/Session.swift Source/Core/Request.swift
 codemesh explore trace Session.request --depth 5
-codemesh explore semantic "network request handling"  # requires --with-embeddings
+codemesh explore recall --path src/server.ts
+codemesh remember --path src/server.ts --summary "Server tool registration" --session my-task
 ```
 
-All commands return JSON to stdout. No MCP server process, no protocol overhead.
+Exploration and write commands return JSON to stdout. No MCP server process is required.
 
 **Best for:** Sonnet/Haiku, speed-sensitive workflows, simpler setup
 
@@ -204,24 +224,32 @@ All commands return JSON to stdout. No MCP server process, no protocol overhead.
 | | MCP Server | CLI Mode |
 |---|---|---|
 | **Setup** | MCP config file | Just `export CODEMESH_PROJECT_ROOT` |
-| **Overhead** | MCP protocol per call | Zero — direct subprocess |
-| **Enrichment** | Native `codemesh_enrich` tool | Via `Bash("codemesh enrich ...")` |
-| **Best model** | Opus (follows MCP well) | **Sonnet** (55% cheaper, 61% faster than baseline) |
-| **Recommended** | Complex codebases | **Default choice** |
+| **Invocation** | Persistent MCP process | CLI subprocess |
+| **Enrichment** | Native `codemesh_enrich` tool | `codemesh remember ...` |
+| **Retrieval** | Shared SQLite-backed handlers | Same handlers and JSON data |
+| **Recommended** | Hosts with reliable MCP tool use | Deterministic shell workflows |
 
 ### 4. Use it
 
-The agent now has 6 new tools. Query the graph before reading code:
+The agent can choose a path through the persistent graph before reading code:
 
 ```
 You: "Find how pydantic handles validation"
 
-Agent calls: codemesh_answer({ question: "How does pydantic handle validation?" })
-       gets: 9 relevant files ranked by PageRank, call chains, 
-             git hotspots, co-change relationships, 5 suggested reads
+Agent calls: codemesh_map({})
+       gets: immediate repository directories and files, each with an ID
 
-Agent calls: Read("pydantic/functional_validators.py", lines 1-50)
-       reads: only the specific lines suggested by the answer tool
+Agent calls: codemesh_map({ node: "dir:pydantic" })
+       gets: immediate files and subdirectories
+
+Agent calls: codemesh_map({ node: "file:pydantic/main.py" })
+       gets: top-level symbols, including BaseModel
+
+Agent calls: codemesh_map({ node: "symbol:pydantic/main.py:BaseModel" })
+       gets: methods, including model_validate
+
+Agent calls: codemesh_source({ id: "symbol:pydantic/main.py:BaseModel.model_validate" })
+       reads: only the selected symbol's source
 
 Agent calls: codemesh_enrich({ path: "pydantic/functional_validators.py",
                summary: "Primary V2 validator API..." })
@@ -232,7 +260,7 @@ Agent calls: codemesh_enrich({ path: "pydantic/functional_validators.py",
 
 ## Client Integrations
 
-Codemesh speaks the Model Context Protocol, so any MCP-compatible client can use it. Paste one of the snippets below, restart the client, and the six `codemesh_*` tools show up in the agent's toolbox.
+Codemesh speaks the Model Context Protocol, so any MCP-compatible client can use it. Paste one of the snippets below, restart the client, and the `codemesh_*` tools show up in the agent's toolbox.
 
 <details open>
 <summary><strong>Claude Code</strong> (CLI)</summary>
@@ -340,7 +368,7 @@ codemesh_enrich({
   summary: "Primary V2 validator API. `@field_validator` wraps "
          + "`_decorators.FieldValidatorDecoratorInfo`; `mode='before'|'after'` "
          + "toggles pre/post-coercion execution. Extends BaseValidator.",
-  concepts: ["validation", "decorators", "v2-api"]
+  sessionId: "validation-investigation-1"
 })
 
 // Session 1 — agent traces a multi-file flow, records the path.
@@ -354,10 +382,11 @@ codemesh_workflow({
   ]
 })
 
-// Session 2 (days later) — same question, different agent instance.
-codemesh_answer({ question: "How does pydantic validate fields?" })
-// → returns the enriched summary AND the 3-file workflow from Session 1
-//   before the agent reads a single line. Zero rediscovery cost.
+// Session 2 (days later) — another agent navigates the same indexed code.
+codemesh_map({ node: "file:pydantic/functional_validators.py" })
+// → returns stable symbol IDs without reading their bodies.
+codemesh_explore({ action: "context", path: "pydantic/functional_validators.py" })
+// → includes the earlier agent's concept alongside indexed relationships.
 ```
 
 The graph now knows things no static analyzer could infer: why a file matters, which files move together, what a maintainer called a concept. Re-indexing rebuilds the structural layer (files, symbols, imports, calls) but **preserves every enrichment** — entries only go stale when their referenced files change.
@@ -387,18 +416,19 @@ See `codemesh_enrich` and `codemesh_workflow` under [MCP Tools](#mcp-tools).
                       │  │  Intel   │ │               │  │
                       │  │          │ │ FTS5 (exact)  │  │
                       │  │ hotspots │ │ Trigram (fuzzy)│  │
-                      │  │ co-change│ │ LanceDB (sem) │  │
+                      │  │ co-change│ │ notes + cache │  │
                       │  │ churn    │ │ PageRank      │  │
                       │  └──────────┘ └───────────────┘  │
                       │                                   │
-                      │        SQLite + LanceDB           │
+                      │          SQLite only              │
                       └────────────┬──────────────────────┘
                                    │
                       ┌────────────┴──────────────────────┐
-                      │    MCP Server / CLI (7 tools)      │
+                      │    MCP Server / CLI (shared core)  │
                       │                                    │
-                      │  answer · explore · trace          │
-                      │  enrich · workflow · status         │
+                      │  map · source · answer · explore    │
+                      │  trace · recall · enrich · workflow │
+                      │  status                            │
                       └────────────────────────────────────┘
 ```
 
@@ -412,7 +442,11 @@ See `codemesh_enrich` and `codemesh_workflow` under [MCP Tools](#mcp-tools).
 
 | Tool | Purpose | Example |
 |---|---|---|
-| `codemesh_answer` | **One-call context assembly** — returns all relevant files, call chains, hotspots, suggested reads | `codemesh_answer({ question: "How does auth work?" })` |
+| `codemesh_map` | Bounded, one-level navigation through directories, files, symbols, and graph links | `codemesh_map({ node: "dir:src", limit: 30 })` |
+| `codemesh_source` | Exact source for a selected symbol ID | `codemesh_source({ id: "symbol:src/auth.ts:login" })` |
+| `codemesh_inspect` | Exact source for a symbol plus direct call evidence, within a byte and symbol budget | `codemesh_inspect({ id: "symbol:src/auth.ts:login", depth: 1 })` |
+| `codemesh_hydrate` | Verify saved symbol references and reopen exact source after context loss | `codemesh_hydrate({ references: [{ id: "symbol:src/auth.ts:login", bodyHash: "..." }] })` |
+| `codemesh_answer` | Optional ranked context assembly with source snippets | `codemesh_answer({ question: "How does auth work?" })` |
 | `codemesh_explore` | Search, context (multi-target), impact analysis | `codemesh_explore({ action: "search", query: "auth" })` |
 | `codemesh_trace` | Follow call chains with source code | `codemesh_trace({ symbol: "login", depth: 5 })` |
 | `codemesh_enrich` | Write back what you learned for future sessions | `codemesh_enrich({ path: "src/auth.py", summary: "..." })` |
@@ -425,17 +459,91 @@ See `codemesh_enrich` and `codemesh_workflow` under [MCP Tools](#mcp-tools).
 
 ```bash
 codemesh index                          # structural + git intel + pagerank
-codemesh index --with-embeddings        # + semantic vectors (~80MB model, zero API cost)
+codemesh rebuild                        # force re-index; preserves saved knowledge
 codemesh status                         # graph statistics
-codemesh rebuild                        # purge and re-index
 
-codemesh explore answer "question"      # one-call context assembly (PRIMARY)
-codemesh explore search "query"         # FTS5 + trigram + semantic search
+codemesh explore map                    # repository root
+codemesh explore map --node 'dir:src'   # expand one branch
+codemesh explore map --node 'symbol:src/auth.ts:login' --relation calls
+codemesh explore source 'symbol:src/auth.ts:login'
+codemesh explore source 'symbol:src/auth.ts:login' --if-hash HASH  # unchanged reference if bytes match
+codemesh explore source 'symbol:src/auth.ts:login' --force         # rehydrate exact source
+codemesh explore inspect 'symbol:src/auth.ts:login' --depth 1 --compact
+codemesh explore hydrate --references '[{"id":"symbol:src/auth.ts:login","bodyHash":"HASH"}]' --compact
+codemesh explore answer "question"      # optional ranked context assembly
+codemesh explore search "query"         # SQLite FTS5 + trigram
+codemesh explore search get_default --path pydantic --scope symbols --max-bytes 4096
+codemesh explore inspect 'symbol:src/auth.py:login' --direction both --max-candidates 16
+codemesh explore recall --path file     # prior notes with freshness
 codemesh explore context file1 file2    # multi-target context
 codemesh explore trace symbol --depth 5 # follow call chains
-codemesh explore semantic "query"       # vector similarity (needs embeddings)
 codemesh explore impact file            # reverse dependencies
+codemesh remember --path file --summary "note" --session task-id
+codemesh workflow --name flow --description "flow description" --file first.ts --file second.ts
+codemesh explore search "query" --compact  # 8 candidates with IDs and match reasons
+codemesh explore source 'symbol:src/auth.ts:login' --mode full --compact
+codemesh explore source 'symbol:src/auth.ts:login' --mode auto --compact
+rg -n 'login' src | codemesh adapt search  # reversible fold when smaller
+cat src/auth.ts | codemesh adapt read --path src/auth.ts --intent navigate
 ```
+
+`--compact` is available for `map`, `search`, `source`, `recall`, `inspect`, and `hydrate`. It removes
+repeated metadata from CLI JSON; `source` still includes the exact requested code
+and a content hash. Navigation maps, search, `inspect`, and `hydrate` emit bounded JSON without
+pretty printing; their compact form preserves exact source and freshness hashes.
+`hydrate` also accepts `--references-file PATH` for a JSON array saved on disk.
+Bounded responses omit the extra project-root wrapper so the final JSON stays
+within the requested budget. Other commands retain their existing response format.
+
+For handoffs, save a symbol's exact ID and `bodyHash` from a fresh source result.
+`codemesh_hydrate` checks that hash against live source before returning full code.
+If a saved `hash` came from `fold` or `preview`, include its `mode`; that hash
+checks only the rendered view, so include `bodyHash` to verify the whole symbol.
+Inspect and hydrate report omitted blocks explicitly when a budget is reached.
+Both default to four source blocks and a 24 KiB JSON response budget. `inspect`
+follows at most one hop of conservatively resolved local Python functions and
+imports. Use `--direction incoming` or `both` to inspect candidate callers too;
+`--max-candidates` bounds caller verification (default 32, maximum 128). Indexed
+edges are hints: each delivered caller is checked against its current Python
+binding. Incoming discovery is explicitly incomplete when edges are missing;
+an empty result never proves that a symbol has no callers. Dynamic receivers,
+ambiguous names, and uncertain bindings remain
+explicitly unresolved; other languages expose unverified graph candidates.
+These are static bindings, not guarantees about runtime behavior. Hydration
+returns live-checked code; clients decide when to invoke it after a handoff and
+which evidence to retain in their model context.
+
+`--mode auto` is an explicit navigation view: symbols up to 120 lines and 12KiB
+are returned in full; larger symbols return a bounded preview with omitted ranges
+and a hint to map their members. Explicit `--mode full` always returns exact source.
+Search ranks exact identifiers and exact qualified/leaf names first, then query
+term coverage and lexical relevance, with popularity used only to break ties.
+For an opt-in structural hint, `--exact-tie-break path-depth` prefers shallower
+paths before popularity on equally ranked exact-name/leaf matches. MCP exposes
+the same `exactTieBreak` option on `codemesh_explore`. Explicit IDs and path
+filters still select deeper implementations; depth does not establish which
+implementation is canonical. The default remains `pagerank`.
+`--path` restricts candidates to a file or directory before SQLite result caps;
+`src` does not match `src-other`. Compact search includes signatures and spans.
+Search and navigation default to an 8192-byte JSON budget; `--max-bytes` accepts
+512..65536. Omitted results are explicit. Navigation's cursor always points at
+the first unreturned entry; if that entry alone exceeds the budget, increase
+`--max-bytes` and reuse the cursor. Source code remains behind `source`/`inspect`.
+
+The [deterministic Graphify follow-up](docs/experiments/graphify-deterministic.md)
+documents the single-agent design and focused context policy. Context replacement
+belongs to the harness: MCP/CLI tools cannot remove earlier client messages.
+The [controlled next iteration](eval/NEXT_ITERATION.md) documents lean eval
+instructions, optional search ranking, and two multi-file handoff fixtures.
+
+Source retrieval also accepts a unique symbol name, such as `MyType.myMethod`.
+An ambiguous name returns exact candidate IDs and spans; it never guesses an
+overload from its size. Exact IDs remain the preferred reference across sessions.
+`adapt` reads a native tool observation from stdin. Search folding preserves every
+match and falls back for unsupported formats. Read outlining requires a complete
+byte-exact match with a fresh indexed file and explicit navigation intent; edit
+reads and partial reads pass through unchanged. `--json` reports the route and
+reason instead of emitting only the adapted observation.
 
 ---
 
@@ -462,19 +570,25 @@ Add to `.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "pre_tool_use": [{
+    "PreToolUse": [{
       "matcher": "Read",
-      "command": "/path/to/codemesh/hooks/pre-read.sh"
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/codemesh/hooks/pre-read.sh"
+      }]
     }],
-    "post_tool_use": [{
+    "PostToolUse": [{
       "matcher": "Read",
-      "command": "/path/to/codemesh/hooks/post-read.sh"
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/codemesh/hooks/post-read.sh"
+      }]
     }]
   }
 }
 ```
 
-- **Pre-read** — Injects cached summaries before file reads
+- **Pre-read** — Adds a cached summary marked non-stale alongside the pending Read result
 - **Post-read** — Nudges the agent to enrich after reading unfamiliar files
 </details>
 
@@ -564,6 +678,9 @@ python3 eval/head_to_head.py --model sonnet alamofire excalidraw vscode swift-co
 ```
 
 See [`docs/benchmark-results.md`](docs/benchmark-results.md) for full methodology and results. Early pydantic evals are archived in [`docs/experiments/`](docs/experiments/).
+
+The SQLite-only CLI has a separate [vNext contract and agent workflow eval](eval/VNEXT_EVALS.md) on a pinned Pydantic checkout. Its correctness checks and model cost/quality comparison are reported separately from the historical benchmarks.
+The [vNext Pydantic results](eval/VNEXT_RESULTS.md) record the first full paired run.
 
 ---
 

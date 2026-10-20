@@ -1,0 +1,95 @@
+{
+  "repository": "https://github.com/pydantic/pydantic.git",
+  "commit": "5adfeaaaea947f81f0f01868604f219084ec151a",
+  "workflows": [
+    {
+      "id": "serialization_handoff",
+      "description": "Follow a public dictionary export into its JSON sibling, then answer a change-impact question after compaction.",
+      "memory_rubric": [
+        "Preserves model_dump's to_python delegate and dictionary return.",
+        "Preserves model_dump_json's direct to_json().decode() path and string return.",
+        "Preserves that both forward exclude_none and round_trip, while the JSON path also forwards indent and ensure_ascii."
+      ],
+      "units": [
+        "pydantic/main.py::BaseModel.model_dump",
+        "pydantic/main.py::BaseModel.model_dump_json",
+        "pydantic/main.py::BaseModel.model_copy"
+      ],
+      "phases": [
+        {
+          "id": "dict_path",
+          "question": "A teammate needs the Python-dictionary export path. Inspect BaseModel.model_dump: what does it return, which serializer method does it call, and which JSON-string sibling should we inspect next?",
+          "min_reads": 1,
+          "rubric": [
+            "model_dump returns a dictionary by calling self.__pydantic_serializer__.to_python.",
+            "Identifies model_dump_json as the JSON-string sibling."
+          ]
+        },
+        {
+          "id": "json_path",
+          "question": "Follow the JSON-string sibling identified above. Does it call model_dump or call the serializer directly? State its return type and whether it forwards exclude_none, round_trip, indent, and ensure_ascii.",
+          "min_reads": 1,
+          "rubric": [
+            "model_dump_json directly calls self.__pydantic_serializer__.to_json and decodes its bytes to a string, without calling model_dump.",
+            "It forwards exclude_none, round_trip, indent, and ensure_ascii to to_json."
+          ]
+        },
+        {
+          "id": "post_compaction_impact",
+          "question": "You have resumed after a context compaction. A proposed patch changes only the body of BaseModel.model_dump to handle exclude_none differently. Would model_dump_json inherit that body change? Explain the call paths, return types, and which relevant options are forwarded. Cite source evidence; read again if your memory is insufficient.",
+          "min_reads": 0,
+          "rubric": [
+            "A change only to model_dump's body does not flow through model_dump_json because model_dump_json directly calls to_json rather than model_dump.",
+            "model_dump calls to_python and returns a dictionary; model_dump_json calls to_json(...).decode() and returns a string.",
+            "Both paths forward exclude_none and round_trip; JSON path additionally forwards indent and ensure_ascii."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "validation_handoff",
+      "description": "Follow Python validation into JSON validation and validator construction, then answer an alias-guard scenario after compaction.",
+      "memory_rubric": [
+        "Preserves the alias/name guard and PydanticUserError for both public methods.",
+        "Preserves validate_python versus validate_json delegation.",
+        "Preserves create_schema_validator assignment to cls.__pydantic_validator__ during complete_model_class."
+      ],
+      "units": [
+        "pydantic/main.py::BaseModel.model_validate",
+        "pydantic/main.py::BaseModel.model_validate_json",
+        "pydantic/_internal/_model_construction.py::complete_model_class"
+      ],
+      "phases": [
+        {
+          "id": "python_path",
+          "question": "Inspect BaseModel.model_validate for Python objects. What happens when by_alias=False and by_name is not True, and what method handles accepted input? Identify the class-setup unit to investigate next.",
+          "min_reads": 1,
+          "rubric": [
+            "The alias/name guard raises PydanticUserError before validation when by_alias is False and by_name is not True.",
+            "Accepted input delegates to cls.__pydantic_validator__.validate_python.",
+            "Identifies complete_model_class as the validator setup unit."
+          ]
+        },
+        {
+          "id": "json_and_setup",
+          "question": "Follow both the JSON-validation sibling and the class-setup unit identified above. Compare the alias/name guard, name the JSON delegate, and find where cls.__pydantic_validator__ is created and assigned.",
+          "min_reads": 2,
+          "rubric": [
+            "model_validate_json has the same alias/name guard and calls validate_json for accepted input.",
+            "complete_model_class calls create_schema_validator and assigns its result to cls.__pydantic_validator__."
+          ]
+        },
+        {
+          "id": "post_compaction_scenario",
+          "question": "You have resumed after a context compaction. For model_validate_json(json_data, by_alias=False, by_name=None), does validate_json run? Contrast model_validate(obj, by_alias=False, by_name=True), including its delegate and where the validator object originated. Cite evidence; read again if your memory is insufficient.",
+          "min_reads": 0,
+          "rubric": [
+            "The JSON call raises PydanticUserError before validate_json because by_alias=False and by_name=None fails the guard.",
+            "The Python-object call passes the guard and delegates to cls.__pydantic_validator__.validate_python with by_alias=False and by_name=True.",
+            "complete_model_class creates the validator through create_schema_validator and stores it as cls.__pydantic_validator__."
+          ]
+        }
+      ]
+    }
+  ]
+}

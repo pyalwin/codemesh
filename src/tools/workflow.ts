@@ -24,6 +24,13 @@ export async function handleWorkflow(
 
   // Create a stable workflow ID from the name
   const workflowId = `workflow:${input.name.toLowerCase().replace(/\s+/g, "-")}`;
+  const existing = await storage.getNode(workflowId);
+
+  const fileHashes: Record<string, string> = {};
+  for (const file of input.files) {
+    const node = await storage.getNode(`file:${file}`);
+    if (node?.type === "file") fileHashes[file] = node.hash;
+  }
 
   // Create the workflow node
   const workflowNode: WorkflowNode = {
@@ -35,10 +42,21 @@ export async function handleWorkflow(
     fileSequence: input.files,
     lastWalkedAt: now,
     stale: false,
-    createdAt: now,
+    fileHashes,
+    status: existing?.type === "workflow" ? existing.status ?? "hypothesis" : "hypothesis",
+    history: existing?.type === "workflow"
+      ? [...(existing.history ?? []), {
+          description: existing.description,
+          fileSequence: existing.fileSequence,
+          at: existing.updatedAt,
+        }].slice(-20)
+      : undefined,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
 
+  // Replace prior traverses links when an existing workflow is rewritten.
+  await storage.deleteEdgesByNode(workflowId);
   await storage.upsertNode(workflowNode);
 
   // Create traverses edges to each file with position data

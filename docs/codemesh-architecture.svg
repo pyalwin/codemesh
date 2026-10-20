@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 860" width="100%" height="100%" font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#090d16"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrow-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#34d399"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="860" fill="url(#bg)" rx="12"/>
+
+  <!-- Header -->
+  <text x="40" y="42" fill="#f8fafc" font-size="22" font-weight="700">CODEMESH v0.1.2 — SOURCE-OF-TRUTH ARCHITECTURE &amp; WORKFLOW MAP</text>
+  <text x="40" y="64" fill="#94a3b8" font-size="13">Derived directly from src/, hooks/, skills/, and eval/ (8 MCP Tools · 9 CLI Explore Subcommands · 8-Phase Indexer · SQLite WAL + LanceDB)</text>
+
+  <!-- LAYER 1: CLIENTS & ENTRY POINTS -->
+  <rect x="30" y="82" width="1140" height="118" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="46" y="104" fill="#38bdf8" font-size="12" font-weight="700" letter-spacing="1">1. ENTRY POINTS &amp; INTERCEPTION LAYER</text>
+
+  <!-- Box 1: MCP Server -->
+  <rect x="46" y="114" width="265" height="72" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1.2"/>
+  <text x="58" y="134" fill="#e2e8f0" font-size="13" font-weight="700">MCP Server (src/index.ts, server.ts)</text>
+  <text x="58" y="152" fill="#94a3b8" font-size="11">• Stdio JSON-RPC · 8 Registered Tools</text>
+  <text x="58" y="168" fill="#94a3b8" font-size="11">• QueryCache (500 LRU, v{lastIndexedAt})</text>
+
+  <!-- Box 2: CLI -->
+  <rect x="326" y="114" width="265" height="72" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1.2"/>
+  <text x="338" y="134" fill="#e2e8f0" font-size="13" font-weight="700">CLI Binary (src/cli.ts)</text>
+  <text x="338" y="152" fill="#94a3b8" font-size="11">• index | status | rebuild | explore (9 cmds)</text>
+  <text x="338" y="168" fill="#fbbf24" font-size="11">• CLI-only: explore read &amp; explore semantic</text>
+
+  <!-- Box 3: Claude Hooks -->
+  <rect x="606" y="114" width="265" height="72" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1.2"/>
+  <text x="618" y="134" fill="#e2e8f0" font-size="13" font-weight="700">Claude Code Hooks (hooks/*.sh)</text>
+  <text x="618" y="152" fill="#94a3b8" font-size="11">• pre-read.sh: injects concept + workflows</text>
+  <text x="618" y="168" fill="#94a3b8" font-size="11">• post-read.sh: nudges enrich | session-start</text>
+
+  <!-- Box 4: Eval Routers -->
+  <rect x="886" y="114" width="268" height="72" rx="6" fill="#0f172a" stroke="#a855f7" stroke-width="1.2"/>
+  <text x="898" y="134" fill="#e2e8f0" font-size="13" font-weight="700">Eval Prototypes (eval/*.py)</text>
+  <text x="898" y="152" fill="#94a3b8" font-size="11">• grep_router.py: SHA256 parity + AST tail</text>
+  <text x="898" y="168" fill="#94a3b8" font-size="11">• capsule_v2.py: syntactic U/E capsules</text>
+
+  <!-- LAYER 2: TOOL & NAVIGATION ENGINE -->
+  <rect x="30" y="220" width="1140" height="190" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="46" y="242" fill="#34d399" font-size="12" font-weight="700" letter-spacing="1">2. TOOL HANDLERS &amp; QUERY ENGINE (src/tools/)</text>
+
+  <!-- Nav -->
+  <rect x="46" y="254" width="212" height="142" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.2"/>
+  <text x="56" y="274" fill="#6ee7b7" font-size="12.5" font-weight="700">W2/W3: Map &amp; Navigation</text>
+  <text x="56" y="292" fill="#cbd5e1" font-size="11">map.ts · navigation.ts · map-tree.ts</text>
+  <text x="56" y="312" fill="#94a3b8" font-size="10.5">• 1-Hop Deterministic Nav:</text>
+  <text x="56" y="327" fill="#94a3b8" font-size="10.5">  repo → dir → file → symbol</text>
+  <text x="56" y="342" fill="#94a3b8" font-size="10.5">• Relations: contains, calls,</text>
+  <text x="56" y="357" fill="#94a3b8" font-size="10.5">  called_by, imports, imported_by</text>
+  <text x="56" y="375" fill="#fbbf24" font-size="10.5">• Legacy query/symbol: BFS tree</text>
+
+  <!-- Answer -->
+  <rect x="270" y="254" width="225" height="142" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.2"/>
+  <text x="280" y="274" fill="#6ee7b7" font-size="12.5" font-weight="700">W4: 1-Call Context Assembly</text>
+  <text x="280" y="292" fill="#cbd5e1" font-size="11">answer.ts (handleAnswer)</text>
+  <text x="280" y="312" fill="#94a3b8" font-size="10.5">• LanceDB top 5 (weight 2.5x)</text>
+  <text x="280" y="327" fill="#94a3b8" font-size="10.5">• FTS5 top 30 + Per-Token IDF</text>
+  <text x="280" y="342" fill="#94a3b8" font-size="10.5">• PageRank boost (50x) + KIND_BOOST</text>
+  <text x="280" y="357" fill="#94a3b8" font-size="10.5">• 1-hop imports (cap 15 files)</text>
+  <text x="280" y="375" fill="#94a3b8" font-size="10.5">• Top 5 30-line token-dense windows</text>
+
+  <!-- Explore -->
+  <rect x="507" y="254" width="235" height="142" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.2"/>
+  <text x="517" y="274" fill="#6ee7b7" font-size="12.5" font-weight="700">W5: Omni-Tool Explore + LSP</text>
+  <text x="517" y="292" fill="#cbd5e1" font-size="11">query.ts · context.ts · impact.ts</text>
+  <text x="517" y="312" fill="#94a3b8" font-size="10.5">• search: FTS5 + Trigram + Semantic</text>
+  <text x="517" y="327" fill="#94a3b8" font-size="10.5">• context: single path or paths[]</text>
+  <text x="517" y="342" fill="#94a3b8" font-size="10.5">  + 5-hop callChain + hotspots</text>
+  <text x="517" y="357" fill="#38bdf8" font-size="10.5">• lsp-client.ts: TS / Pyright / Swift</text>
+  <text x="517" y="375" fill="#94a3b8" font-size="10.5">• impact: reverse deps by PageRank</text>
+
+  <!-- Source & Trace -->
+  <rect x="754" y="254" width="195" height="142" rx="6" fill="#0f172a" stroke="#34d399" stroke-width="1.2"/>
+  <text x="764" y="274" fill="#6ee7b7" font-size="12.5" font-weight="700">W6: Source &amp; Trace</text>
+  <text x="764" y="292" fill="#cbd5e1" font-size="11">source.ts · trace.ts · read-symbol</text>
+  <text x="764" y="312" fill="#94a3b8" font-size="10.5">• source: exact ID line slice</text>
+  <text x="764" y="327" fill="#94a3b8" font-size="10.5">• read: 3-stage fuzzy findSymbol</text>
+  <text x="764" y="342" fill="#94a3b8" font-size="10.5">• trace: BFS calls (depth 5/3)</text>
+  <text x="764" y="357" fill="#94a3b8" font-size="10.5">  + --compact mode (lines only)</text>
+  <text x="764" y="375" fill="#fbbf24" font-size="10.5">• Steps sorted by PageRank DESC</text>
+
+  <!-- Write-Back -->
+  <rect x="961" y="254" width="193" height="142" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1.2"/>
+  <text x="971" y="274" fill="#6ee7b7" font-size="12.5" font-weight="700">W7: Agent Write-Back</text>
+  <text x="971" y="292" fill="#cbd5e1" font-size="11">enrich.ts · workflow.ts · status.ts</text>
+  <text x="971" y="312" fill="#94a3b8" font-size="10.5">• enrich: creates ConceptNode</text>
+  <text x="971" y="327" fill="#94a3b8" font-size="10.5">  + describes &amp; related_to edges</text>
+  <text x="971" y="342" fill="#94a3b8" font-size="10.5">• workflow: WorkflowNode</text>
+  <text x="971" y="357" fill="#94a3b8" font-size="10.5">  + traverses {position, total}</text>
+  <text x="971" y="375" fill="#fbbf24" font-size="10.5">• MCP-only (missing in cli.ts)</text>
+
+  <!-- LAYER 3: 8-PHASE INCREMENTAL INDEXING PIPELINE -->
+  <rect x="30" y="430" width="1140" height="150" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="46" y="452" fill="#fbbf24" font-size="12" font-weight="700" letter-spacing="1">3. WORKFLOW 1: 8-PHASE INCREMENTAL INDEXING PIPELINE (src/indexer/)</text>
+
+  <!-- 8 Phase Boxes -->
+  <g font-size="10.5" fill="#e2e8f0">
+    <rect x="46" y="466" width="128" height="98" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="54" y="484" fill="#fbbf24" font-weight="700">1. Scan &amp; Hash</text>
+    <text x="54" y="502" fill="#94a3b8">• .gitignore rules</text>
+    <text x="54" y="517" fill="#94a3b8">• Full SHA-256 read</text>
+    <text x="54" y="532" fill="#94a3b8">• 19 file extensions</text>
+    <text x="54" y="547" fill="#94a3b8">• Diff vs DB hashes</text>
+
+    <rect x="186" y="466" width="128" height="98" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="194" y="484" fill="#fbbf24" font-weight="700">2. Stale &amp; Purge</text>
+    <text x="194" y="502" fill="#94a3b8">• Tx A (500 batch)</text>
+    <text x="194" y="517" fill="#94a3b8">• markConceptsStale</text>
+    <text x="194" y="532" fill="#94a3b8">• purgeFileNodes</text>
+    <text x="194" y="547" fill="#f87171">• Cascades edges!</text>
+
+    <rect x="326" y="466" width="142" height="98" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="334" y="484" fill="#fbbf24" font-weight="700">3. Parse (9 Langs)</text>
+    <text x="334" y="502" fill="#94a3b8">• Tx B (500 files/tx)</text>
+    <text x="334" y="517" fill="#94a3b8">• Walkers: TS/JS, Py</text>
+    <text x="334" y="532" fill="#94a3b8">• .scm: Go, Rust, Swift</text>
+    <text x="334" y="547" fill="#f87171">• Generic: Java/C/C++</text>
+
+    <rect x="480" y="466" width="142" height="98" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="488" y="484" fill="#fbbf24" font-weight="700">4. Resolve Edges</text>
+    <text x="488" y="502" fill="#94a3b8">• Tx C (Pass 2 &amp; 3)</text>
+    <text x="488" y="517" fill="#f87171">• Relative imports only</text>
+    <text x="488" y="532" fill="#94a3b8">• this.x scope walk</text>
+    <text x="488" y="547" fill="#94a3b8">• Innermost callable</text>
+
+    <rect x="634" y="466" width="126" height="98" rx="5" fill="#0f172a" stroke="#64748b" stroke-dasharray="4 2"/>
+    <text x="642" y="484" fill="#cbd5e1" font-weight="700">5. Summaries (Opt)</text>
+    <text x="642" y="502" fill="#94a3b8">• --with-summaries</text>
+    <text x="642" y="517" fill="#94a3b8">• Haiku 4.5 API</text>
+    <text x="642" y="532" fill="#94a3b8">• 1 call per file</text>
+    <text x="642" y="547" fill="#94a3b8">• Updates FTS5</text>
+
+    <rect x="772" y="466" width="126" height="98" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="780" y="484" fill="#fbbf24" font-weight="700">6. Git Intel</text>
+    <text x="780" y="502" fill="#94a3b8">• Last 200 commits</text>
+    <text x="780" y="517" fill="#94a3b8">• FileNode.hotspot</text>
+    <text x="780" y="532" fill="#94a3b8">• co_changes edges</text>
+    <text x="780" y="547" fill="#94a3b8">  (&gt;=3, conf &gt;=0.3)</text>
+
+    <rect x="910" y="466" width="114" height="98" rx="5" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="918" y="484" fill="#fbbf24" font-weight="700">7. PageRank</text>
+    <text x="918" y="502" fill="#94a3b8">• Graphology DAG</text>
+    <text x="918" y="517" fill="#94a3b8">• Unweighted</text>
+    <text x="918" y="532" fill="#94a3b8">• Scores all file</text>
+    <text x="918" y="547" fill="#94a3b8">  &amp; symbol nodes</text>
+
+    <rect x="1036" y="466" width="118" height="98" rx="5" fill="#0f172a" stroke="#64748b" stroke-dasharray="4 2"/>
+    <text x="1044" y="484" fill="#cbd5e1" font-weight="700">8. Embeddings</text>
+    <text x="1044" y="502" fill="#94a3b8">• Jina v2 FP32</text>
+    <text x="1044" y="517" fill="#94a3b8">• Serial inference</text>
+    <text x="1044" y="532" fill="#94a3b8">• 256-row batches</text>
+    <text x="1044" y="547" fill="#94a3b8">• LanceDB upsert</text>
+  </g>
+
+  <!-- LAYER 4: STORAGE & AUDIT GAPS -->
+  <rect x="30" y="600" width="560" height="230" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+  <text x="46" y="622" fill="#38bdf8" font-size="12" font-weight="700" letter-spacing="1">4. PERSISTENCE LAYER (.codemesh/)</text>
+
+  <rect x="46" y="634" width="260" height="180" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1.2"/>
+  <text x="58" y="654" fill="#38bdf8" font-size="13" font-weight="700">SQLite WAL (codemesh.db)</text>
+  <text x="58" y="674" fill="#cbd5e1" font-size="11">• nodes: File, Symbol, Concept, Workflow</text>
+  <text x="58" y="692" fill="#cbd5e1" font-size="11">• edges: contains, imports, calls,</text>
+  <text x="58" y="708" fill="#cbd5e1" font-size="11">  describes, related_to, traverses,</text>
+  <text x="58" y="724" fill="#cbd5e1" font-size="11">  co_changes (+ dead extends type)</text>
+  <text x="58" y="742" fill="#cbd5e1" font-size="11">• trigrams: 3-char substring index</text>
+  <text x="58" y="760" fill="#cbd5e1" font-size="11">• nodes_fts: FTS5 Porter + 3 triggers</text>
+  <text x="58" y="782" fill="#64748b" font-size="10.5">Integrity: scripts/check-integrity.ts</text>
+
+  <rect x="318" y="634" width="256" height="180" rx="6" fill="#0f172a" stroke="#0284c7" stroke-width="1.2"/>
+  <text x="330" y="654" fill="#38bdf8" font-size="13" font-weight="700">LanceDB (.codemesh/vectors/)</text>
+  <text x="330" y="674" fill="#cbd5e1" font-size="11">• Table: symbols</text>
+  <text x="330" y="692" fill="#cbd5e1" font-size="11">• Model: jina-embeddings-v2-base-code</text>
+  <text x="330" y="710" fill="#cbd5e1" font-size="11">• Payload: [module: path] + name/sig</text>
+  <text x="330" y="726" fill="#cbd5e1" font-size="11">  + Haiku summary OR 30 source lines</text>
+  <text x="330" y="744" fill="#cbd5e1" font-size="11">• Cleanup: 5,000-ID chunked DELETE</text>
+  <text x="330" y="762" fill="#cbd5e1" font-size="11">• Upsert: mergeInsert("id")</text>
+
+  <!-- RIGHT BOTTOM: SOURCE-OF-TRUTH GAPS FOR NEXT VERSION -->
+  <rect x="610" y="600" width="560" height="230" rx="8" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="626" y="622" fill="#f87171" font-size="12" font-weight="700" letter-spacing="1">5. CODE-VS-DOCS GAPS IDENTIFIED FOR NEXT VERSION</text>
+
+  <text x="626" y="646" fill="#fca5a5" font-size="11.5" font-weight="700">1. Cascade Delete Orphans Enrichments &amp; Workflows (sqlite.ts:purgeFileNodes)</text>
+  <text x="626" y="662" fill="#cbd5e1" font-size="10.5">   Re-indexing a changed file DELETEs its FileNode &amp; SymbolNodes, cascade-deleting incoming</text>
+  <text x="626" y="676" fill="#cbd5e1" font-size="10.5">   `describes` &amp; `traverses` edges. WorkflowNode.stale is never set to true.</text>
+
+  <text x="626" y="698" fill="#fca5a5" font-size="11.5" font-weight="700">2. Language &amp; Grammar Gaps (languages.ts / parser.ts)</text>
+  <text x="626" y="714" fill="#cbd5e1" font-size="10.5">   Only 9 of 14 claimed languages registered (C#, Ruby, PHP, Kotlin, Dart ignored). Java/C/C++</text>
+  <text x="626" y="728" fill="#cbd5e1" font-size="10.5">   use walkGeneric() (0 imports, 0 calls). `.tsx` maps to non-JSX `typescript` grammar.</text>
+
+  <text x="626" y="750" fill="#fca5a5" font-size="11.5" font-weight="700">3. Relative-Only Imports &amp; Dead `extends` Edge (indexer.ts / navigation.ts)</text>
+  <text x="626" y="766" fill="#cbd5e1" font-size="10.5">   `resolveImportPath` drops non-relative imports (Python/Go/Rust/TS aliases = 0 import edges).</text>
+  <text x="626" y="780" fill="#cbd5e1" font-size="10.5">   `extends` edge is exposed in `codemesh_map` but never emitted by any parser.</text>
+
+  <text x="626" y="802" fill="#fca5a5" font-size="11.5" font-weight="700">4. CLI/MCP Asymmetry &amp; Trace Ordering (cli.ts / trace.ts)</text>
+  <text x="626" y="818" fill="#cbd5e1" font-size="10.5">   `enrich`/`workflow` missing from CLI; `read`/`semantic` missing from MCP; `trace` sorts steps by PageRank.</text>
+</svg>

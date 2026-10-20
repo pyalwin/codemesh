@@ -6,18 +6,13 @@
  * complete context package in ONE call.
  */
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
-import { semanticSearch } from "../indexer/embeddings.js";
 import { buildMapTree } from "./map-tree.js";
 // How much centrality (PageRank) should boost retrieval rank.
 // pagerankScore in this codebase ranges 0–0.02; a value of 50 means a max-pagerank
 // symbol gets ~2x boost, while a baseline symbol (pr ≈ 0.001) gets ~5% boost.
 const PAGERANK_BOOST = 50;
-// Semantic ranks (1 / (1 + distance)) are typically in the 0.3–0.6 range even
-// for highly relevant matches, while FTS5 BM25 ranks can exceed 1 for common
-// tokens. SEMANTIC_WEIGHT rescales semantic so it's competitive when the query
-// is descriptive ("how does X work") rather than a direct identifier lookup.
-const SEMANTIC_WEIGHT = 2.5;
 const STOPWORDS = new Set([
     "a", "an", "the", "is", "are", "was", "were", "be", "been",
     "do", "does", "did", "doing", "done",
@@ -49,10 +44,14 @@ function filterQueryTokens(question) {
  * Returns the actual window's start/end line numbers (absolute in the file)
  * so callers can reference the snippet precisely.
  */
-function readSnippet(projectRoot, filePath, lineStart, lineEnd, queryTokens = [], maxLines = 30) {
+function readSnippet(projectRoot, filePath, lineStart, lineEnd, queryTokens = [], maxLines = 30, expectedFileHash) {
     try {
         const abs = join(projectRoot, filePath);
-        const content = readFileSync(abs, "utf-8");
+        const bytes = readFileSync(abs);
+        if (!expectedFileHash || createHash("sha256").update(bytes).digest("hex") !== expectedFileHash) {
+            return { text: "", truncated: true, windowStart: lineStart, windowEnd: lineEnd, stale: true };
+        }
+        const content = bytes.toString("utf-8");
         const lines = content.split("\n");
         const desiredLines = lineEnd - lineStart + 1;
         if (desiredLines <= maxLines) {
@@ -117,7 +116,7 @@ function readSnippet(projectRoot, filePath, lineStart, lineEnd, queryTokens = []
         };
     }
     catch {
-        return { text: "", truncated: false, windowStart: lineStart, windowEnd: lineStart };
+        return { text: "", truncated: true, windowStart: lineStart, windowEnd: lineEnd, stale: true };
     }
 }
 // Symbols with logic (methods/functions/classes) are more informative for
@@ -135,15 +134,7 @@ const KIND_BOOST = {
     enum: 1.0,
 };
 export async function handleAnswer(storage, input, projectRoot) {
-    // Step 0: Try semantic search (LanceDB) — gracefully returns [] if not available
-    let semanticResults = [];
-    try {
-        semanticResults = await semanticSearch(projectRoot, input.question, 5);
-    }
-    catch {
-        // Semantic search unavailable — continue with FTS5 only
-    }
-    // Step 1: Search the graph with the question (FTS5 + trigram fallback)
+    // Step 1: Search the SQLite graph with the question (FTS5 + trigram fallback)
     // Filter natural-language stopwords so OR-split BM25 focuses on content tokens.
     const ftsQuery = filterQueryTokens(input.question);
     const searchResults = await storage.search(ftsQuery, "all");
@@ -230,45 +221,27 @@ export async function handleAnswer(storage, input, projectRoot) {
                 }
             }
         }
-    }
-    // Merge semantic results. If a symbol is already in FTS5 results, take the
-    // MAX of the two scores — both signals agree = stronger evidence. Otherwise add.
-    const existingIdx = new Map();
-    for (let i = 0; i < symbolResults.length; i++) {
-        existingIdx.set(symbolResults[i].sym.id, i);
-    }
-    for (const sr of semanticResults) {
-        const semanticRank = (1 / (1 + sr.score)) * SEMANTIC_WEIGHT;
-        const idx = existingIdx.get(sr.id);
-        if (idx !== undefined) {
-            // Same symbol in both — take max and mark as hybrid match
-            if (semanticRank > symbolResults[idx].rank) {
-                symbolResults[idx].rank = semanticRank;
-            }
-            symbolResults[idx].matchedField = "fts+semantic";
-            continue;
-        }
-        const node = await storage.getNode(sr.id);
-        if (!node || node.type !== "symbol")
-            continue;
-        const sym = node;
-        symbolResults.push({
-            sym,
-            rank: semanticRank,
-            matchedField: "semantic",
-        });
-        existingIdx.set(sym.id, symbolResults.length - 1);
-        // Track the file this semantic result belongs to
-        if (!fileMap.has(sym.filePath)) {
-            const fileId = `file:${sym.filePath}`;
-            const fileNode = await storage.getNode(fileId);
-            if (fileNode && fileNode.type === "file") {
-                fileMap.set(sym.filePath, {
-                    node: fileNode,
-                    why: `Semantically related (vector distance ${sr.score.toFixed(3)})`,
-                    symbolCount: 0,
-                    topSymbols: [],
-                });
+        else if (node.type === "concept") {
+            const edges = await storage.getEdges(node.id, "out", ["describes"]);
+            for (const edge of edges) {
+                const target = await storage.getNode(edge.toId);
+                if (target?.type === "symbol") {
+                    if (!symbolResults.some((entry) => entry.sym.id === target.id)) {
+                        symbolResults.push({ sym: target, rank: result.rank, matchedField: "saved note" });
+                    }
+                    const fileNode = await storage.getNode(`file:${target.filePath}`);
+                    if (fileNode?.type === "file" && !fileMap.has(target.filePath)) {
+                        fileMap.set(target.filePath, {
+                            node: fileNode, why: `Matched saved note for '${target.name}'`,
+                            symbolCount: 0, topSymbols: [],
+                        });
+                    }
+                }
+                else if (target?.type === "file" && !fileMap.has(target.path)) {
+                    fileMap.set(target.path, {
+                        node: target, why: "Matched saved note", symbolCount: 0, topSymbols: [],
+                    });
+                }
             }
         }
     }
@@ -460,17 +433,20 @@ export async function handleAnswer(storage, input, projectRoot) {
         .sort((a, b) => b.blendedScore - a.blendedScore)
         .slice(0, 5);
     for (const { sym, matchedField } of rankedSymbols) {
-        const { text: snippet, truncated, windowStart, windowEnd } = readSnippet(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, queryTokens);
+        const { text: snippet, truncated, windowStart, windowEnd, stale } = readSnippet(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, queryTokens, 30, fileMap.get(sym.filePath)?.node.hash);
         suggestedReads.push({
             file: sym.filePath,
             absolutePath: join(projectRoot, sym.filePath),
             lines: `${windowStart}-${windowEnd}`,
             symbolRange: truncated ? `${sym.lineStart}-${sym.lineEnd}` : undefined,
-            reason: `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
+            reason: stale
+                ? `${sym.name} (${sym.kind}) — index stale; run codemesh index before reading`
+                : `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
             signature: sym.signature,
             snippet,
             truncated,
             summary: sym.summary,
+            stale,
         });
     }
     // If we have fewer than 5 suggested reads, fill from remaining symbol results
@@ -483,17 +459,20 @@ export async function handleAnswer(storage, input, projectRoot) {
                 continue;
             suggestedIds.add(sym.id);
             {
-                const { text: snippet, truncated, windowStart, windowEnd } = readSnippet(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, queryTokens);
+                const { text: snippet, truncated, windowStart, windowEnd, stale } = readSnippet(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd, queryTokens, 30, fileMap.get(sym.filePath)?.node.hash);
                 suggestedReads.push({
                     file: sym.filePath,
                     absolutePath: join(projectRoot, sym.filePath),
                     lines: `${windowStart}-${windowEnd}`,
                     symbolRange: truncated ? `${sym.lineStart}-${sym.lineEnd}` : undefined,
-                    reason: `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
+                    reason: stale
+                        ? `${sym.name} (${sym.kind}) — index stale; run codemesh index before reading`
+                        : `${sym.name} (${sym.kind}) — matched via ${matchedField}`,
                     signature: sym.signature,
                     snippet,
                     truncated,
                     summary: sym.summary,
+                    stale,
                 });
             }
         }

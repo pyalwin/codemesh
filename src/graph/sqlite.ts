@@ -4,6 +4,7 @@ import type {
   GraphEdge,
   NodeFilter,
   SearchResult,
+  SearchOptions,
   TraversalResult,
   FileNode,
   SymbolNode,
@@ -26,6 +27,35 @@ function generateTrigrams(text: string): string[] {
   return [...new Set(trigrams)]; // dedupe
 }
 
+/** All aliases here are internal SQL identifiers; path values stay bound parameters. */
+function searchFilter(scope: string | undefined, path: string | undefined): { sql: string; params: Record<string, string> } {
+  const conditions: string[] = [];
+  const params: Record<string, string> = {};
+  const type = scope === "files" ? "file" : scope === "symbols" ? "symbol" : scope === "workflows" ? "workflow" : undefined;
+  if (type) {
+    conditions.push("n.type = @searchType");
+    params.searchType = type;
+  }
+  if (path !== undefined) {
+    params.searchPath = path;
+    params.searchPrefix = `${path}/`;
+    params.searchUpper = `${path}0`;
+    const within = (column: string) => `(${column} = @searchPath OR (${column} >= @searchPrefix AND ${column} < @searchUpper))`;
+    conditions.push(`(
+      (n.type = 'file' AND ${within("n.path")}) OR
+      (n.type = 'symbol' AND ${within("json_extract(n.data, '$.filePath')")}) OR
+      (n.type = 'concept' AND EXISTS (
+        SELECT 1 FROM nodes target WHERE target.id = json_extract(n.data, '$.targetId')
+        AND ${within("CASE WHEN target.type = 'file' THEN target.path ELSE json_extract(target.data, '$.filePath') END")}
+      )) OR
+      (n.type = 'workflow' AND EXISTS (
+        SELECT 1 FROM json_each(n.data, '$.fileSequence') files WHERE ${within("files.value")}
+      ))
+    )`);
+  }
+  return { sql: conditions.length ? ` AND ${conditions.join(" AND ")}` : "", params };
+}
+
 // Fields stored directly in the nodes table (not in the JSON `data` column)
 const BASE_FIELDS = new Set([
   "id",
@@ -43,6 +73,8 @@ const BASE_FIELDS = new Set([
 export class SqliteBackend implements StorageBackend {
   private db: Database.Database | null = null;
   private readonly dbPath: string;
+  private inTransaction = false;
+  private graphDirty = false;
 
   constructor(dbPath: string) {
     this.dbPath = dbPath;
@@ -53,6 +85,7 @@ export class SqliteBackend implements StorageBackend {
   async initialize(): Promise<void> {
     this.db = new Database(this.dbPath);
     this.db.pragma("journal_mode = WAL");
+    this.db.pragma("busy_timeout = 5000");
     this.db.pragma("foreign_keys = ON");
     this.createSchema();
   }
@@ -61,6 +94,14 @@ export class SqliteBackend implements StorageBackend {
     if (this.db) {
       this.db.close();
       this.db = null;
+    }
+  }
+
+  private markGraphDirty(): void {
+    if (this.inTransaction) {
+      this.graphDirty = true;
+    } else {
+      this.getDb().prepare("UPDATE cache_meta SET value = value + 1 WHERE key = 'graph_version'").run();
     }
   }
 
@@ -91,6 +132,7 @@ export class SqliteBackend implements StorageBackend {
 
       CREATE INDEX IF NOT EXISTS idx_nodes_type ON nodes(type);
       CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path);
+      CREATE INDEX IF NOT EXISTS idx_nodes_type_path ON nodes(type, path);
       CREATE INDEX IF NOT EXISTS idx_nodes_name ON nodes(name);
 
       CREATE TABLE IF NOT EXISTS edges (
@@ -108,6 +150,34 @@ export class SqliteBackend implements StorageBackend {
       CREATE INDEX IF NOT EXISTS idx_edges_from ON edges(from_id);
       CREATE INDEX IF NOT EXISTS idx_edges_to   ON edges(to_id);
       CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(type);
+
+      CREATE TABLE IF NOT EXISTS cache_meta (
+        key TEXT PRIMARY KEY,
+        value INTEGER NOT NULL
+      );
+      INSERT OR IGNORE INTO cache_meta(key, value) VALUES ('graph_version', 0);
+      CREATE TABLE IF NOT EXISTS retrieval_cache (
+        key TEXT PRIMARY KEY,
+        graph_version INTEGER NOT NULL,
+        results TEXT NOT NULL,
+        hit_count INTEGER NOT NULL DEFAULT 0,
+        last_used_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_retrieval_cache_used ON retrieval_cache(last_used_at);
+      CREATE TABLE IF NOT EXISTS session_deliveries (
+        session_id TEXT NOT NULL,
+        context_epoch TEXT NOT NULL,
+        node_id TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        source_hash TEXT NOT NULL,
+        delivered_at TEXT NOT NULL,
+        PRIMARY KEY (session_id, context_epoch, node_id, mode, source_hash)
+      );
+      CREATE INDEX IF NOT EXISTS idx_session_deliveries_session ON session_deliveries(session_id, context_epoch);
+      CREATE TABLE IF NOT EXISTS context_metrics (
+        key TEXT PRIMARY KEY,
+        value INTEGER NOT NULL DEFAULT 0
+      );
 
       -- Trigram index for partial/substring symbol matching
       CREATE TABLE IF NOT EXISTS trigrams (
@@ -247,6 +317,8 @@ export class SqliteBackend implements StorageBackend {
           lineStart: data.lineStart ?? 0,
           lineEnd: data.lineEnd ?? 0,
           signature: data.signature ?? "",
+          bodyHash: data.bodyHash,
+          signatureHash: data.signatureHash,
         };
         if (data.summary !== undefined) {
           symbolNode.summary = data.summary;
@@ -265,6 +337,10 @@ export class SqliteBackend implements StorageBackend {
           summary: data.summary ?? "",
           lastUpdatedBy: data.lastUpdatedBy ?? "",
           stale: data.stale ?? false,
+          targetId: data.targetId,
+          targetHash: data.targetHash,
+          status: data.status,
+          history: data.history,
         } as ConceptNode;
 
       case "workflow":
@@ -276,6 +352,9 @@ export class SqliteBackend implements StorageBackend {
           fileSequence: data.fileSequence ?? [],
           lastWalkedAt: data.lastWalkedAt ?? base.createdAt,
           stale: data.stale ?? false,
+          fileHashes: data.fileHashes,
+          status: data.status,
+          history: data.history,
         } as WorkflowNode;
 
       default:
@@ -301,6 +380,7 @@ export class SqliteBackend implements StorageBackend {
         data       = excluded.data,
         updated_at = excluded.updated_at
     `).run(row);
+    this.markGraphDirty();
 
     // Maintain trigram index for symbol nodes
     if (node.type === "symbol") {
@@ -346,6 +426,15 @@ export class SqliteBackend implements StorageBackend {
       conditions.push("n.name = @name");
       params.name = filter.name;
     }
+    if (filter.leafName) {
+      conditions.push("(n.name = @leafName OR substr(n.name, -length(@leafName) - 1) = '.' || @leafName)");
+      params.leafName = filter.leafName;
+    }
+    if (filter.pathPrefix !== undefined) {
+      const scoped = searchFilter(undefined, filter.pathPrefix);
+      conditions.push(scoped.sql.slice(5));
+      Object.assign(params, scoped.params);
+    }
     if (filter.path) {
       conditions.push("n.path = @path");
       params.path = filter.path;
@@ -367,6 +456,21 @@ export class SqliteBackend implements StorageBackend {
       typeof this.deserializeNode
     >[0][];
     return rows.map((r) => this.deserializeNode(r));
+  }
+
+  async queryFilePaths(directory?: string): Promise<string[]> {
+    const db = this.getDb();
+    // The trailing slash makes this a directory-boundary query. SQLite can
+    // satisfy both forms from the covering (type, path) index, without loading
+    // the full node JSON for every file in the repository.
+    const rows = directory === undefined
+      ? db.prepare("SELECT path FROM nodes WHERE type = 'file' ORDER BY path").all()
+      : db.prepare(`
+          SELECT path FROM nodes
+          WHERE type = 'file' AND path >= ? AND path < ?
+          ORDER BY path
+        `).all(`${directory}/`, `${directory}0`);
+    return (rows as Array<{ path: string }>).map((row) => row.path);
   }
 
   async queryNodesByFilePaths(filePaths: string[]): Promise<GraphNode[]> {
@@ -397,6 +501,7 @@ export class SqliteBackend implements StorageBackend {
     db.prepare("DELETE FROM trigrams WHERE node_id = ?").run(id);
     // Foreign key cascade will delete associated edges
     db.prepare("DELETE FROM nodes WHERE id = ?").run(id);
+    this.markGraphDirty();
   }
 
   // ── Edge CRUD ──────────────────────────────────────────────────────
@@ -423,6 +528,7 @@ export class SqliteBackend implements StorageBackend {
       data: edge.data ? JSON.stringify(edge.data) : null,
       created_at: edge.createdAt,
     });
+    this.markGraphDirty();
 
     return edge.id;
   }
@@ -475,6 +581,7 @@ export class SqliteBackend implements StorageBackend {
     const result = db
       .prepare("DELETE FROM edges WHERE from_id = ? OR to_id = ?")
       .run(nodeId, nodeId);
+    if (result.changes) this.markGraphDirty();
     return result.changes;
   }
 
@@ -542,8 +649,45 @@ export class SqliteBackend implements StorageBackend {
 
   // ── FTS5 Search ────────────────────────────────────────────────────
 
-  async search(query: string, _scope?: string): Promise<SearchResult[]> {
+  async recordDelivery(entry: {
+    sessionId: string;
+    contextEpoch: string;
+    nodeId: string;
+    mode: string;
+    sourceHash: string;
+  }): Promise<void> {
+    this.getDb().prepare(`INSERT OR IGNORE INTO session_deliveries
+      (session_id, context_epoch, node_id, mode, source_hash, delivered_at)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(entry.sessionId, entry.contextEpoch, entry.nodeId, entry.mode, entry.sourceHash, new Date().toISOString());
+  }
+
+  async incrementMetric(key: "source_bytes_delivered" | "source_bytes_avoided" | "conditional_hits", amount: number): Promise<void> {
+    this.getDb().prepare(`INSERT INTO context_metrics(key, value) VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = value + excluded.value`).run(key, amount);
+  }
+
+  async search(query: string, scope?: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     const db = this.getDb();
+    const normalizedQuery = query.trim().toLowerCase().replace(/\s+/g, " ");
+    const cacheKey = options.path === undefined && (scope === undefined || scope === "all")
+      ? `${scope ?? "all"}:${normalizedQuery}`
+      : JSON.stringify(["scoped-v2", scope ?? "all", normalizedQuery, options.path ?? null]);
+    const scoped = searchFilter(scope, options.path);
+    const version = (db.prepare("SELECT value FROM cache_meta WHERE key = 'graph_version'").get() as { value: number }).value;
+    const cached = db.prepare("SELECT results FROM retrieval_cache WHERE key = ? AND graph_version = ?")
+      .get(cacheKey, version) as { results: string } | undefined;
+    if (cached) {
+      db.prepare("UPDATE retrieval_cache SET hit_count = hit_count + 1, last_used_at = ? WHERE key = ?")
+        .run(new Date().toISOString(), cacheKey);
+      const rows = JSON.parse(cached.results) as Array<{ id: string; rank: number; matchedField: string }>;
+      const hits: SearchResult[] = [];
+      for (const row of rows) {
+        const node = await this.getNode(row.id);
+        if (node) hits.push({ node, rank: row.rank, matchedField: row.matchedField });
+      }
+      return hits;
+    }
 
     // Escape FTS5 special characters and build a simple query
     const ftsQuery = query
@@ -563,12 +707,13 @@ export class SqliteBackend implements StorageBackend {
         f.summary    AS fts_summary,
         f.description AS fts_description,
         bm25(nodes_fts) AS rank
-      FROM nodes_fts f
-      WHERE nodes_fts MATCH @query
-      ORDER BY bm25(nodes_fts)
+      FROM nodes_fts f JOIN nodes n ON n.id = f.node_id
+      WHERE nodes_fts MATCH @query ${scoped.sql}
+      ORDER BY bm25(nodes_fts), f.node_id
+      LIMIT 200
     `;
 
-    const rows = db.prepare(sql).all({ query: ftsQuery }) as Array<{
+    const rows = db.prepare(sql).all({ query: ftsQuery, ...scoped.params }) as Array<{
       node_id: string;
       fts_name: string;
       fts_signature: string;
@@ -613,7 +758,7 @@ export class SqliteBackend implements StorageBackend {
 
     // If FTS5 returned fewer than 5 results, augment with trigram search
     if (results.length < 5) {
-      const trigramResults = await this.searchTrigrams(query);
+      const trigramResults = await this.searchTrigrams(query, scope, options);
       const existingIds = new Set(results.map((r) => r.node.id));
       for (const tr of trigramResults) {
         if (!existingIds.has(tr.node.id)) {
@@ -625,6 +770,11 @@ export class SqliteBackend implements StorageBackend {
       results.sort((a, b) => b.rank - a.rank);
     }
 
+    db.prepare(`INSERT INTO retrieval_cache(key, graph_version, results, last_used_at)
+      VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET graph_version=excluded.graph_version,
+      results=excluded.results, last_used_at=excluded.last_used_at, hit_count=0`)
+      .run(cacheKey, version, JSON.stringify(results.map((r) => ({ id: r.node.id, rank: r.rank, matchedField: r.matchedField }))), new Date().toISOString());
+    db.prepare("DELETE FROM retrieval_cache WHERE key IN (SELECT key FROM retrieval_cache ORDER BY last_used_at DESC LIMIT -1 OFFSET 500)").run();
     return results;
   }
 
@@ -632,7 +782,7 @@ export class SqliteBackend implements StorageBackend {
    * Search using trigram index for partial/substring symbol matching.
    * Finds nodes whose name or signature contains the query as a substring.
    */
-  async searchTrigrams(query: string): Promise<SearchResult[]> {
+  async searchTrigrams(query: string, scope?: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     const db = this.getDb();
 
     const queryTrigrams = generateTrigrams(query);
@@ -645,17 +795,19 @@ export class SqliteBackend implements StorageBackend {
       params[`tri${i}`] = tri;
     });
     params.triCount = queryTrigrams.length;
+    const scoped = searchFilter(scope, options.path);
+    Object.assign(params, scoped.params);
 
     const sql = `
       SELECT
-        node_id,
+        t.node_id,
         COUNT(*) AS match_count,
         CAST(COUNT(*) AS REAL) / @triCount AS match_ratio
-      FROM trigrams
-      WHERE trigram IN (${placeholders})
-      GROUP BY node_id
+      FROM trigrams t JOIN nodes n ON n.id = t.node_id
+      WHERE trigram IN (${placeholders}) ${scoped.sql}
+      GROUP BY t.node_id
       HAVING match_ratio >= 0.6
-      ORDER BY match_count DESC
+      ORDER BY match_count DESC, t.node_id
       LIMIT 20
     `;
 
@@ -684,14 +836,23 @@ export class SqliteBackend implements StorageBackend {
 
   async beginTransaction(): Promise<void> {
     this.getDb().exec("BEGIN TRANSACTION");
+    this.inTransaction = true;
+    this.graphDirty = false;
   }
 
   async commitTransaction(): Promise<void> {
+    if (this.graphDirty) {
+      this.getDb().prepare("UPDATE cache_meta SET value = value + 1 WHERE key = 'graph_version'").run();
+    }
     this.getDb().exec("COMMIT");
+    this.inTransaction = false;
+    this.graphDirty = false;
   }
 
   async rollbackTransaction(): Promise<void> {
     this.getDb().exec("ROLLBACK");
+    this.inTransaction = false;
+    this.graphDirty = false;
   }
 
   // ── Maintenance ────────────────────────────────────────────────────
@@ -734,28 +895,32 @@ export class SqliteBackend implements StorageBackend {
 
     const db = this.getDb();
 
-    // Find concept nodes that describe symbols in the given file paths.
-    // A concept is related to a file if it has a "describes" edge to a symbol
-    // whose filePath is in the given list.
-    const placeholders = filePaths.map((_, i) => `@fp${i}`).join(", ");
-    const params: Record<string, string> = {};
-    filePaths.forEach((fp, i) => {
-      params[`fp${i}`] = fp;
-    });
+    // Find concepts describing either a file or one of its symbols. Resolve
+    // these before purge, since foreign-key cascades remove describes edges.
+    const conceptIds = new Set<string>();
+    // Keep bound parameters below SQLite builds' variable limits on large
+    // indexing runs. A concept may describe more than one affected target.
+    for (let start = 0; start < filePaths.length; start += 500) {
+      const paths = filePaths.slice(start, start + 500);
+      const placeholders = paths.map((_, i) => `@fp${i}`).join(", ");
+      const params: Record<string, string> = {};
+      paths.forEach((fp, i) => {
+        params[`fp${i}`] = fp;
+      });
 
-    // Find concept IDs that describe symbols in these files
-    const sql = `
-      SELECT DISTINCT e.from_id AS concept_id
-      FROM edges e
-      JOIN nodes n ON e.to_id = n.id
-      WHERE e.type = 'describes'
-        AND n.type = 'symbol'
-        AND json_extract(n.data, '$.filePath') IN (${placeholders})
-    `;
-
-    const conceptRows = db.prepare(sql).all(params) as Array<{
-      concept_id: string;
-    }>;
+      const sql = `
+        SELECT DISTINCT e.from_id AS concept_id
+        FROM edges e
+        JOIN nodes n ON e.to_id = n.id
+        WHERE e.type = 'describes'
+          AND (
+            (n.type = 'symbol' AND json_extract(n.data, '$.filePath') IN (${placeholders}))
+            OR (n.type = 'file' AND n.path IN (${placeholders}))
+          )
+      `;
+      const rows = db.prepare(sql).all(params) as Array<{ concept_id: string }>;
+      for (const row of rows) conceptIds.add(row.concept_id);
+    }
 
     let count = 0;
     const updateStmt = db.prepare(`
@@ -765,13 +930,15 @@ export class SqliteBackend implements StorageBackend {
       WHERE id = @id AND type = 'concept'
     `);
 
-    for (const row of conceptRows) {
+    for (const id of conceptIds) {
       const result = updateStmt.run({
-        id: row.concept_id,
+        id,
         updatedAt: new Date().toISOString(),
       });
       count += result.changes;
     }
+
+    if (count) this.markGraphDirty();
 
     return count;
   }
@@ -805,6 +972,7 @@ export class SqliteBackend implements StorageBackend {
     });
 
     purge();
+    if (count) this.markGraphDirty();
     return count;
   }
 
@@ -813,6 +981,7 @@ export class SqliteBackend implements StorageBackend {
     edgeCount: Record<string, number>;
     staleCount: number;
     lastIndexedAt: string | null;
+    metrics: Record<string, number>;
   }> {
     const db = this.getDb();
 
@@ -848,11 +1017,21 @@ export class SqliteBackend implements StorageBackend {
       )
       .get() as { ts: string | null } | undefined;
 
+    const metrics: Record<string, number> = {};
+    for (const row of db.prepare("SELECT key, value FROM context_metrics").all() as Array<{ key: string; value: number }>) {
+      metrics[row.key] = row.value;
+    }
+    const cacheRow = db.prepare("SELECT COUNT(*) AS entries, COALESCE(SUM(hit_count), 0) AS hits FROM retrieval_cache")
+      .get() as { entries: number; hits: number };
+    metrics.retrieval_cache_entries = cacheRow.entries;
+    metrics.retrieval_cache_hits = cacheRow.hits;
+
     return {
       nodeCount,
       edgeCount,
       staleCount: staleRow.cnt,
       lastIndexedAt: lastIndexed?.ts ?? null,
+      metrics,
     };
   }
 }

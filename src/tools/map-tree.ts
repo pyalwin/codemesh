@@ -1,7 +1,7 @@
 /**
  * Shared tree builder for codemesh_map and codemesh_answer.
  *
- * BFS through calls edges with a visited set, no depth limit.
+ * Bounded traversal through calls edges with a visited set.
  * Returns a recursive tree with summary/kind/filePath/id/pagerank on each node.
  */
 
@@ -25,31 +25,38 @@ export interface MapNode {
 }
 
 const MAX_CALLERS_PER_NODE = 8;
+const MAX_DEPTH = 3;
+const MAX_NODES = 25;
 
 export async function buildMapTree(
   storage: StorageBackend,
   startNodeIds: string[],
-): Promise<{ nodes: MapNode[]; totalSymbols: number }> {
-  const visited = new Set<string>();
+): Promise<{ nodes: MapNode[]; totalSymbols: number; truncated: boolean }> {
+  const state = { visited: new Set<string>(), truncated: false };
   const roots: MapNode[] = [];
 
   for (const startId of startNodeIds) {
-    if (visited.has(startId)) continue;
-    const node = await buildNode(storage, startId, visited);
+    if (state.visited.has(startId)) continue;
+    const node = await buildNode(storage, startId, state, 0);
     if (node) roots.push(node);
   }
 
-  return { nodes: roots, totalSymbols: visited.size };
+  return { nodes: roots, totalSymbols: state.visited.size, truncated: state.truncated };
 }
 
 async function buildNode(
   storage: StorageBackend,
   nodeId: string,
-  visited: Set<string>,
+  state: { visited: Set<string>; truncated: boolean },
+  depth: number,
   relationship?: string,
 ): Promise<MapNode | null> {
-  if (visited.has(nodeId)) return null;
-  visited.add(nodeId);
+  if (state.visited.has(nodeId)) return null;
+  if (state.visited.size >= MAX_NODES) {
+    state.truncated = true;
+    return null;
+  }
+  state.visited.add(nodeId);
 
   const node = await storage.getNode(nodeId);
   if (!node || node.type !== "symbol") return null;
@@ -57,18 +64,23 @@ async function buildNode(
   const sym = node as SymbolNode;
 
   // Get outgoing calls edges and build children recursively
-  const callEdges = await storage.getEdges(nodeId, "out", ["calls"]);
+  const callEdges = (await storage.getEdges(nodeId, "out", ["calls"]))
+    .sort((a, b) => a.toId.localeCompare(b.toId));
   const children: MapNode[] = [];
 
-  for (const edge of callEdges) {
-    const child = await buildNode(storage, edge.toId, visited, edge.type);
-    if (child) children.push(child);
+  if (depth >= MAX_DEPTH) {
+    if (callEdges.length > 0) state.truncated = true;
+  } else {
+    for (const edge of callEdges) {
+      const child = await buildNode(storage, edge.toId, state, depth + 1, edge.type);
+      if (child) children.push(child);
+    }
   }
 
   // Collect immediate callers (flat, non-recursive) — the inverse of `children`
   const incomingCallEdges = await storage.getEdges(nodeId, "in", ["calls"]);
   const calledBy: NonNullable<MapNode["calledBy"]> = [];
-  for (const edge of incomingCallEdges.slice(0, MAX_CALLERS_PER_NODE)) {
+  for (const edge of incomingCallEdges.sort((a, b) => a.fromId.localeCompare(b.fromId)).slice(0, MAX_CALLERS_PER_NODE)) {
     const caller = await storage.getNode(edge.fromId);
     if (caller && caller.type === "symbol") {
       const sCaller = caller as SymbolNode;

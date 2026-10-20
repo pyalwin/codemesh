@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { resolve, join } from "node:path";
 import * as fs from "node:fs";
+import { createHash } from "node:crypto";
 import * as os from "node:os";
 import { SqliteBackend } from "../../src/graph/sqlite.js";
 import { Indexer } from "../../src/indexer/indexer.js";
 import { buildMapTree } from "../../src/tools/map-tree.js";
+import { handleEnrich } from "../../src/tools/enrich.js";
 import type { FileNode, SymbolNode, GraphEdge } from "../../src/graph/types.js";
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -70,8 +72,11 @@ describe("Indexer", () => {
     const fileNodes = await storage.queryNodes({ type: "file" });
     for (const node of fileNodes) {
       const fileNode = node as FileNode;
-      // Hash is a stat-based key: "mtimeMs:size"
-      expect(fileNode.hash).toMatch(/^\d+(\.\d+)?:\d+$/);
+      expect(fileNode.hash).toBe(
+        createHash("sha256")
+          .update(fs.readFileSync(join(SAMPLE_PROJECT, fileNode.path)))
+          .digest("hex"),
+      );
     }
   });
 
@@ -305,6 +310,59 @@ describe("Indexer", () => {
 
     // Clean up
     fs.rmSync(tempProject, { recursive: true, force: true });
+  });
+
+  it("detects same-size edits even when the modification time is preserved", async () => {
+    const tempProject = fs.mkdtempSync(join(os.tmpdir(), "codemesh-hash-test-"));
+    try {
+      const sourcePath = join(tempProject, "same.ts");
+      fs.writeFileSync(sourcePath, "export const value = 1;\n");
+      const indexer = new Indexer(storage, tempProject);
+      expect((await indexer.index({ withEmbeddings: false })).filesIndexed).toBe(1);
+      const before = (await storage.getNode("file:same.ts")) as FileNode;
+      const originalMtime = fs.statSync(sourcePath).mtime;
+      const originalSize = fs.statSync(sourcePath).size;
+
+      fs.writeFileSync(sourcePath, "export const value = 2;\n");
+      fs.utimesSync(sourcePath, originalMtime, originalMtime);
+      expect(fs.statSync(sourcePath).size).toBe(originalSize);
+
+      expect((await indexer.index({ withEmbeddings: false })).filesIndexed).toBe(1);
+      const after = (await storage.getNode("file:same.ts")) as FileNode;
+      expect(after.hash).not.toBe(before.hash);
+      expect((await indexer.index({ withEmbeddings: false })).filesIndexed).toBe(0);
+    } finally {
+      fs.rmSync(tempProject, { recursive: true, force: true });
+    }
+  });
+
+  it("stales file-level concepts when their source changes or is deleted", async () => {
+    const tempProject = fs.mkdtempSync(join(os.tmpdir(), "codemesh-concept-test-"));
+    try {
+      fs.writeFileSync(join(tempProject, "change.ts"), "export const changed = 1;\n");
+      fs.writeFileSync(join(tempProject, "delete.ts"), "export const deleted = 1;\n");
+      fs.writeFileSync(join(tempProject, "keep.ts"), "export const kept = 1;\n");
+      const indexer = new Indexer(storage, tempProject);
+      await indexer.index({ withEmbeddings: false });
+
+      const concepts = await Promise.all(
+        ["change.ts", "delete.ts", "keep.ts"].map((path) =>
+          handleEnrich(storage, { path, summary: `About ${path}`, sessionId: "test" }),
+        ),
+      );
+      for (const concept of concepts) expect(concept.success).toBe(true);
+
+      fs.writeFileSync(join(tempProject, "change.ts"), "export const changed = 2;\n");
+      fs.rmSync(join(tempProject, "delete.ts"));
+      const result = await indexer.index({ withEmbeddings: false });
+      expect(result.filesIndexed).toBe(1);
+      expect(result.filesDeleted).toBe(1);
+      expect((await storage.getNode(concepts[0].nodeId) as { stale: boolean }).stale).toBe(true);
+      expect((await storage.getNode(concepts[1].nodeId) as { stale: boolean }).stale).toBe(true);
+      expect((await storage.getNode(concepts[2].nodeId) as { stale: boolean }).stale).toBe(false);
+    } finally {
+      fs.rmSync(tempProject, { recursive: true, force: true });
+    }
   });
 
   it("detects and removes deleted files", async () => {

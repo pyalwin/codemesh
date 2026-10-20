@@ -1,0 +1,1325 @@
+{
+  "method": "One-reviewer rubric audit; see quality_review.py for interpretation.",
+  "rows": [
+    {
+      "task": "unique-serialize",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "e18b51932b613fc5ac07ac837b978299902219a04e3cefde814435442a98f508",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "e8ee2903603296a456d391f2b8e7c79fa92445540787a9906a5ffb7b1b998428",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "e79791496d0f6b35478504de4fc6836eb504854a7fb7dd4c298ad2d444e46ca0",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "d1807f3fb4a1cb537b9c584f0843b637fd7f667ea64615c88c9bcc4d9dd30312",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Names both modes but lacks their output-behavior distinction."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "0b6e57607ac22092c1d85b1f6eae71bb00b4d4f6960704c990dd7ed5844d9ff2",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Names both modes but lacks their output-behavior distinction."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "042881d814aeeb81b176c6826fec32b745fb9028d36571145a6b71b4e8e90793",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Names both modes but lacks their output-behavior distinction."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "f15b80ac061155635b18eeaf37bfcfed81539cb1c07b133e09766861cfd40363",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Names both modes but lacks their output-behavior distinction."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "2fdbe1c4ed078a6e0cdfd989140c96f7ccec24374d4fe619dc6c65ae6c15933a",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Names both modes but lacks their output-behavior distinction."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "1c33d41b2517828b8492e395ad17147f858abcbff76ab5f83e365b3968b3ebcc",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Names both modes but lacks their output-behavior distinction."
+    },
+    {
+      "task": "unique-copy",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "279a1671640f2ff025feacc612ff64facd1785a8e99b13e6cd7c4549d17bd0f0",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "79722aae4acef2f4d9d8cf8fef284c2cb3422e1fa6de7b87bee40677fc123976",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "24ddae8b4db7538e886a8971512c163e8b018cf70807faccd250d563245a6fdc",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "64cfac122fed535b491d0add29b46c13ba13f8cdcc029825d987bdf1177da11c",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "8950e2b46c94e6868e35a1862cbf01d923760c8a4a7647024797651291c408a2",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "e1beea41f7bd641a1374ec3e3872ce66664f74d19f9b176478ea698b1e9903c3",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "40417ff853109ebbd6e19b2071073d163245fe2f7e44243255d5ec4ea05a55cf",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "6669a7c53765139f500d43af818b06a807b07080102f95a2eebd3523e0e0475c",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": true,
+      "note": "Incorrectly says the deep+update branch starts from __deepcopy__()."
+    },
+    {
+      "task": "unique-copy",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "e0289f18a1c7f0659ac339fa037ec1d3b3a44775e026ff34b2dfd091fb9a3280",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "2965451846e681e59332fcb551af186138b2a8a7c629ab056c449f2668af157c",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits after as the field-validator default."
+    },
+    {
+      "task": "unique-validators",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "21ecf570525ee4f3c5e9d33ba9f571b27dc252c8a7e34f6dd270d3b4bc01295b",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "87c79e3522af0718817260fe9bd36a67299a8b21e4bdf2351324b7d63d2bb7b3",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits after as the field-validator default."
+    },
+    {
+      "task": "unique-validators",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "1522d9666a578c272b80cda22ce708f2bf6ba1d70f32cb31fbde292db279bfa4",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "69d47960b2bbc05859162bc7caae8ecb6be1aec3075f7f9e22bf22b7ab7c6ac9",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "70d1985fef2c041fe5dc3315ad9b71257f7c323cca3c2ffee5ed9754d0e43b22",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "7645a73cc2a8e3cbb1afd039cae93ce80cd374f91c56166cbd9f080ecad8d84d",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "dcbbce5dd024182d4aa288bdd5b62e99cebf6031774fa7dad8066ddb84ee371a",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "20ecf2fd1029aa95f4c8aabb5f38eebe1bfbfea746e99639dad54398d6ac815f",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "33ab178e58d8189dee59255a89e6d01624e664f7adace7fdc31a8e1879db9d5e",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "5fdbe3ecdd92e1f659dd798512c078e8ee655c645f6d2a9f308806fe5950cb62",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "65047a9739b111f45f2bc9918a76804556be159e0d587e5ff4b9db81b4a816f1",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "78c73b64dedb11b1e789f0afd0551810997d4d52bb6cb97f9b88bd52c4ab5201",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "bc8d463e56452edebf755ad2a5f0ada88d6737242707c85db29f4cd0e3063e86",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "4ddd9689862b62bd96d9cfdb8d90d78a2dec19c08b6e2b89ed64c36a04921513",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "87c659d90661ad50c93e853f3dfb2b07143466e80c41b774a3ee62be455045a3",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "e950969cd9a4f3e3b530321f9b428a698c461aa90e2a3c549432390bd740bf88",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "dcd5ecf68a5e7c4360e53ac817073197c4c12e41c5b87053a339b7923ad0bcd7",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "25826393278ba8f373dddddbce6a48cfa0502bd3a72853dcbe95a478cb60a788",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "ec661604dbad5abfeff7c1c0d6a56412be21fe2e988f767753172fcd12fff1aa",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "59a96bfb4747b15cee72d053b11935cb01ebdca75b68f02b9b42933e21b94ceb",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "84b9e2d6d8e5d7c5e629175a41ea59e1c807b8e36eac1e83dfbf79be5e734d38",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": true,
+      "note": "Does not establish the exact mode=mode handoff to generate(). Does not explicitly trace the class-method handoff to the utility. Incorrectly places mode among generator constructor options."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "daa06239ba27bbe547b2881c387daf9d407d6b7230cc052f5ec08f331b86b9fd",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Does not establish the exact mode=mode handoff to generate(). Does not explicitly trace the class-method handoff to the utility."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "57934c4d09273091b5074bacc0eac64c2eb34b3ac33bb066581c74830cb1f6ea",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": true,
+      "note": "Does not establish the exact mode=mode handoff to generate(). Incorrectly places mode among generator constructor options."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "23a6ef1325dbe12d77a19b5777b9b0ce218ffd86b260a5d5572c98214034fa1f",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": true,
+      "note": "Does not establish the exact mode=mode handoff to generate(). Does not explicitly trace the class-method handoff to the utility. Incorrectly places mode among generator constructor options."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "7cfd95ba14cd2e4fcb764a590fb68fb97d42dbc59efb7485fb41e0a2f28db4e6",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Does not establish the exact mode=mode handoff to generate(). Does not explicitly trace the class-method handoff to the utility."
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "91583a03cb771808641215741c6aa1da9d2e6ae5b6d8a5ddbea1500da3617e88",
+      "rubric_hits": [
+        false,
+        false
+      ],
+      "false_claim": false,
+      "note": "Does not establish the exact mode=mode handoff to generate(). Does not explicitly trace the class-method handoff to the utility."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "99d2033815adb647f61a74f5e73987e6ce7c1ad914d46d6a7f9c4c90130334b8",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "7999d240f8979210c5f597469bec618f3fe0e38126280971159ad51c33216b47",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "c2767955068fcfb5100b559c3e174c8de5ae710934bd6a22b37bf3edfa613c69",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "c834329bfdb16e0856c5bf449d7cc5062a29f1a4510f6826b78a65b29a19c3c1",
+      "rubric_hits": [
+        false,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the initial BaseModel.model_json_schema handoff."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "0c71eb61170d806a22b48b15e8868555740376a5058ba509b7db6d1685246d35",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "f8f7e92a36fa21ca611f993b7ffe224ed9ffccff5c0964392caffab469e0c3af",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "ee75a231065a3771bd8d4b4dc0a869b7d22879133ed61aed5a21aecde0266847",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "26758efc7261951b222ee333a7f362ea9a2d213f3fb690866323d5e316885ce8",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "e2056bdc446e8b2ad62ee99c80bf41e6de6bb7ff2e9ed285b3f063ae99e50be4",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "82d6a8c62b616d8ab72c2d3d930bc1750eeb434cc8abcaf2aa33a4b240ac1116",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "05d904ed0a4aa4f0a1d089c4c249a8a040535a3c6fd750ec2b93de989d15a141",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "c57c615c3b37949c3507fdd1523b1e44bbd9351afefe5a2143c8fa9b5aeaa9f7",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "583bec5a810cf144fe81f8a2ace80dedcd52a8821230b56d6ab64822a8cac772",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "7a9ca54b64581e2e8990cf584193d0c88317257e09d50aa8a962c636b60391bd",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "d060949f9acd444e423c942e82726d5e1bb7644b3308982f4ab0f7621a7c11c4",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "b463334c42d6d47b5545a7b062dc02577bd9256b363b18a90ef03f2fb817e8da",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "f116bd01239124d3657e5bd8c41310a3fc16672e20abb702d7c9a46db18ef972",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "dde4c94ed554add1af73cf96dd780c04e4bdb5d2eda0330e9ca0bbde60c42e1c",
+      "rubric_hits": [
+        false,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "37f1c93709013ed504a0634f65487e08fa86a03ecf06fb386ab7378ac04d5e48",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "076484caeba55eb4ba14734d9f08a6e84be8fa458844a41114ba534142ada7d1",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "828e7dfad292d6989ee15e741b2fdab731a8f357c6076e7f9f4a757e4401cc2b",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "df0777ad0baf01ea6395ce29303c0687fd8d12c0a2d0ffd55e7949353e268263",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "9a0f21689ab42d8264d173a550f198b65472717abb25963c96bdcda808fabcc7",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "fe7aebd59e7bc4c87ed200c1249907b661c2f2e27f472ded5309e28759875249",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "871d225c979baff2a674893cbb241f4f28a15be98271864d4869c895590b6dfc",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "2dff1169d7321137907faa7f66398cbe395733a7a3ae9eaf228f4856e7e10bca",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "f4a5645f8fdf862e58ddb91a09e4b71cc6f226a8e9ec510dce357b827231759f",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "raw",
+      "repeat": 1,
+      "answer_sha256": "89108d3c1d3585f9ef4502d29d4aa725fd28b9649b1c8bcfb0ecbaae2e036d96",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "raw",
+      "repeat": 2,
+      "answer_sha256": "37fda865ceeb83525664b97d5697b1ac918d74304a56afaa7df82a9b9b9cb0e2",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "raw",
+      "repeat": 3,
+      "answer_sha256": "09f46e9e6de27837a51ecfc818b4ab6d5c95bcb98096d586d9785e9b4517dd8f",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "capsule",
+      "repeat": 1,
+      "answer_sha256": "8b266ea99dd58e748a68b3819cfe10a308f4944db1970a55fc9836382958fe05",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "capsule",
+      "repeat": 2,
+      "answer_sha256": "3a55bb121255c99db03f2aa3f581db5060ea20c46e6ad0f77713bc46cd3b29e7",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "capsule",
+      "repeat": 3,
+      "answer_sha256": "4fefcd9068589c10e900b517925f79fe7ceaa473d7f2ad3a3110583bd880c5c6",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "compact",
+      "repeat": 1,
+      "answer_sha256": "eb3309dc71f7e2f63ac77bc38df8ccdca6d7ebcf494b5084e42a8722a530d979",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "compact",
+      "repeat": 2,
+      "answer_sha256": "6eec25993fd8003ee42f0a1f7726de2401a4e2554775e777a1e688b17a27c2c6",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "compact",
+      "repeat": 3,
+      "answer_sha256": "41f413549698452505809a1f27023648e6e50d1d12dfbdfc4674d5bcc1150655",
+      "rubric_hits": [
+        true,
+        false
+      ],
+      "false_claim": false,
+      "note": "Omits the rubric-specified self_instance=self argument binding."
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "f1b0b7608c5f6737533fe95be2d8905eb5e7eddb234ae6fecaab708d7cbd54ae",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "c6ef81125fa0153ca133495290a6519b5a3e4e8ea5bcfb45c006fb3307edef51",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-serialize",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "d23144310ac3fe47249dd3c8694a5ffbdb5dd79c063446731ea5ef03e3124c7f",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "5e43c116c6a97e6fd1bc872810b19e93102a39933cd4cf62ec3b4200676a8edc",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "8062ed97363000af260f709611e1442f3efee859da26cbe8accdefb105d27518",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-copy",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "b1f5013d787024e17d0d8a50733661d3268547999d66bd192d72c3dff31194c2",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "bc31775695739b8771e01f889bd608446fdd6cd22cd5bc401b06321fdb87489e",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "fd48ae9b97a5305395b154cdd9d6135f7475642b3c35bde49710a9c3faa985e8",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "unique-validators",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "740094ab131665015882f434fb22c716905613c8ec708c66eff2a4f91905310d",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "360b9627a24956d9163cbc87277522795336a66cd5e21480c2aedef46c635b7c",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "b8a49cb55944900895b9ba8cfaad2c1d4d37bd07c872ae861748d57a83ff0963",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-1",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "8cb4637235c0c5929b154699f78ed5595ddf46b0746d14c0efa5a14c5f93986b",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "62793f81155c5810cdd450045cf656d33f7dcbbe9613a5505cbb280b57d7130a",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "833b53fd4644a5eb29d233222d388132515e23ae3c6f392909d45878e34e8e9e",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-2",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "e787182ccfa0839d2bc6689f0b93f68cecd0e6870ba7a12be233710fce22303a",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "74825f1b55e92de30926f0822ca71f9d6dec85e1b0717bc0f1905fffd452a6a2",
+      "rubric_hits": [
+        false,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the initial BaseModel.model_json_schema handoff."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "294ff39eeff2530a9ccda9090bd77f2c74b00ba43e1eaf44d5f82caf36cad549",
+      "rubric_hits": [
+        false,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": "Omits the initial BaseModel.model_json_schema handoff."
+    },
+    {
+      "task": "depth-schema-3",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "a25b25336cade0c3cda7b1e93b6b9f214440a780c57b04299b587e4973a7ef56",
+      "rubric_hits": [
+        true,
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "0e01ee32326debb7e9a25987ea211f8025d41249dac0d23a7a68c9fb2fd42701",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "365446e663c33b8f3c30ea6bbfdfb55c3811317cc48edd953092824a9f18e428",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-1",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "20d07565b254b12e0bfaec51e57c6a77593e4af0fb7ad70f798df0458e618bb7",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "13a07c4815144bd417a66cb7415daa38c5e8767d6282daab907c8d70e6517dfe",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "4dbfccbb3c17fd328d2db7a5121cb3226065b40053c5de8c5d3be00b4e1b4fe1",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-2",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "4c0d2644551b8abd6c44abeb2d7458cb98ad32b336374b447df9506d40fed775",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2",
+      "repeat": 1,
+      "answer_sha256": "34788260f9d2908a4741e7d6dc61f96b745938c44dd5b73f9c2d2a771e44d2d5",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2",
+      "repeat": 2,
+      "answer_sha256": "a65bb7239c45e7e60cc8550e9bf37fb91265597d848c2c51e53c0f6fc2654fe8",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    },
+    {
+      "task": "frame-init-3",
+      "mode": "v2",
+      "repeat": 3,
+      "answer_sha256": "623844032ebe349415e9b2bbcd9adc3914876aab393bd58b2bb984180d4783e7",
+      "rubric_hits": [
+        true,
+        true
+      ],
+      "false_claim": false,
+      "note": ""
+    }
+  ]
+}

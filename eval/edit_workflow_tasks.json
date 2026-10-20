@@ -1,0 +1,37 @@
+{
+  "repository": "https://github.com/pydantic/pydantic.git",
+  "commit": "5adfeaaaea947f81f0f01868604f219084ec151a",
+  "tasks": [
+    {
+      "id": "kebab_alias",
+      "symptom": "A field alias supplied in kebab case loses the separator when converted to snake case. For example, api-token becomes apitoken. Restore the expected conversion without breaking camel and Pascal cases.",
+      "impact_question": "Find the conversion stages that run before and after separator handling. Which nearby case conversions should still work after the patch?",
+      "path": "pydantic/alias_generators.py",
+      "old": "snake = snake.replace('-', '_')",
+      "mutant": "snake = snake.replace('-', '')",
+      "visible_test": "from pydantic.alias_generators import to_snake\n\ndef test_kebab_alias():\n    assert to_snake('api-token') == 'api_token'\n",
+      "hidden_test": "eval/edit_tasks/hidden/test_kebab_alias.py"
+    },
+    {
+      "id": "negative_bytesize",
+      "symptom": "A negative byte quantity such as -1536 is displayed as -1536B even though the same positive magnitude is scaled to KiB. Keep the sign and select the unit from magnitude; decimal formatting and separators should continue to work.",
+      "impact_question": "Inspect both decimal and binary formatting branches and the loop that selects a unit. What should stay unchanged for positive and small values?",
+      "path": "pydantic/types.py",
+      "old": "if abs(num) < divisor:",
+      "mutant": "if num < divisor:",
+      "visible_test": "from pydantic.types import ByteSize\n\ndef test_negative_binary_size():\n    assert ByteSize(-1536).human_readable() == '-1.5KiB'\n",
+      "hidden_test": "eval/edit_tasks/hidden/test_negative_bytesize.py"
+    },
+    {
+      "id": "factory_validated_data",
+      "symptom": "When a field default factory expects previously validated field values, manually resolving that default raises a missing-data error even when validated data was provided. Preserve the behavior of factories that do not take data.",
+      "impact_question": "Trace how the field wrapper passes call_default_factory and validated_data to the resolver. Which branch must receive the supplied mapping?",
+      "path": "pydantic/fields.py",
+      "occurrence": 1,
+      "old": "            validated_data=validated_data,\n            call_default_factory=call_default_factory,",
+      "mutant": "            validated_data=None,\n            call_default_factory=call_default_factory,",
+      "visible_test": "from pydantic.fields import FieldInfo\n\ndef test_factory_receives_validated_data():\n    field = FieldInfo(default_factory=lambda data: data['x'] + 1)\n    assert field.get_default(call_default_factory=True, validated_data={'x': 2}) == 3\n",
+      "hidden_test": "eval/edit_tasks/hidden/test_factory_validated_data.py"
+    }
+  ]
+}

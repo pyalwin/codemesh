@@ -54,6 +54,12 @@ describe("handleQuery", () => {
     expect(result.results.some((r) => r.name === "add")).toBe(true);
   });
 
+  it("prioritizes an exact file ID before lexical matches", async () => {
+    const result = await handleQuery(storage, { query: "file:src/math.ts", scope: "files" });
+    expect(result.results[0].id).toBe("file:src/math.ts");
+    expect(result.results[0].matchedField).toBe("exact");
+  });
+
   it("finds symbols by name with symbols scope", async () => {
     const result = await handleQuery(storage, {
       query: "add",
@@ -75,6 +81,14 @@ describe("handleQuery", () => {
   it("returns total matching count", async () => {
     const result = await handleQuery(storage, { query: "add", scope: "all" });
     expect(result.total).toBe(result.results.length);
+  });
+
+  it("allows a bounded result page without changing the total match count", async () => {
+    const full = await handleQuery(storage, { query: "add", scope: "all" });
+    const limited = await handleQuery(storage, { query: "add", scope: "all", limit: 1 });
+    expect(limited.results).toHaveLength(1);
+    expect(limited.total).toBe(full.total);
+    await expect(handleQuery(storage, { query: "add", limit: 21 })).rejects.toThrow("limit");
   });
 
   it("returns empty results for no matches", async () => {

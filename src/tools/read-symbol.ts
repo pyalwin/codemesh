@@ -8,7 +8,7 @@
 import type { StorageBackend } from "../graph/storage.js";
 import type { SymbolNode } from "../graph/types.js";
 import { findSymbol } from "./trace.js";
-import { readSourceLines } from "./source-reader.js";
+import { handleSource } from "./source.js";
 
 export interface ReadSymbolInput {
   symbol: string;
@@ -21,6 +21,7 @@ export interface ReadSymbolOutput {
   signature: string;
   lines: string;
   source: string | null;
+  sourceStatus: "fresh" | "unchanged" | "stale" | "deleted";
 }
 
 export async function handleReadSymbol(
@@ -40,7 +41,7 @@ export async function handleReadSymbol(
   }
 
   const sym = node as SymbolNode;
-  const source = readSourceLines(projectRoot, sym.filePath, sym.lineStart, sym.lineEnd);
+  const sourceView = await handleSource(storage, { id: sym.id }, projectRoot);
 
   return {
     symbol: sym.name,
@@ -48,6 +49,7 @@ export async function handleReadSymbol(
     kind: sym.kind,
     signature: sym.signature,
     lines: `${sym.lineStart}-${sym.lineEnd}`,
-    source,
+    source: sourceView.source,
+    sourceStatus: sourceView.status,
   };
 }
