@@ -1,0 +1,404 @@
+<title>Codemesh Internals</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same system as the product guide; wider column for diagrams, spec cards in a 2-col grid. */
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --fg:#141a26; --muted:#5b6578; --line:#d5dbe5;
+  --accent:#2a55c9; --accent-soft:#e3eafb; --agent:#b8650f; --agent-soft:#fbeedd;
+  --bad:#b4342b; --bad-soft:#f9e3e1; --good:#1f7a4d; --good-soft:#dff3e8;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f131b; --surface:#171d28; --fg:#e7ebf2; --muted:#98a2b5; --line:#2b3444;
+  --accent:#7d9cf5; --accent-soft:#1d2a4a; --agent:#f0a95a; --agent-soft:#3a2a17;
+  --bad:#f08a80; --bad-soft:#3d1e1c; --good:#5fcf95; --good-soft:#163527; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131b; --surface:#171d28; --fg:#e7ebf2; --muted:#98a2b5; --line:#2b3444;
+  --accent:#7d9cf5; --accent-soft:#1d2a4a; --agent:#f0a95a; --agent-soft:#3a2a17;
+  --bad:#f08a80; --bad-soft:#3d1e1c; --good:#5fcf95; --good-soft:#163527; color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:960px;margin:0 auto;padding-block:48px 72px;display:grid;gap:64px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2.1rem,6vw,3.2rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.35rem,3.4vw,1.8rem);font-weight:600}
+p{margin:0;max-width:66ch}
+.eyebrow{font:600 .72rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+section{display:grid;gap:18px;min-width:0}
+header{display:grid;gap:14px}
+.lede{color:var(--muted);font-size:1.08rem}
+code{font-family:var(--mono);font-size:.84em}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;overflow-x:auto}
+svg{display:block;width:100%;height:auto;min-width:640px}
+svg text{font-family:var(--mono);fill:var(--fg)}
+svg .lbl{font-size:11px;fill:var(--muted);paint-order:stroke;stroke:var(--surface);stroke-width:5px;stroke-linejoin:round}
+.cap{font:400 .78rem/1.45 var(--mono);color:var(--muted)}
+.back{font:400 .8rem var(--mono)}
+a{color:var(--accent)}
+
+/* ID ladder */
+.ladder{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.idc{font:400 .82rem var(--mono);padding:6px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-soft);white-space:nowrap}
+.idc.ag{border-color:var(--agent);background:var(--agent-soft)}
+.arr{color:var(--muted)}
+.ladder-row{display:grid;gap:10px}
+
+/* tiers */
+.tiers{display:grid;gap:6px}
+.tier{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
+.tier b{font:800 1.1rem var(--display);color:var(--accent)}
+.tier span{min-width:0}
+.tier small{font:400 .75rem var(--mono);color:var(--muted)}
+.tier:nth-child(1){margin-right:0}
+.tier:nth-child(2){margin-right:6%}
+.tier:nth-child(3){margin-right:12%}
+.tier:nth-child(4){margin-right:18%}
+
+/* modes */
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.mode{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface);display:grid;gap:8px;align-content:start}
+.mode code{font-weight:600;color:var(--accent)}
+.mode small{color:var(--muted);font-size:.82rem}
+.lines{display:grid;gap:2px}
+.lines i{display:block;height:4px;border-radius:2px;background:var(--fg);opacity:.55}
+.lines i.gap{background:none;border-top:1px dashed var(--muted);height:0;margin-block:3px;opacity:1}
+.lines i.sig{background:var(--accent);opacity:1}
+.lines i.sum{background:var(--agent);opacity:1}
+
+/* spec cards */
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.spec h3{font:600 1rem var(--mono);color:var(--accent)}
+.spec.w h3{color:var(--agent)}
+.io{display:grid;grid-template-columns:34px 1fr;gap:4px 8px;font-size:.85rem}
+.io dt{font:600 .68rem/1.9 var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.io dd{margin:0;min-width:0}
+.spec ol{margin:0;padding-left:20px;display:grid;gap:3px;font-size:.88rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{font:400 .72rem var(--mono);padding:2px 7px;border-radius:4px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+
+/* timeline */
+.tl{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.ev{border-top:3px solid var(--line);padding-top:10px;display:grid;gap:4px;font-size:.88rem}
+.ev b{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.ev.ag{border-color:var(--agent)} .ev.bad{border-color:var(--bad)} .ev.ok{border-color:var(--accent)}
+
+/* gaps */
+.gaps{display:grid;gap:8px}
+.gap-row{display:grid;grid-template-columns:120px 1fr;gap:12px;padding:10px 12px;border-left:3px solid var(--bad);background:var(--surface);border-radius:0 6px 6px 0;font-size:.9rem}
+.gap-row b{font:600 .78rem var(--mono)}
+
+@media (max-width:620px){
+  .tl{grid-template-columns:1fr 1fr}
+  .gap-row{grid-template-columns:1fr}
+  .tier{margin-right:0!important}
+}
+</style>
+
+<main>
+<header>
+  <span class="back"><a href="https://claude.ai/artifact/9J89ZKZtcaraG4XYcSxSbq">← Codemesh Product Guide</a></span>
+  <span class="eyebrow">Under the hood · src/tools/</span>
+  <h1>How the tools work and connect</h1>
+  <p class="lede">Every tool is a handler over one SQLite graph. MCP (<code>server.ts</code>) and CLI (<code>cli.ts</code>) call the same handlers. Tools link through stable IDs and content hashes.</p>
+</header>
+
+<!-- 1. IDs -->
+<section>
+  <span class="eyebrow">1 · The shared language</span>
+  <h2>Stable IDs are how tools hand off</h2>
+  <div class="fig ladder-row">
+    <div class="ladder">
+      <span class="idc">repo</span><span class="arr">→</span>
+      <span class="idc">dir:src/auth</span><span class="arr">→</span>
+      <span class="idc">file:src/auth/login.ts</span><span class="arr">→</span>
+      <span class="idc">symbol:src/auth/login.ts:Auth</span><span class="arr">→</span>
+      <span class="idc">symbol:…:Auth.login</span>
+    </div>
+    <div class="ladder">
+      <span class="idc ag">concept:&lt;targetId&gt;:&lt;sha256(summary)[0..16]&gt;</span>
+      <span class="idc ag">workflow:&lt;kebab-name&gt;</span>
+    </div>
+  </div>
+  <p class="cap"><code>repo</code> and <code>dir:</code> are virtual, built from indexed file paths. Nesting comes from qualified names: children of <code>Auth</code> are names starting <code>Auth.</code> with no further dot.</p>
+</section>
+
+<!-- 2. Link map -->
+<section>
+  <span class="eyebrow">2 · Tool link map</span>
+  <h2>What each tool hands to the next</h2>
+  <div class="fig">
+    <svg viewBox="0 0 900 530" role="img" aria-label="Tool link map: search, answer and map produce IDs consumed by source, inspect and trace; source and inspect produce hashes consumed by hydrate; enrich and workflow write agent nodes read by recall and context">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--agent)"/></marker>
+      </defs>
+      <g font-size="10" font-weight="600" style="fill:var(--muted)" letter-spacing="1">
+        <text x="20" y="22" style="fill:var(--muted)">FIND</text>
+        <text x="270" y="22" style="fill:var(--muted)">NAVIGATE</text>
+        <text x="520" y="22" style="fill:var(--muted)">READ</text>
+        <text x="740" y="22" style="fill:var(--muted)">RESUME</text>
+        <text x="20" y="380" style="fill:var(--agent)">REMEMBER</text>
+      </g>
+
+      <!-- edges -->
+      <g style="stroke:var(--muted);stroke-width:1.4;fill:none" marker-end="url(#a1)">
+        <path d="M170 56H518"/>
+        <path d="M170 70L268 140"/>
+        <path d="M170 152H268"/>
+        <path d="M170 242L268 166"/>
+        <path d="M310 130C310 92 380 92 380 128"/>
+        <path d="M420 142L518 72"/>
+        <path d="M420 152H518"/>
+        <path d="M420 164L518 236"/>
+        <path d="M560 40C560 6 630 6 630 38"/>
+        <path d="M670 70L738 140"/>
+        <path d="M670 152H738"/>
+        <path d="M345 174V298"/>
+      </g>
+      <g style="stroke:var(--agent);stroke-width:1.4;fill:none" marker-end="url(#a2)">
+        <path d="M95 434V468"/>
+        <path d="M275 434V468"/>
+        <path d="M815 470V436"/>
+        <path d="M430 470V346"/>
+      </g>
+
+      <!-- edge labels -->
+      <text class="lbl" x="345" y="50" text-anchor="middle">symbol ID</text>
+      <text class="lbl" x="220" y="146" text-anchor="middle">IDs</text>
+      <text class="lbl" x="345" y="90" text-anchor="middle">relation · cursor</text>
+      <text class="lbl" x="470" y="146" text-anchor="middle">symbol ID</text>
+      <text class="lbl" x="482" y="214" text-anchor="middle">name</text>
+      <text class="lbl" x="595" y="12" text-anchor="middle">sourceHash → ifHash</text>
+      <text class="lbl" x="712" y="98" text-anchor="middle">id + bodyHash</text>
+      <text class="lbl" x="352" y="244" text-anchor="start">file path</text>
+      <text class="lbl" x="440" y="420" text-anchor="start">notes · workflows</text>
+
+      <!-- boxes: find / navigate / read -->
+      <g style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5">
+        <rect x="20" y="40" width="150" height="44" rx="6"/>
+        <rect x="20" y="130" width="150" height="44" rx="6"/>
+        <rect x="20" y="220" width="150" height="44" rx="6"/>
+        <rect x="270" y="130" width="150" height="44" rx="6"/>
+        <rect x="520" y="40" width="150" height="44" rx="6"/>
+        <rect x="520" y="130" width="150" height="44" rx="6"/>
+        <rect x="520" y="220" width="150" height="44" rx="6"/>
+        <rect x="740" y="130" width="150" height="44" rx="6"/>
+        <rect x="270" y="300" width="200" height="44" rx="6"/>
+      </g>
+      <g style="fill:var(--agent-soft);stroke:var(--agent);stroke-width:1.5">
+        <rect x="20" y="390" width="150" height="44" rx="6"/>
+        <rect x="200" y="390" width="150" height="44" rx="6"/>
+        <rect x="740" y="390" width="150" height="44" rx="6"/>
+      </g>
+      <rect x="20" y="470" width="870" height="40" rx="6" style="fill:var(--agent-soft);stroke:var(--agent);stroke-dasharray:4 3"/>
+
+      <g font-size="12" font-weight="600" text-anchor="middle">
+        <text x="95" y="60">explore search</text><text x="95" y="76" font-size="10" font-weight="400" style="fill:var(--muted)">ranked hits</text>
+        <text x="95" y="150">answer</text><text x="95" y="166" font-size="10" font-weight="400" style="fill:var(--muted)">suggestedReads</text>
+        <text x="95" y="240">map {}</text><text x="95" y="256" font-size="10" font-weight="400" style="fill:var(--muted)">repo root</text>
+        <text x="345" y="150">map {node}</text><text x="345" y="166" font-size="10" font-weight="400" style="fill:var(--muted)">one hop, no code</text>
+        <text x="595" y="60">source</text><text x="595" y="76" font-size="10" font-weight="400" style="fill:var(--muted)">exact span</text>
+        <text x="595" y="150">inspect</text><text x="595" y="166" font-size="10" font-weight="400" style="fill:var(--muted)">symbol + direct calls</text>
+        <text x="595" y="240">trace</text><text x="595" y="256" font-size="10" font-weight="400" style="fill:var(--muted)">BFS over calls</text>
+        <text x="815" y="150">hydrate</text><text x="815" y="166" font-size="10" font-weight="400" style="fill:var(--muted)">re-verify ≤ 8 refs</text>
+        <text x="370" y="320">explore context · impact</text><text x="370" y="336" font-size="10" font-weight="400" style="fill:var(--muted)">neighbors · dependents</text>
+        <text x="95" y="410">enrich</text><text x="95" y="426" font-size="10" font-weight="400" style="fill:var(--muted)">concept node</text>
+        <text x="275" y="410">workflow</text><text x="275" y="426" font-size="10" font-weight="400" style="fill:var(--muted)">workflow node</text>
+        <text x="815" y="410">recall</text><text x="815" y="426" font-size="10" font-weight="400" style="fill:var(--muted)">notes + freshness</text>
+        <text x="455" y="495" font-size="11" font-weight="400" style="fill:var(--agent)">Agent layer in SQLite · describes / traverses / related_to edges · also read by answer and impact</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Every box reads SQLite. <code>source</code>, <code>inspect</code>, <code>hydrate</code> and <code>recall</code> also hash the live file on disk before trusting the index.</p>
+</section>
+
+<!-- 3. Freshness -->
+<section>
+  <span class="eyebrow">3 · Freshness check</span>
+  <h2>Three hashes guard every source read</h2>
+  <div class="fig">
+    <svg viewBox="0 0 900 230" role="img" aria-label="Source freshness flow: file hash check, body hash check, render mode, ifHash check, then fresh">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker></defs>
+      <g style="stroke:var(--muted);stroke-width:1.4;fill:none" marker-end="url(#a3)">
+        <path d="M130 70H158"/><path d="M318 70H346"/><path d="M506 70H534"/><path d="M664 70H692"/>
+        <path d="M238 96V150"/><path d="M426 96V150"/><path d="M772 96V150"/>
+      </g>
+      <rect x="10" y="45" width="120" height="50" rx="6" style="fill:var(--bg);stroke:var(--line);stroke-width:1.5"/>
+      <g style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5">
+        <rect x="160" y="45" width="158" height="50" rx="6"/>
+        <rect x="348" y="45" width="158" height="50" rx="6"/>
+        <rect x="536" y="45" width="128" height="50" rx="6"/>
+        <rect x="694" y="45" width="158" height="50" rx="6"/>
+      </g>
+      <g style="fill:var(--bad-soft);stroke:var(--bad);stroke-width:1.5">
+        <rect x="168" y="152" width="140" height="40" rx="20"/>
+        <rect x="356" y="152" width="140" height="40" rx="20"/>
+      </g>
+      <rect x="702" y="152" width="140" height="40" rx="20" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5"/>
+      <g font-size="12" font-weight="600" text-anchor="middle">
+        <text x="70" y="67">read file</text><text x="70" y="83" font-size="10" font-weight="400" style="fill:var(--muted)">from disk</text>
+        <text x="239" y="67">SHA-256(file)</text><text x="239" y="83" font-size="10" font-weight="400" style="fill:var(--muted)">= indexed hash?</text>
+        <text x="427" y="67">SHA-256(span)</text><text x="427" y="83" font-size="10" font-weight="400" style="fill:var(--muted)">= bodyHash?</text>
+        <text x="600" y="67">render mode</text><text x="600" y="83" font-size="10" font-weight="400" style="fill:var(--muted)">→ sourceHash</text>
+        <text x="773" y="67">sourceHash</text><text x="773" y="83" font-size="10" font-weight="400" style="fill:var(--muted)">= ifHash?</text>
+        <text x="238" y="177" style="fill:var(--bad)">stale</text>
+        <text x="426" y="177" style="fill:var(--bad)">stale</text>
+        <text x="772" y="177" style="fill:var(--accent)">unchanged</text>
+      </g>
+      <g class="lbl" text-anchor="start">
+        <text class="lbl" x="244" y="128">no</text>
+        <text class="lbl" x="432" y="128">no</text>
+        <text class="lbl" x="778" y="128">yes · no body sent</text>
+      </g>
+      <text x="773" y="30" font-size="11" text-anchor="middle" style="fill:var(--good)">no → fresh + source</text>
+    </svg>
+  </div>
+  <div class="ladder">
+    <span class="idc">file hash</span><span class="cap">whole file at index time</span>
+    <span class="idc">bodyHash</span><span class="cap">symbol's line span</span>
+    <span class="idc">sourceHash</span><span class="cap">the rendered view (mode-specific)</span>
+  </div>
+  <p class="cap">Missing file → <code>deleted</code>. <code>force: true</code> skips the ifHash shortcut, used after context compaction. Bytes delivered and avoided are counted in <code>context_metrics</code>.</p>
+</section>
+
+<!-- 4. Source modes -->
+<section>
+  <span class="eyebrow">4 · Source views</span>
+  <h2>Four ways to render one symbol</h2>
+  <div class="modes">
+    <div class="mode"><code>full</code><div class="lines"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><small>Default. Exact body. Use for edits.</small></div>
+    <div class="mode"><code>auto</code><div class="lines"><i></i><i></i><i></i><i class="gap"></i><i></i><i></i></div><small>Full if ≤ 120 lines and ≤ 12 KiB. Else head 12 + tail 8, whole lines only, omitted ranges listed.</small></div>
+    <div class="mode"><code>preview</code><div class="lines"><i></i><i></i><i class="gap"></i><i></i></div><small>Full if ≤ 24 lines. Else first 12 + last 8.</small></div>
+    <div class="mode"><code>fold</code><div class="lines"><i class="sig"></i><i class="sum"></i></div><small>Signature + stored summary only.</small></div>
+  </div>
+  <p class="cap">Name lookup: exact ID → unique qualified name → unique <code>.method</code> suffix → else <code>Ambiguous</code> error listing up to 20 candidate IDs. It never guesses.</p>
+</section>
+
+<!-- 5. Search ranking -->
+<section>
+  <span class="eyebrow">5 · Search ranking</span>
+  <h2>Exact names first, fuzzy last</h2>
+  <div class="fig tiers">
+    <div class="tier"><b>0</b><span>Exact name match <small>· <code>login</code> = <code>login</code></small></span><small>exact</small></div>
+    <div class="tier"><b>1</b><span>Exact leaf of qualified name <small>· <code>Auth.login</code></small></span><small>exact_leaf</small></div>
+    <div class="tier"><b>2</b><span>FTS5 BM25, Porter stemming <small>· tokens OR-joined over name, signature, summary, description</small></span><small>fts</small></div>
+    <div class="tier"><b>3</b><span>Trigram substring <small>· only when FTS returns &lt; 5 hits</small></span><small>trigram</small></div>
+  </div>
+  <p class="cap">Inside a tier: query-term coverage → BM25 rank → PageRank (or <code>exactTieBreak: "path-depth"</code>). <code>path</code> filters before caps. Results cached in SQLite <code>retrieval_cache</code>, keyed by graph version, so re-index invalidates them. Defaults: 20 hits, 8 KiB.</p>
+</section>
+
+<!-- 6. Per-tool specs -->
+<section>
+  <span class="eyebrow">6 · Tool specs</span>
+  <h2>Each handler, step by step</h2>
+  <div class="specs">
+
+    <div class="spec"><h3>map</h3>
+      <dl class="io"><dt>in</dt><dd><code>node</code>, <code>relation</code>, <code>limit</code>, <code>cursor</code>, <code>maxBytes</code></dd><dt>out</dt><dd>entries: id, name, type, signature, hasChildren</dd></dl>
+      <ol><li><code>repo</code>/<code>dir:</code> → list immediate children from file paths</li><li><code>file:</code>/<code>symbol:</code> + <code>contains</code> → nested symbols by name prefix</li><li>Other relation → one <code>getEdges</code> hop (<code>called_by</code> = incoming <code>calls</code>)</li><li>Byte-wise sort, page, drop whole entries over budget</li></ol>
+      <div class="chips"><span>limit 30 (≤100)</span><span>8 KiB</span><span>cursor = first unreturned</span><span>no code</span></div>
+    </div>
+
+    <div class="spec"><h3>source</h3>
+      <dl class="io"><dt>in</dt><dd><code>id</code>, <code>mode</code>, <code>ifHash</code>, <code>force</code></dd><dt>out</dt><dd>status, source, sourceHash, bodyHash, lines</dd></dl>
+      <ol><li>Resolve ID or unique name</li><li>Hash live file, check span + bodyHash</li><li>Render mode, compare ifHash</li><li>Log delivery (session, epoch) + byte metrics</li></ol>
+      <div class="chips"><span>fresh</span><span>unchanged</span><span>stale</span><span>deleted</span></div>
+    </div>
+
+    <div class="spec"><h3>inspect</h3>
+      <dl class="io"><dt>in</dt><dd><code>id</code>, <code>depth</code> 0|1, <code>direction</code></dd><dt>out</dt><dd>exact source blocks + call bindings</dd></dl>
+      <ol><li>Root symbol via <code>source</code></li><li>Python: re-parse with tree-sitter, bind each call</li><li>Incoming: verify up to N indexed callers</li><li>Pack blocks until symbol / byte budget</li></ol>
+      <div class="chips"><span>same_file_function</span><span>imported_function</span><span>unresolved</span><span>ambiguous</span><span>unverified_graph (non-Python)</span><span>4 blocks · 24 KiB · 32 candidates</span></div>
+    </div>
+
+    <div class="spec"><h3>hydrate</h3>
+      <dl class="io"><dt>in</dt><dd>≤ 8 refs: <code>id</code> + <code>hash</code>/<code>bodyHash</code>/<code>fileHash</code></dd><dt>out</dt><dd>per-ref outcome + source bundle</dd></dl>
+      <ol><li>Re-read each ref via <code>source</code> (forced)</li><li>Compare saved hashes to live ones</li><li>Second pass: re-hash files to catch edits mid-call</li><li>Pack fresh sources within budget</li></ol>
+      <div class="chips"><span>fresh</span><span>changed</span><span>stale</span><span>missing</span><span>ambiguous</span><span>omitted</span><span>error</span></div>
+    </div>
+
+    <div class="spec"><h3>explore search</h3>
+      <dl class="io"><dt>in</dt><dd><code>query</code>, <code>scope</code>, <code>path</code>, <code>limit</code></dd><dt>out</dt><dd>ranked IDs, signatures, spans, match reason</dd></dl>
+      <ol><li>Exact + leaf name lookup</li><li>FTS5, trigram fallback</li><li>Tiered sort (section 5)</li><li>Fit to byte budget</li></ol>
+      <div class="chips"><span>files · symbols · workflows · all</span></div>
+    </div>
+
+    <div class="spec"><h3>explore context</h3>
+      <dl class="io"><dt>in</dt><dd><code>path</code> or <code>paths[]</code>, optional <code>symbol</code></dd><dt>out</dt><dd>symbols, imports, concepts, workflows, git data</dd></dl>
+      <ol><li>File's symbols (optional name filter)</li><li>Per symbol: calls, calledBy, 5-hop call chain</li><li>Optional LSP: definition + reference count</li><li>Merge results for multiple paths</li></ol>
+      <div class="chips"><span>typescript-language-server</span><span>pyright</span><span>pylsp</span><span>sourcekit-lsp</span></div>
+    </div>
+
+    <div class="spec"><h3>explore impact</h3>
+      <dl class="io"><dt>in</dt><dd><code>path</code>, optional <code>symbol</code></dd><dt>out</dt><dd>dependents + relationship type</dd></dl>
+      <ol><li>Target file, or fuzzy-matched symbol in it</li><li>All incoming edges, any type</li><li>Dedupe, sort by PageRank</li></ol>
+      <div class="chips"><span>imports</span><span>calls</span><span>describes</span><span>traverses</span><span>co_changes</span></div>
+    </div>
+
+    <div class="spec"><h3>trace</h3>
+      <dl class="io"><dt>in</dt><dd><code>symbol</code> name, <code>depth</code> ≤ 5</dd><dt>out</dt><dd>steps with source</dd></dl>
+      <ol><li><code>findSymbol</code>: exact name → <code>Class.method</code> in class's files → FTS top 3</li><li>BFS over outgoing <code>calls</code></li><li>Sort steps by PageRank</li></ol>
+      <div class="chips"><span>depth 5</span><span>name, not ID</span></div>
+    </div>
+
+    <div class="spec"><h3>answer</h3>
+      <dl class="io"><dt>in</dt><dd><code>question</code></dd><dt>out</dt><dd>files, suggestedReads, call tree, notes</dd></dl>
+      <ol><li>Drop stopwords, search top 30</li><li>Re-score by IDF of matched tokens, keep 10</li><li>Rank files: rank × (1 + 50·PageRank), add 1-hop imports (≤ 15)</li><li>Attach concepts, workflows, hotspots, co-changes</li><li>Top 5 reads: 30-line window with densest query tokens</li></ol>
+      <div class="chips"><span>method/function boost</span><span>optional shortcut</span></div>
+    </div>
+
+    <div class="spec w"><h3>enrich</h3>
+      <dl class="io"><dt>in</dt><dd><code>path</code>, <code>symbol</code>, <code>summary</code>, <code>sessionId</code>, <code>status</code></dd><dt>out</dt><dd>concept ID</dd></dl>
+      <ol><li>Target must exist in graph</li><li>Same summary → merge; different → new note beside it</li><li>Store <code>targetHash</code> (file hash or bodyHash)</li><li>Edges: <code>describes</code> → target, <code>related_to</code> → concepts on related files</li></ol>
+      <div class="chips"><span>hypothesis</span><span>verified</span><span>history ≤ 20</span></div>
+    </div>
+
+    <div class="spec w"><h3>workflow</h3>
+      <dl class="io"><dt>in</dt><dd><code>name</code>, <code>description</code>, ordered <code>files</code></dd><dt>out</dt><dd>workflow ID</dd></dl>
+      <ol><li>ID from kebab-cased name (rewrite = same ID)</li><li>Snapshot each file's hash</li><li>Replace <code>traverses</code> edges with {position, total}</li></ol>
+      <div class="chips"><span>history ≤ 20</span></div>
+    </div>
+
+    <div class="spec w"><h3>recall</h3>
+      <dl class="io"><dt>in</dt><dd><code>id</code>, <code>path</code> (+<code>symbol</code>), or <code>query</code></dd><dt>out</dt><dd>notes: summary, status, targets, author</dd></dl>
+      <ol><li>Collect by ID, incoming describes/traverses, or FTS</li><li>Compare stored hash to current index</li><li>Hash live file vs index</li><li>Any mismatch → <code>stale</code></li></ol>
+      <div class="chips"><span>limit 20 (≤100)</span></div>
+    </div>
+
+  </div>
+  <p class="cap"><code>status</code> returns node and edge counts by type, stale count, last index time and byte metrics.</p>
+</section>
+
+<!-- 7. Write-back lifecycle -->
+<section>
+  <span class="eyebrow">7 · Note lifecycle</span>
+  <h2>How a note goes stale</h2>
+  <div class="fig tl">
+    <div class="ev ag"><b>Session 1</b><span><code>enrich</code> saves note + <code>targetHash</code></span></div>
+    <div class="ev bad"><b>Edit</b><span>Someone changes the file</span></div>
+    <div class="ev ok"><b>Index</b><span>New file hash, old notes marked stale</span></div>
+    <div class="ev ag"><b>Session 2</b><span><code>recall</code> returns note as <code>stale</code>: verify in source</span></div>
+  </div>
+  <p class="cap">Notes are never treated as code facts. A stale note is a clue, not evidence.</p>
+</section>
+
+<!-- 8. Gaps -->
+<section>
+  <span class="eyebrow">8 · Known gaps in current code</span>
+  <h2>Limits to know</h2>
+  <div class="gaps">
+    <div class="gap-row"><b>extends</b><span>Accepted by <code>map</code>, but no parser emits these edges, so it returns nothing.</span></div>
+    <div class="gap-row"><b>imports</b><span>Only relative paths (<code>./x</code>) resolve. Package imports and TS path aliases create no edges.</span></div>
+    <div class="gap-row"><b>trace order</b><span>Steps are sorted by PageRank, not call order.</span></div>
+    <div class="gap-row"><b>inspect</b><span>Verified call binding is Python-only. Other languages return unverified graph candidates.</span></div>
+    <div class="gap-row"><b>re-index</b><span>Changed files are deleted and re-inserted, which can drop the edges that link old notes to them.</span></div>
+  </div>
+  <p class="cap">Checked against <code>src/</code> on this branch. More detail in <code>docs/architecture-and-workflows.md</code> §5.</p>
+</section>
+</main>
