@@ -1,0 +1,346 @@
+<title>Codemesh Product Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow reading column; each section = eyebrow + one-line claim + one diagram. */
+:root{
+  --bg:#f5f7fa; --surface:#ffffff; --fg:#141a26; --muted:#5b6578; --line:#d5dbe5;
+  --accent:#2a55c9; --accent-soft:#e3eafb; --agent:#b8650f; --agent-soft:#fbeedd;
+  --good:#1f7a4d;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f131b; --surface:#171d28; --fg:#e7ebf2; --muted:#98a2b5; --line:#2b3444;
+  --accent:#7d9cf5; --accent-soft:#1d2a4a; --agent:#f0a95a; --agent-soft:#3a2a17; --good:#5fcf95; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f131b; --surface:#171d28; --fg:#e7ebf2; --muted:#98a2b5; --line:#2b3444;
+  --accent:#7d9cf5; --accent-soft:#1d2a4a; --agent:#f0a95a; --agent-soft:#3a2a17; --good:#5fcf95; color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:860px;margin:0 auto;padding-block:48px 72px;display:grid;gap:64px}
+h1,h2{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.4rem,3.5vw,1.9rem);font-weight:600}
+p{margin:0;max-width:62ch}
+.eyebrow{font:600 .72rem/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+section{display:grid;gap:18px}
+.lede{color:var(--muted);font-size:1.1rem}
+code,.mono{font-family:var(--mono);font-size:.86em}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;overflow-x:auto}
+svg{display:block;width:100%;height:auto;min-width:560px}
+svg text{font-family:var(--mono);fill:var(--fg)}
+.cap{font:400 .78rem/1.4 var(--mono);color:var(--muted)}
+
+/* hero */
+header{display:grid;gap:18px}
+.mesh-id{font:600 .8rem var(--mono);color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{border-top:3px solid var(--accent);padding-top:10px}
+.stat b{display:block;font:800 clamp(1.8rem,5vw,2.6rem)/1 var(--display);color:var(--accent);font-variant-numeric:tabular-nums}
+.stat span{font-size:.9rem;color:var(--muted)}
+
+/* flow chips */
+.flow{display:grid;gap:14px}
+.lane{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.lane-label{font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.1em;width:64px;color:var(--muted)}
+.chip{font:400 .85rem var(--mono);padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg)}
+.chip.hot{border-color:var(--accent);background:var(--accent-soft);color:var(--fg)}
+.chip.waste{text-decoration:line-through;text-decoration-color:var(--muted);color:var(--muted)}
+.arr{color:var(--muted)}
+
+/* tools */
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.group{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:8px;align-content:start}
+.group h3{margin:0;font:600 .72rem var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.group.write h3{color:var(--agent)}
+.tool{display:grid;gap:1px}
+.tool code{color:var(--accent);font-weight:600}
+.group.write .tool code{color:var(--agent)}
+.tool small{color:var(--muted);font-size:.82rem}
+
+/* bars */
+.bars{display:grid;gap:10px}
+.row{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center}
+.row .name{font:400 .8rem var(--mono);min-width:0}
+.pair{display:grid;gap:3px}
+.bar{height:12px;border-radius:2px;position:relative}
+.bar.base{background:var(--line)}
+.bar.cm{background:var(--accent)}
+.bar i{position:absolute;left:calc(100% + 6px);top:-2px;font:400 .72rem var(--mono);font-style:normal;color:var(--muted);white-space:nowrap}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font:400 .78rem var(--mono);color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* quickstart */
+.steps{display:grid;gap:10px}
+.step{display:grid;grid-template-columns:28px 1fr;gap:12px;align-items:start}
+.step .n{font:800 1.2rem var(--display);color:var(--accent)}
+pre{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;font:400 .85rem/1.5 var(--mono);min-width:0}
+footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px}
+a{color:var(--accent)}
+
+@media (max-width:560px){
+  .stats{grid-template-columns:1fr}
+  .row{grid-template-columns:1fr}
+  .lane-label{width:100%}
+}
+</style>
+
+<main>
+<header>
+  <span class="mesh-id">@pyalwin/codemesh · v0.1.2 · MIT</span>
+  <h1>Map first. Read less.</h1>
+  <p class="lede">Codemesh is a code knowledge graph for AI coding agents. It runs as an MCP server or a CLI, and it remembers what agents learn.</p>
+  <div class="stats">
+    <div class="stat"><b>−71%</b><span>cost per task</span></div>
+    <div class="stat"><b>−72%</b><span>time per task</span></div>
+    <div class="stat"><b>−82%</b><span>tool calls (45 → 8)</span></div>
+  </div>
+  <p class="cap">Average across 6 real repos with Claude Sonnet 4.6, Codemesh MCP vs. Grep + Read baseline. Earlier answer-first workflow.</p>
+</header>
+
+<section>
+  <span class="eyebrow">The problem</span>
+  <h2>Agents spend most tokens finding code</h2>
+  <div class="fig flow">
+    <div class="lane">
+      <span class="lane-label">Before</span>
+      <span class="chip">Agent</span><span class="arr">→</span>
+      <span class="chip waste">Grep</span><span class="arr">→</span>
+      <span class="chip waste">50 matches</span><span class="arr">→</span>
+      <span class="chip waste">Read 10 files</span><span class="arr">→</span>
+      <span class="chip">Understand</span><span class="arr">→</span>
+      <span class="chip">Work</span>
+    </div>
+    <div class="lane">
+      <span class="lane-label">After</span>
+      <span class="chip">Agent</span><span class="arr">→</span>
+      <span class="chip hot">codemesh_map</span><span class="arr">→</span>
+      <span class="chip hot">expand branch</span><span class="arr">→</span>
+      <span class="chip hot">read one symbol</span><span class="arr">→</span>
+      <span class="chip">Work</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Indexing</span>
+  <h2>One command builds the graph</h2>
+  <p class="lede"><code>codemesh index</code> parses the repo and writes a single SQLite file. No embeddings, no vector DB.</p>
+  <div class="fig">
+    <svg viewBox="0 0 760 170" role="img" aria-label="Indexing pipeline: repo, tree-sitter parse, resolve edges, git intel, PageRank, SQLite">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker></defs>
+      <g style="stroke:var(--muted);stroke-width:1.5;fill:none" marker-end="url(#ah)">
+        <path d="M108 70H138"/><path d="M248 70H278"/><path d="M388 70H418"/><path d="M528 70H558"/><path d="M638 70H648"/>
+      </g>
+      <g style="stroke:var(--line);fill:var(--bg)">
+        <rect x="8" y="45" width="100" height="50" rx="6"/>
+        <rect x="140" y="45" width="108" height="50" rx="6"/>
+        <rect x="280" y="45" width="108" height="50" rx="6"/>
+        <rect x="420" y="45" width="108" height="50" rx="6"/>
+        <rect x="560" y="45" width="78" height="50" rx="6"/>
+      </g>
+      <rect x="650" y="35" width="102" height="70" rx="8" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5"/>
+      <g font-size="13" text-anchor="middle" font-weight="600">
+        <text x="58" y="75">Your repo</text>
+        <text x="194" y="75">Tree-sitter</text>
+        <text x="334" y="75">Resolve</text>
+        <text x="474" y="75">Git intel</text>
+        <text x="599" y="75">Rank</text>
+        <text x="701" y="68">SQLite</text>
+      </g>
+      <g font-size="11" text-anchor="middle" style="fill:var(--muted)">
+        <text x="58" y="125" style="fill:var(--muted)">14 languages</text>
+        <text x="194" y="125" style="fill:var(--muted)">files · symbols</text>
+        <text x="334" y="125" style="fill:var(--muted)">imports · calls</text>
+        <text x="474" y="125" style="fill:var(--muted)">hotspots · co-change</text>
+        <text x="599" y="125" style="fill:var(--muted)">PageRank</text>
+        <text x="701" y="86" style="fill:var(--muted)">.codemesh/</text>
+        <text x="701" y="125" style="fill:var(--muted)">FTS5 + trigram</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Example: 656 files → 16,733 symbols, 33,266 edges in ~10 s. Re-index is incremental.</p>
+</section>
+
+<section>
+  <span class="eyebrow">The graph</span>
+  <h2>Two layers: code facts and agent knowledge</h2>
+  <div class="fig">
+    <svg viewBox="0 0 720 330" role="img" aria-label="Graph model: files contain symbols, symbols call symbols; agent-written concepts describe symbols and workflows traverse files">
+      <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker></defs>
+      <rect x="20" y="20" width="440" height="250" rx="10" style="fill:none;stroke:var(--accent);stroke-dasharray:4 4;opacity:.6"/>
+      <rect x="480" y="20" width="220" height="250" rx="10" style="fill:none;stroke:var(--agent);stroke-dasharray:4 4;opacity:.7"/>
+      <text x="36" y="44" font-size="11" font-weight="600" style="fill:var(--accent)">STRUCTURAL · auto, rebuilt each index</text>
+      <text x="496" y="44" font-size="11" font-weight="600" style="fill:var(--agent)">SEMANTIC · agent-written</text>
+
+      <g style="stroke:var(--muted);stroke-width:1.4;fill:none" marker-end="url(#ah2)">
+        <path d="M165 90H268"/>
+        <path d="M165 210H268"/>
+        <path d="M110 112V186"/>
+        <path d="M330 112V186"/>
+        <path d="M540 90H392"/>
+        <path d="M600 232C600 300 110 300 110 234"/>
+      </g>
+      <g font-size="11" text-anchor="middle" style="fill:var(--muted)">
+        <text x="216" y="82" style="fill:var(--muted)">contains</text>
+        <text x="216" y="202" style="fill:var(--muted)">contains</text>
+        <text x="80" y="154" style="fill:var(--muted)">imports</text>
+        <text x="300" y="154" style="fill:var(--muted)">calls</text>
+        <text x="466" y="82" style="fill:var(--muted)">describes</text>
+        <text x="360" y="292" style="fill:var(--muted)">traverses</text>
+      </g>
+
+      <g style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5">
+        <rect x="55" y="68" width="110" height="44" rx="6"/>
+        <rect x="55" y="188" width="110" height="44" rx="6"/>
+        <rect x="270" y="68" width="120" height="44" rx="22"/>
+        <rect x="270" y="188" width="120" height="44" rx="22"/>
+      </g>
+      <g style="fill:var(--agent-soft);stroke:var(--agent);stroke-width:1.5">
+        <rect x="540" y="68" width="120" height="44" rx="6"/>
+        <rect x="540" y="188" width="120" height="44" rx="6"/>
+      </g>
+      <g font-size="12" text-anchor="middle">
+        <text x="110" y="87" font-weight="600">file</text><text x="110" y="103" font-size="10" style="fill:var(--muted)">auth.ts</text>
+        <text x="110" y="207" font-weight="600">file</text><text x="110" y="223" font-size="10" style="fill:var(--muted)">session.ts</text>
+        <text x="330" y="87" font-weight="600">symbol</text><text x="330" y="103" font-size="10" style="fill:var(--muted)">login()</text>
+        <text x="330" y="207" font-weight="600">symbol</text><text x="330" y="223" font-size="10" style="fill:var(--muted)">createSession()</text>
+        <text x="600" y="87" font-weight="600">concept</text><text x="600" y="103" font-size="10" style="fill:var(--muted)">"auth entry point"</text>
+        <text x="600" y="207" font-weight="600">workflow</text><text x="600" y="223" font-size="10" style="fill:var(--muted)">"login flow"</text>
+      </g>
+      <text x="360" y="318" font-size="11" text-anchor="middle" style="fill:var(--muted)">Agent notes survive re-indexing · flagged stale when their files change</text>
+    </svg>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">The agent loop</span>
+  <h2>Each session leaves the graph smarter</h2>
+  <div class="fig">
+    <svg viewBox="0 0 720 380" role="img" aria-label="Loop: map, expand, read source, edit and test, enrich, then back to map">
+      <defs><marker id="ah3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--accent)"/></marker></defs>
+      <g style="stroke:var(--accent);stroke-width:1.6;fill:none" marker-end="url(#ah3)">
+        <path d="M423.4 80.8A135 135 0 0 1 453.8 102.9"/>
+        <path d="M492.9 223.4A135 135 0 0 1 481.3 259.2"/>
+        <path d="M378.8 333.7A135 135 0 0 1 341.2 333.7"/>
+        <path d="M238.7 259.2A135 135 0 0 1 227.1 223.4"/>
+        <path d="M266.2 102.9A135 135 0 0 1 296.6 80.8"/>
+      </g>
+      <g style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5">
+        <rect x="300" y="45" width="120" height="40" rx="20"/>
+        <rect x="428" y="138" width="120" height="40" rx="20"/>
+        <rect x="379" y="289" width="120" height="40" rx="20"/>
+      </g>
+      <rect x="221" y="289" width="120" height="40" rx="20" style="fill:var(--bg);stroke:var(--line);stroke-width:1.5"/>
+      <rect x="172" y="138" width="120" height="40" rx="20" style="fill:var(--agent-soft);stroke:var(--agent);stroke-width:1.5"/>
+      <g font-size="13" text-anchor="middle" font-weight="600">
+        <text x="360" y="70">1 · map</text>
+        <text x="488" y="163">2 · expand</text>
+        <text x="439" y="314">3 · source</text>
+        <text x="281" y="314">4 · edit + test</text>
+        <text x="232" y="163">5 · enrich</text>
+      </g>
+      <g font-size="11" text-anchor="middle" style="fill:var(--muted)">
+        <text x="360" y="190" style="fill:var(--muted)">IDs, not file dumps</text>
+        <text x="360" y="208" style="fill:var(--muted)">one level at a time</text>
+        <text x="360" y="226" style="fill:var(--muted)">exact symbol source only</text>
+      </g>
+    </svg>
+  </div>
+  <p class="cap">Steps 1–3 and 5 are Codemesh tools. Step 4 uses your normal editor and tests.</p>
+</section>
+
+<section>
+  <span class="eyebrow">Two ways in</span>
+  <h2>MCP server or CLI. Same core.</h2>
+  <div class="fig">
+    <svg viewBox="0 0 720 230" role="img" aria-label="MCP clients and Bash agents both reach the shared tool core, which reads the SQLite graph">
+      <defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker></defs>
+      <g style="stroke:var(--muted);stroke-width:1.4;fill:none" marker-end="url(#ah4)">
+        <path d="M200 55H268"/><path d="M200 165H268"/>
+        <path d="M420 55C450 55 450 110 478 110"/><path d="M420 165C450 165 450 110 478 110"/>
+        <path d="M610 110H628"/>
+      </g>
+      <g style="fill:var(--bg);stroke:var(--line);stroke-width:1.5">
+        <rect x="10" y="30" width="190" height="50" rx="6"/>
+        <rect x="10" y="140" width="190" height="50" rx="6"/>
+      </g>
+      <g style="fill:var(--surface);stroke:var(--accent);stroke-width:1.5">
+        <rect x="270" y="30" width="150" height="50" rx="6"/>
+        <rect x="270" y="140" width="150" height="50" rx="6"/>
+      </g>
+      <rect x="480" y="80" width="130" height="60" rx="8" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5"/>
+      <rect x="630" y="80" width="82" height="60" rx="8" style="fill:var(--bg);stroke:var(--line);stroke-width:1.5"/>
+      <g font-size="12" text-anchor="middle" font-weight="600">
+        <text x="105" y="52">Claude Code · Cursor</text><text x="105" y="68" font-size="10" font-weight="400" style="fill:var(--muted)">Desktop · Continue</text>
+        <text x="105" y="162">Any agent with Bash</text><text x="105" y="178" font-size="10" font-weight="400" style="fill:var(--muted)">Sonnet, Haiku, scripts</text>
+        <text x="345" y="52">MCP (stdio)</text><text x="345" y="68" font-size="10" font-weight="400" style="fill:var(--muted)">codemesh_* tools</text>
+        <text x="345" y="162">CLI</text><text x="345" y="178" font-size="10" font-weight="400" style="fill:var(--muted)">codemesh explore …</text>
+        <text x="545" y="106">Shared core</text><text x="545" y="123" font-size="10" font-weight="400" style="fill:var(--muted)">src/tools/</text>
+        <text x="671" y="106">SQLite</text><text x="671" y="123" font-size="10" font-weight="400" style="fill:var(--muted)">graph</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Toolbox</span>
+  <h2>Ten tools, four jobs</h2>
+  <div class="tools">
+    <div class="group"><h3>Navigate</h3>
+      <div class="tool"><code>map</code><small>Browse one level, follow links</small></div>
+      <div class="tool"><code>source</code><small>Exact code for a symbol ID</small></div>
+      <div class="tool"><code>inspect</code><small>Symbol + its direct calls</small></div>
+      <div class="tool"><code>hydrate</code><small>Reopen saved refs after handoff</small></div>
+    </div>
+    <div class="group"><h3>Search</h3>
+      <div class="tool"><code>explore</code><small>Search, context, impact</small></div>
+      <div class="tool"><code>trace</code><small>Follow call chains</small></div>
+      <div class="tool"><code>answer</code><small>Ranked context in one call</small></div>
+    </div>
+    <div class="group write"><h3>Remember</h3>
+      <div class="tool"><code>enrich</code><small>Save a summary for next time</small></div>
+      <div class="tool"><code>workflow</code><small>Record a multi-file path</small></div>
+      <div class="tool"><code>recall</code><small>Get notes with freshness</small></div>
+    </div>
+    <div class="group"><h3>Health</h3>
+      <div class="tool"><code>status</code><small>Graph stats and staleness</small></div>
+    </div>
+  </div>
+  <p class="cap">MCP names are prefixed <code>codemesh_</code>. CLI: <code>codemesh explore &lt;tool&gt;</code>.</p>
+</section>
+
+<section>
+  <span class="eyebrow">Benchmarks</span>
+  <h2>Cost per task, by repo</h2>
+  <div class="legend"><span><i class="sw" style="background:var(--line)"></i>Baseline (Grep + Read)</span><span><i class="sw" style="background:var(--accent)"></i>Codemesh MCP</span></div>
+  <div class="fig bars">
+    <div class="row"><span class="name">Alamofire</span><div class="pair"><div class="bar base" style="width:38.6%"><i>$0.54</i></div><div class="bar cm" style="width:17.9%"><i>$0.25</i></div></div></div>
+    <div class="row"><span class="name">Excalidraw</span><div class="pair"><div class="bar base" style="width:63.6%"><i>$0.89</i></div><div class="bar cm" style="width:15%"><i>$0.21</i></div></div></div>
+    <div class="row"><span class="name">VS Code</span><div class="pair"><div class="bar base" style="width:15%"><i>$0.21</i></div><div class="bar cm" style="width:11.4%"><i>$0.16</i></div></div></div>
+    <div class="row"><span class="name">Swift Compiler*</span><div class="pair"><div class="bar base" style="width:59.3%"><i>$0.83</i></div><div class="bar cm" style="width:16.4%"><i>$0.23</i></div></div></div>
+    <div class="row"><span class="name">pydantic-validators</span><div class="pair"><div class="bar base" style="width:94.3%"><i>$1.32</i></div><div class="bar cm" style="width:23.6%"><i>$0.33</i></div></div></div>
+    <div class="row"><span class="name">pydantic-basemodel</span><div class="pair"><div class="bar base" style="width:55.7%"><i>$0.78</i></div><div class="bar cm" style="width:9.3%"><i>$0.13</i></div></div></div>
+  </div>
+  <p class="cap">Bars scaled to $1.40. Quality (LLM judge, 1–10): 7.9 Codemesh vs 7.0 baseline. *Swift index did not complete; agent ran on an empty graph. Details: <code>docs/benchmark-results.md</code>.</p>
+</section>
+
+<section>
+  <span class="eyebrow">Quick start</span>
+  <h2>Three steps</h2>
+  <div class="steps">
+    <div class="step"><span class="n">1</span><pre>npm install -g @pyalwin/codemesh</pre></div>
+    <div class="step"><span class="n">2</span><pre>cd /your/project && codemesh index</pre></div>
+    <div class="step"><span class="n">3</span><pre>{ "mcpServers": { "codemesh": {
+    "command": "npx", "args": ["-y", "@pyalwin/codemesh"],
+    "env": { "CODEMESH_PROJECT_ROOT": "/your/project" } } } }</pre></div>
+  </div>
+  <p class="cap">Step 3 goes in <code>.mcp.json</code> (Claude Code) or <code>.cursor/mcp.json</code>. Or skip it and use the CLI.</p>
+</section>
+
+<footer>Supports TypeScript, JavaScript, Python, Go, Rust, Java, C#, Ruby, PHP, C, C++, Swift, Kotlin, Dart. Source: <a href="https://github.com/pyalwin/codemesh">github.com/pyalwin/codemesh</a></footer>
+</main>
